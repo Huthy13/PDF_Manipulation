@@ -90,3 +90,31 @@ Artifacts are written under `dist/`.
 - **Very large PDFs** can consume significant memory and may make previews slower.
 - **Encrypted/password-protected PDFs** may fail to load or preview unless already decrypted.
 - Corrupt or partially unreadable PDF files can trigger load/render/export errors.
+
+## CI backend health workflow
+
+The repository includes `.github/workflows/backend-health.yml` with three jobs on every push/PR:
+
+1. Unit tests via `pytest`.
+2. Static checks via `ruff` and `mypy`.
+3. Performance smoke checks against fixture PDFs and `tests/perf_baseline.json` with a 20% regression threshold.
+
+### Local commands
+
+```bash
+# unit tests
+pytest -q
+
+# static checks
+ruff check src scripts tests
+mypy --ignore-missing-imports --follow-imports=skip src/pdf_merge_gui/model.py src/pdf_merge_gui/services src/pdf_merge_gui/adapters src/pdf_merge_gui/domain scripts/perf_smoke.py tests
+
+# deterministic fixture setup
+python tests/fixtures/setup_perf_fixtures.py
+
+# perf smoke check against baseline
+python scripts/perf_smoke.py --baseline tests/perf_baseline.json --threshold 0.20
+
+# update perf baseline intentionally
+python scripts/perf_smoke.py --baseline tests/perf_baseline.json --threshold 0.20 --update-baseline
+```

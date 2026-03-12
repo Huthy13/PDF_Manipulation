@@ -6,7 +6,7 @@ pypdf = pytest.importorskip("pypdf")
 PdfReader = pypdf.PdfReader
 PdfWriter = pypdf.PdfWriter
 
-from pdf_merge_gui.model import MergeModel
+from pdf_merge_gui.model import MergeModel  # noqa: E402
 
 
 def write_pdf(path: Path, pages: int) -> None:

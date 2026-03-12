@@ -29,6 +29,10 @@ class PdfMergeApp(ttk.Frame):
         self._build_layout()
         self._refresh_list()
 
+        self.master.bind("<Delete>", self.on_delete_shortcut)
+        self.master.bind("<Control-Up>", self.on_move_up_shortcut)
+        self.master.bind("<Control-Down>", self.on_move_down_shortcut)
+
     def _build_layout(self) -> None:
         self.pack(fill=tk.BOTH, expand=True)
         self.columnconfigure(0, weight=2)
@@ -187,12 +191,20 @@ class PdfMergeApp(ttk.Frame):
         new_idx = self.model.move_up(idx)
         self._refresh_list(select_index=new_idx)
 
+    def on_move_up_shortcut(self, _event: tk.Event) -> str:
+        self.on_move_up()
+        return "break"
+
     def on_move_down(self) -> None:
         idx = self._selected_index()
         if idx is None:
             return
         new_idx = self.model.move_down(idx)
         self._refresh_list(select_index=new_idx)
+
+    def on_move_down_shortcut(self, _event: tk.Event) -> str:
+        self.on_move_down()
+        return "break"
 
     def on_remove_selected(self) -> None:
         idx = self._selected_index()
@@ -206,6 +218,10 @@ class PdfMergeApp(ttk.Frame):
         select_index = min(idx, len(self.model.sequence) - 1)
         self.final_preview_index = min(self.final_preview_index, len(self.model.sequence) - 1)
         self._refresh_list(select_index=select_index)
+
+    def on_delete_shortcut(self, _event: tk.Event) -> str:
+        self.on_remove_selected()
+        return "break"
 
     def on_clear_all(self) -> None:
         self.model.clear()

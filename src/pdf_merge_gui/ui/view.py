@@ -208,8 +208,16 @@ class PdfMergeView(ttk.Frame):
         self.preview_canvas.bind("<Configure>", self.on_preview_canvas_configure)
         self.preview_canvas.bind("<MouseWheel>", self.on_preview_mousewheel)
         self.preview_canvas.bind("<Shift-MouseWheel>", self.on_preview_shift_mousewheel)
+        self.preview_canvas.bind("<Button-4>", self.on_preview_mousewheel)
+        self.preview_canvas.bind("<Button-5>", self.on_preview_mousewheel)
+        self.preview_canvas.bind("<Shift-Button-4>", self.on_preview_shift_mousewheel)
+        self.preview_canvas.bind("<Shift-Button-5>", self.on_preview_shift_mousewheel)
         self.preview_label.bind("<MouseWheel>", self.on_preview_mousewheel)
         self.preview_label.bind("<Shift-MouseWheel>", self.on_preview_shift_mousewheel)
+        self.preview_label.bind("<Button-4>", self.on_preview_mousewheel)
+        self.preview_label.bind("<Button-5>", self.on_preview_mousewheel)
+        self.preview_label.bind("<Shift-Button-4>", self.on_preview_shift_mousewheel)
+        self.preview_label.bind("<Shift-Button-5>", self.on_preview_shift_mousewheel)
 
     def on_preview_content_configure(self, _event: tk.Event) -> None:
         self.preview_canvas.configure(scrollregion=self.preview_canvas.bbox("all"))
@@ -225,18 +233,30 @@ class PdfMergeView(ttk.Frame):
         self.preview_canvas.coords(self.preview_window, x_pos, y_pos)
         self.preview_canvas.configure(scrollregion=self.preview_canvas.bbox("all"))
 
+    def _mousewheel_units(self, event: tk.Event) -> int:
+        delta = getattr(event, "delta", 0) or 0
+        if delta:
+            return int(-delta / 120) or (-1 if delta > 0 else 1)
+
+        num = getattr(event, "num", None)
+        if num == 4:
+            return -1
+        if num == 5:
+            return 1
+        return 0
+
     def on_preview_mousewheel(self, event: tk.Event) -> str:
-        delta = event.delta or 0
-        if delta == 0:
+        units = self._mousewheel_units(event)
+        if units == 0:
             return "break"
-        self.preview_canvas.yview_scroll(int(-delta / 120), "units")
+        self.preview_canvas.yview_scroll(units, "units")
         return "break"
 
     def on_preview_shift_mousewheel(self, event: tk.Event) -> str:
-        delta = event.delta or 0
-        if delta == 0:
+        units = self._mousewheel_units(event)
+        if units == 0:
             return "break"
-        self.preview_canvas.xview_scroll(int(-delta / 120), "units")
+        self.preview_canvas.xview_scroll(units, "units")
         return "break"
 
     def reset_preview_scroll(self) -> None:

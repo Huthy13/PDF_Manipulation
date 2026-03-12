@@ -1,0 +1,19 @@
+{
+  "export_merged_file": {
+    "avg_duration_ms": 2.427,
+    "call_count": 1,
+    "p95_duration_ms": 2.427,
+    "pages_exported": 20
+  },
+  "load_pdf_pages": {
+    "avg_duration_ms": 1.357,
+    "p95_duration_ms": 1.255,
+    "total_calls": 3,
+    "total_pages": 40
+  },
+  "preview_cache": {
+    "hit_count": 180,
+    "hit_ratio": 0.952381,
+    "miss_count": 9
+  }
+}

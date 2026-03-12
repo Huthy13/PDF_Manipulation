@@ -48,11 +48,63 @@ class MergeModel:
             return index - 1
         return index
 
+    def move_up_many(self, indices: Sequence[int]) -> list[int]:
+        selected = sorted({idx for idx in indices if 0 <= idx < len(self.sequence)})
+        if not selected:
+            return []
+
+        moved: set[int] = set()
+        block_start = selected[0]
+        block_end = selected[0]
+
+        for idx in selected[1:] + [len(self.sequence)]:
+            if idx == block_end + 1:
+                block_end = idx
+                continue
+
+            if block_start > 0:
+                head = self.sequence[block_start - 1]
+                self.sequence[block_start - 1 : block_end + 1] = (
+                    self.sequence[block_start : block_end + 1] + [head]
+                )
+                moved.update(range(block_start, block_end + 1))
+
+            block_start = idx
+            block_end = idx
+
+        return [idx - 1 if idx in moved else idx for idx in selected]
+
     def move_down(self, index: int) -> int:
         if 0 <= index < len(self.sequence) - 1:
             self.sequence[index + 1], self.sequence[index] = self.sequence[index], self.sequence[index + 1]
             return index + 1
         return index
+
+    def move_down_many(self, indices: Sequence[int]) -> list[int]:
+        selected = sorted({idx for idx in indices if 0 <= idx < len(self.sequence)})
+        if not selected:
+            return []
+
+        moved: set[int] = set()
+        blocks: list[tuple[int, int]] = []
+        block_start = selected[0]
+        block_end = selected[0]
+
+        for idx in selected[1:] + [len(self.sequence)]:
+            if idx == block_end + 1:
+                block_end = idx
+                continue
+            blocks.append((block_start, block_end))
+            block_start = idx
+            block_end = idx
+
+        for block_start, block_end in reversed(blocks):
+            if block_end < len(self.sequence) - 1:
+                tail = self.sequence[block_end + 1]
+                self.sequence[block_start : block_end + 2] = [tail] + self.sequence[block_start : block_end + 1]
+                moved.update(range(block_start, block_end + 1))
+
+        return [idx + 1 if idx in moved else idx for idx in selected]
 
     def write_merged(self, output_path: str) -> None:
         from pypdf import PdfReader, PdfWriter

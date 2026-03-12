@@ -5,7 +5,10 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Optional, Sequence
 
+from PIL import ImageTk
+
 from .model import MergeModel
+from .preview import PreviewDependencyUnavailable, PreviewRenderError, render_page
 
 
 class PdfMergeApp(ttk.Frame):
@@ -20,6 +23,8 @@ class PdfMergeApp(ttk.Frame):
         self.model = MergeModel()
         self.preview_mode = tk.StringVar(value=self.PREVIEW_SINGLE)
         self.final_preview_index = 0
+        self.preview_zoom = 1.5
+        self.preview_image_cache: dict[tuple[str, int, float], ImageTk.PhotoImage] = {}
 
         self._build_layout()
         self._refresh_list()
@@ -157,8 +162,20 @@ class PdfMergeApp(ttk.Frame):
         if not filepaths:
             return
 
+        added_any = False
         for filepath in filepaths:
-            self.model.add_pdf(filepath)
+            try:
+                self.model.add_pdf(filepath)
+            except Exception as exc:
+                messagebox.showerror(
+                    "Could not open PDF",
+                    f"Failed to load {Path(filepath).name}:\n{exc}",
+                )
+                continue
+            added_any = True
+
+        if not added_any:
+            return
 
         self.final_preview_index = 0
         self._refresh_list(select_index=len(self.model.sequence) - 1)
@@ -193,6 +210,7 @@ class PdfMergeApp(ttk.Frame):
     def on_clear_all(self) -> None:
         self.model.clear()
         self.final_preview_index = 0
+        self.preview_image_cache.clear()
         self._refresh_list()
 
     def on_merge_export(self) -> None:
@@ -222,6 +240,15 @@ class PdfMergeApp(ttk.Frame):
         if self.preview_mode.get() == self.PREVIEW_FINAL:
             self.final_preview_index = max(0, self.final_preview_index - 1)
             self.update_preview()
+            return
+
+        idx = self._selected_index()
+        if idx is None:
+            idx = 0
+        new_idx = max(0, idx - 1)
+        self.page_list.selection_set(str(new_idx))
+        self.page_list.focus(str(new_idx))
+        self.update_preview()
 
     def on_next_preview(self) -> None:
         if not self.model.sequence:
@@ -229,11 +256,54 @@ class PdfMergeApp(ttk.Frame):
         if self.preview_mode.get() == self.PREVIEW_FINAL:
             self.final_preview_index = min(len(self.model.sequence) - 1, self.final_preview_index + 1)
             self.update_preview()
+            return
+
+        idx = self._selected_index()
+        if idx is None:
+            idx = 0
+        new_idx = min(len(self.model.sequence) - 1, idx + 1)
+        self.page_list.selection_set(str(new_idx))
+        self.page_list.focus(str(new_idx))
+        self.update_preview()
+
+    def _show_preview_text(self, text: str) -> None:
+        self.preview_label.configure(text=text, image="")
+        self.preview_label.image = None
+
+    def _show_preview_image(self, image: ImageTk.PhotoImage) -> None:
+        self.preview_label.configure(image=image, text="")
+        self.preview_label.image = image
+
+    def _render_preview_image(self, source_path: str, page_index: int) -> Optional[ImageTk.PhotoImage]:
+        cache_key = (source_path, page_index, self.preview_zoom)
+        cached = self.preview_image_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        try:
+            image = render_page(source_path, page_index, zoom=self.preview_zoom)
+        except PreviewDependencyUnavailable as exc:
+            self._show_preview_text(f"Preview unavailable\n\n{exc}")
+            return None
+        except PreviewRenderError as exc:
+            messagebox.showerror("Preview failed", f"Could not render page preview:\n{exc}")
+            self._show_preview_text(
+                "Could not render this page.\nThe file may be encrypted or corrupt."
+            )
+            return None
+        except Exception as exc:
+            messagebox.showerror("Preview failed", f"Unexpected preview error:\n{exc}")
+            self._show_preview_text("Unexpected error while rendering preview.")
+            return None
+
+        photo_image = ImageTk.PhotoImage(image)
+        self.preview_image_cache[cache_key] = photo_image
+        return photo_image
 
     def update_preview(self) -> None:
         if not self.model.sequence:
             self.preview_caption.configure(text="No pages loaded")
-            self.preview_label.configure(text="Open one or more PDFs to begin.")
+            self._show_preview_text("Open one or more PDFs to begin.")
             return
 
         if self.preview_mode.get() == self.PREVIEW_SINGLE:
@@ -241,28 +311,18 @@ class PdfMergeApp(ttk.Frame):
             if idx is None:
                 idx = 0
                 self.page_list.selection_set(str(idx))
+                self.page_list.focus(str(idx))
             page = self.model.sequence[idx]
             self.preview_caption.configure(text=f"Single Page ({idx + 1}/{len(self.model.sequence)})")
-            self.preview_label.configure(
-                text=(
-                    "Single-page preview\n\n"
-                    f"File: {Path(page.source_path).name}\n"
-                    f"Page: {page.page_index + 1}"
-                )
-            )
         else:
             idx = min(self.final_preview_index, len(self.model.sequence) - 1)
             self.final_preview_index = idx
             page = self.model.sequence[idx]
             self.preview_caption.configure(text=f"Final Output ({idx + 1}/{len(self.model.sequence)})")
-            self.preview_label.configure(
-                text=(
-                    "Merged-order preview\n\n"
-                    f"Sequence: {idx + 1}\n"
-                    f"From: {Path(page.source_path).name}\n"
-                    f"Page: {page.page_index + 1}"
-                )
-            )
+
+        rendered = self._render_preview_image(page.source_path, page.page_index)
+        if rendered is not None:
+            self._show_preview_image(rendered)
 
 
 def main() -> None:

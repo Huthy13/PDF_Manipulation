@@ -14,6 +14,11 @@ from .view import PdfMergeView
 
 
 class PdfMergeController:
+    MIN_ZOOM = 0.4
+    MAX_ZOOM = 4.0
+    ZOOM_STEP = 0.2
+    DEFAULT_ZOOM = 1.5
+
     def __init__(self, master: tk.Tk) -> None:
         self.master = master
         self.view = PdfMergeView(master)
@@ -21,7 +26,8 @@ class PdfMergeController:
         self.preview_service = PreviewService(cache_size=120)
 
         self.final_preview_index = 0
-        self.preview_zoom = 1.5
+        self.preview_zoom = self.DEFAULT_ZOOM
+        self._pending_resize_after: Optional[str] = None
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -33,12 +39,18 @@ class PdfMergeController:
         self.view.next_handler = self.on_next_preview
         self.view.selection_handler = self.update_preview
         self.view.preview_mode_handler = self.update_preview
+        self.view.zoom_in_handler = self.on_zoom_in
+        self.view.zoom_out_handler = self.on_zoom_out
+        self.view.zoom_reset_handler = self.on_zoom_reset
+        self.view.fit_preview_handler = self.on_toggle_fit_preview
         self.view.bind_handlers()
+        self._update_zoom_label()
 
         self.master.bind("<Delete>", self.on_delete_shortcut)
         self.master.bind("<Control-Up>", self.on_move_up_shortcut)
         self.master.bind("<Control-Down>", self.on_move_down_shortcut)
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.view.preview_panel.bind("<Configure>", self.on_preview_panel_resize)
 
         self.refresh_list()
 
@@ -219,17 +231,75 @@ class PdfMergeController:
         self.view.preview_label.configure(image=image, text="")
         self.view.preview_label.image = image
 
+    def _clamp_zoom(self, zoom: float) -> float:
+        return max(self.MIN_ZOOM, min(self.MAX_ZOOM, round(zoom, 2)))
+
+    def _update_zoom_label(self, effective_zoom: Optional[float] = None) -> None:
+        zoom_value = effective_zoom if effective_zoom is not None else self.preview_zoom
+        suffix = " (fit)" if self.view.fit_preview.get() and effective_zoom is not None else ""
+        self.view.zoom_label.configure(text=f"{int(zoom_value * 100)}%{suffix}")
+
+    def _panel_size(self) -> tuple[int, int]:
+        width = self.view.preview_panel.winfo_width() - 24
+        height = self.view.preview_panel.winfo_height() - 24
+        return max(width, 1), max(height, 1)
+
+    def _resolve_zoom(self, source_path: str, page_index: int) -> tuple[float, ImageTk.PhotoImage]:
+        base_zoom = self.preview_zoom
+        rendered = self.preview_service.render(source_path, page_index, base_zoom)
+        if not self.view.fit_preview.get():
+            return base_zoom, rendered
+
+        panel_width, panel_height = self._panel_size()
+        width_ratio = panel_width / max(rendered.width(), 1)
+        height_ratio = panel_height / max(rendered.height(), 1)
+        fit_ratio = min(width_ratio, height_ratio)
+        fit_zoom = self._clamp_zoom(base_zoom * fit_ratio)
+        if abs(fit_zoom - base_zoom) < 0.01:
+            return base_zoom, rendered
+        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom)
+
+    def on_zoom_in(self) -> None:
+        self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
+        self.update_preview()
+
+    def on_zoom_out(self) -> None:
+        self.preview_zoom = self._clamp_zoom(self.preview_zoom - self.ZOOM_STEP)
+        self.update_preview()
+
+    def on_zoom_reset(self) -> None:
+        self.preview_zoom = self.DEFAULT_ZOOM
+        self.update_preview()
+
+    def on_toggle_fit_preview(self) -> None:
+        self.update_preview()
+
+    def on_preview_panel_resize(self, _event: tk.Event) -> None:
+        if self._pending_resize_after is not None:
+            self.master.after_cancel(self._pending_resize_after)
+        self._pending_resize_after = self.master.after(120, self._on_resize_debounced)
+
+    def _on_resize_debounced(self) -> None:
+        self._pending_resize_after = None
+        if self.view.fit_preview.get():
+            self.update_preview()
+
     def render_preview_image(self, source_path: str, page_index: int) -> Optional[ImageTk.PhotoImage]:
         try:
-            return self.preview_service.render(source_path, page_index, self.preview_zoom)
+            effective_zoom, rendered = self._resolve_zoom(source_path, page_index)
+            self._update_zoom_label(effective_zoom=effective_zoom)
+            return rendered
         except PreviewDependencyUnavailable as exc:
+            self._update_zoom_label()
             self.show_preview_text(f"Preview unavailable\n\n{exc}")
             return None
         except PreviewRenderError as exc:
+            self._update_zoom_label()
             messagebox.showerror("Preview failed", f"Could not render page preview:\n{exc}")
             self.show_preview_text("Could not render this page.\nThe file may be encrypted or corrupt.")
             return None
         except Exception as exc:
+            self._update_zoom_label()
             messagebox.showerror("Preview failed", f"Unexpected preview error:\n{exc}")
             self.show_preview_text("Unexpected error while rendering preview.")
             return None
@@ -237,6 +307,7 @@ class PdfMergeController:
     def update_preview(self) -> None:
         if not self.model.sequence:
             self.view.preview_caption.configure(text="No pages loaded")
+            self._update_zoom_label()
             self.show_preview_text("Open one or more PDFs to begin.")
             return
 

@@ -28,6 +28,10 @@ class PdfMergeView(ttk.Frame):
         self.next_handler: Optional[Callable[[], None]] = None
         self.selection_handler: Optional[Callable[[], None]] = None
         self.preview_mode_handler: Optional[Callable[[], None]] = None
+        self.zoom_in_handler: Optional[Callable[[], None]] = None
+        self.zoom_out_handler: Optional[Callable[[], None]] = None
+        self.zoom_reset_handler: Optional[Callable[[], None]] = None
+        self.fit_preview_handler: Optional[Callable[[], None]] = None
 
         self._build_layout()
 
@@ -136,6 +140,7 @@ class PdfMergeView(ttk.Frame):
         nav = ttk.Frame(right)
         nav.grid(row=1, column=0, sticky="ew", pady=(8, 8))
         nav.columnconfigure(0, weight=1)
+        nav.columnconfigure(1, weight=0)
         nav_inner = ttk.Frame(nav)
         nav_inner.grid(row=0, column=0)
 
@@ -147,6 +152,29 @@ class PdfMergeView(ttk.Frame):
 
         self.btn_next = ttk.Button(nav_inner, text="Next ▶")
         self.btn_next.grid(row=0, column=2, padx=(12, 0))
+
+        zoom_controls = ttk.Frame(nav)
+        zoom_controls.grid(row=0, column=1, sticky="e")
+
+        self.btn_zoom_out = ttk.Button(zoom_controls, text="−", width=3)
+        self.btn_zoom_out.grid(row=0, column=0, padx=(4, 2))
+        self._tooltips.append(ToolTip(self.btn_zoom_out, "Zoom out"))
+
+        self.zoom_label = ttk.Label(zoom_controls, text="100%")
+        self.zoom_label.grid(row=0, column=1, padx=2)
+
+        self.btn_zoom_in = ttk.Button(zoom_controls, text="+", width=3)
+        self.btn_zoom_in.grid(row=0, column=2, padx=(2, 4))
+        self._tooltips.append(ToolTip(self.btn_zoom_in, "Zoom in"))
+
+        self.btn_zoom_reset = ttk.Button(zoom_controls, text="Reset")
+        self.btn_zoom_reset.grid(row=0, column=3, padx=(2, 4))
+        self._tooltips.append(ToolTip(self.btn_zoom_reset, "Reset zoom to default"))
+
+        self.fit_preview = tk.BooleanVar(value=True)
+        self.cb_fit_preview = ttk.Checkbutton(zoom_controls, text="Fit", variable=self.fit_preview)
+        self.cb_fit_preview.grid(row=0, column=4)
+        self._tooltips.append(ToolTip(self.cb_fit_preview, "Scale preview to available panel size"))
 
         self.preview_panel = ttk.LabelFrame(right, text="Page Preview")
         self.preview_panel.grid(row=3, column=0, sticky="nsew")
@@ -173,4 +201,8 @@ class PdfMergeView(ttk.Frame):
         self.btn_next.configure(command=self.next_handler)
         self.rb_single.configure(command=self.preview_mode_handler)
         self.rb_final.configure(command=self.preview_mode_handler)
+        self.btn_zoom_in.configure(command=self.zoom_in_handler)
+        self.btn_zoom_out.configure(command=self.zoom_out_handler)
+        self.btn_zoom_reset.configure(command=self.zoom_reset_handler)
+        self.cb_fit_preview.configure(command=self.fit_preview_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())

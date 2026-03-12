@@ -1,0 +1,1 @@
+"""PDF merge GUI package."""

@@ -16,6 +16,23 @@ A lightweight desktop GUI for selecting, reordering, previewing, and exporting P
   - `Ctrl+Up` = move selected row up
   - `Ctrl+Down` = move selected row down
 
+## Architecture
+
+The backend has been split into modular layers to make future feature growth safer:
+
+- `src/pdf_merge_gui/ui/`
+  - `view.py`: widget/layout construction
+  - `controller.py`: UI event orchestration and interaction behavior
+- `src/pdf_merge_gui/services/`
+  - `sequence_service.py`: page sequence operations (move/remove/clear)
+  - `preview_service.py`: preview rendering + bounded LRU cache
+- `src/pdf_merge_gui/adapters/`
+  - `pypdf_adapter.py`: PDF read/write adapter and document session reuse
+- `src/pdf_merge_gui/domain/`
+  - `models.py`: domain model objects (`PageRef`)
+- `src/pdf_merge_gui/utils/`
+  - `cache.py`: reusable LRU cache implementation
+
 ## Installation
 
 1. Create and activate a virtual environment (recommended).
@@ -38,6 +55,29 @@ or
 ```bash
 python -m pdf_merge_gui.app
 ```
+
+## Tests
+
+```bash
+python -m pip install pytest
+python -m pytest -q
+```
+
+## Build Windows EXE (no Python required for end users)
+
+Use PyInstaller to build a distributable executable:
+
+```powershell
+./scripts/build_windows.ps1
+```
+
+Optional one-file build:
+
+```powershell
+./scripts/build_windows.ps1 -OneFile
+```
+
+Artifacts are written under `dist/`.
 
 ## Known limitations
 

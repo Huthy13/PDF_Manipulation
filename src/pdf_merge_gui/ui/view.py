@@ -227,13 +227,16 @@ class PdfMergeView(ttk.Frame):
         self.preview_label.bind("<Control-Button-5>", self.on_preview_ctrl_mousewheel)
 
     def _reposition_preview_content(self, canvas_width: int, canvas_height: int) -> None:
-        content_width = self.preview_label.winfo_reqwidth()
-        content_height = self.preview_label.winfo_reqheight()
+        content_width = max(self.preview_label.winfo_reqwidth(), 1)
+        content_height = max(self.preview_label.winfo_reqheight(), 1)
 
         x_pos = max((canvas_width - content_width) // 2, 0)
         y_pos = max((canvas_height - content_height) // 2, 0)
         self.preview_canvas.coords(self.preview_window, x_pos, y_pos)
-        self.preview_canvas.configure(scrollregion=self.preview_canvas.bbox("all"))
+
+        region_width = max(content_width + (2 * x_pos), canvas_width)
+        region_height = max(content_height + (2 * y_pos), canvas_height)
+        self.preview_canvas.configure(scrollregion=(0, 0, region_width, region_height))
 
     def on_preview_content_configure(self, _event: tk.Event) -> None:
         canvas_width = max(self.preview_canvas.winfo_width(), 1)

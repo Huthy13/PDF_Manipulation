@@ -1,0 +1,176 @@
+from __future__ import annotations
+
+import tkinter as tk
+from tkinter import ttk
+from typing import Callable, Optional
+
+from .tooltip import ToolTip
+
+
+class PdfMergeView(ttk.Frame):
+    PREVIEW_SINGLE = "single"
+    PREVIEW_FINAL = "final"
+
+    def __init__(self, master: tk.Tk) -> None:
+        super().__init__(master, padding=12)
+        self.master.title("PDF Merge GUI")
+        self.master.geometry("1150x700")
+        self.preview_mode = tk.StringVar(value=self.PREVIEW_SINGLE)
+        self._tooltips: list[ToolTip] = []
+
+        self.open_handler: Optional[Callable[[], None]] = None
+        self.move_up_handler: Optional[Callable[[], None]] = None
+        self.move_down_handler: Optional[Callable[[], None]] = None
+        self.remove_handler: Optional[Callable[[], None]] = None
+        self.clear_handler: Optional[Callable[[], None]] = None
+        self.merge_handler: Optional[Callable[[], None]] = None
+        self.prev_handler: Optional[Callable[[], None]] = None
+        self.next_handler: Optional[Callable[[], None]] = None
+        self.selection_handler: Optional[Callable[[], None]] = None
+        self.preview_mode_handler: Optional[Callable[[], None]] = None
+
+        self._build_layout()
+
+    def _create_icon_button(
+        self,
+        parent: ttk.Frame,
+        symbol: str,
+        tooltip: str,
+        command: Callable[[], None] | None,
+        row: int,
+        column: int,
+    ) -> None:
+        btn = ttk.Button(parent, text=symbol, command=command, width=8)
+        btn.grid(row=row, column=column, sticky="ew", padx=4, pady=4)
+        self._tooltips.append(ToolTip(btn, tooltip))
+
+    def _build_layout(self) -> None:
+        self.pack(fill=tk.BOTH, expand=True)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        paned = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
+        paned.grid(row=0, column=0, sticky="nsew")
+
+        left = ttk.Frame(paned, padding=(0, 0, 10, 0))
+        left.columnconfigure(0, weight=1)
+        left.rowconfigure(1, weight=1)
+
+        right = ttk.Frame(paned, padding=(10, 0, 0, 0))
+        right.columnconfigure(0, weight=1)
+        right.rowconfigure(3, weight=1)
+
+        paned.add(left, weight=2)
+        paned.add(right, weight=3)
+
+        controls = ttk.Frame(left)
+        controls.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        for col in range(3):
+            controls.columnconfigure(col, weight=1, uniform="list_controls")
+
+        self.btn_open = ttk.Button(controls, text="➕", width=8)
+        self.btn_open.grid(row=0, column=0, sticky="ew", padx=4, pady=4)
+        self._tooltips.append(ToolTip(self.btn_open, "Add PDF pages from one or more documents"))
+
+        self.btn_up = ttk.Button(controls, text="⬆", width=8)
+        self.btn_up.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
+        self._tooltips.append(ToolTip(self.btn_up, "Move selected page(s) up"))
+
+        self.btn_down = ttk.Button(controls, text="⬇", width=8)
+        self.btn_down.grid(row=0, column=2, sticky="ew", padx=4, pady=4)
+        self._tooltips.append(ToolTip(self.btn_down, "Move selected page(s) down"))
+
+        self.btn_remove = ttk.Button(controls, text="✖", width=8)
+        self.btn_remove.grid(row=1, column=0, sticky="ew", padx=4, pady=4)
+        self._tooltips.append(ToolTip(self.btn_remove, "Remove selected page(s)"))
+
+        self.btn_clear = ttk.Button(controls, text="➖", width=8)
+        self.btn_clear.grid(row=1, column=1, sticky="ew", padx=4, pady=4)
+        self._tooltips.append(ToolTip(self.btn_clear, "Clear all pages from the list"))
+
+        self.btn_merge = ttk.Button(controls, text="💾", width=8)
+        self.btn_merge.grid(row=1, column=2, sticky="ew", padx=4, pady=4)
+        self._tooltips.append(ToolTip(self.btn_merge, "Merge/export the listed pages to a new PDF"))
+
+        list_frame = ttk.Frame(left)
+        list_frame.grid(row=1, column=0, sticky="nsew")
+        list_frame.columnconfigure(0, weight=1)
+        list_frame.rowconfigure(0, weight=1)
+
+        self.page_list = ttk.Treeview(
+            list_frame,
+            columns=("filename", "page"),
+            show="headings",
+            selectmode="extended",
+            height=18,
+        )
+        self.page_list.heading("filename", text="Filename")
+        self.page_list.heading("page", text="Document Page")
+        self.page_list.column("filename", anchor="w", width=320, stretch=True)
+        self.page_list.column("page", anchor="center", width=130, stretch=False)
+        self.page_list.grid(row=0, column=0, sticky="nsew")
+
+        yscroll = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.page_list.yview)
+        yscroll.grid(row=0, column=1, sticky="ns")
+        self.page_list.configure(yscrollcommand=yscroll.set)
+
+        mode_frame = ttk.LabelFrame(right, text="Preview Mode")
+        mode_frame.grid(row=0, column=0, sticky="ew")
+
+        self.rb_single = ttk.Radiobutton(
+            mode_frame,
+            text="Single Page",
+            value=self.PREVIEW_SINGLE,
+            variable=self.preview_mode,
+        )
+        self.rb_single.grid(row=0, column=0, sticky="w", padx=8, pady=6)
+
+        self.rb_final = ttk.Radiobutton(
+            mode_frame,
+            text="Final Output Preview",
+            value=self.PREVIEW_FINAL,
+            variable=self.preview_mode,
+        )
+        self.rb_final.grid(row=0, column=1, sticky="w", padx=8, pady=6)
+
+        nav = ttk.Frame(right)
+        nav.grid(row=1, column=0, sticky="ew", pady=(8, 8))
+        nav.columnconfigure(0, weight=1)
+        nav_inner = ttk.Frame(nav)
+        nav_inner.grid(row=0, column=0)
+
+        self.btn_prev = ttk.Button(nav_inner, text="◀ Prev")
+        self.btn_prev.grid(row=0, column=0, padx=(0, 12))
+
+        self.preview_caption = ttk.Label(nav_inner, text="No page selected")
+        self.preview_caption.grid(row=0, column=1)
+
+        self.btn_next = ttk.Button(nav_inner, text="Next ▶")
+        self.btn_next.grid(row=0, column=2, padx=(12, 0))
+
+        self.preview_panel = ttk.LabelFrame(right, text="Page Preview")
+        self.preview_panel.grid(row=3, column=0, sticky="nsew")
+        self.preview_panel.columnconfigure(0, weight=1)
+        self.preview_panel.rowconfigure(0, weight=1)
+
+        self.preview_label = ttk.Label(
+            self.preview_panel,
+            text="Open one or more PDFs to begin.",
+            anchor="center",
+            justify="center",
+            padding=24,
+        )
+        self.preview_label.grid(row=0, column=0, sticky="nsew")
+
+    def bind_handlers(self) -> None:
+        self.btn_open.configure(command=self.open_handler)
+        self.btn_up.configure(command=self.move_up_handler)
+        self.btn_down.configure(command=self.move_down_handler)
+        self.btn_remove.configure(command=self.remove_handler)
+        self.btn_clear.configure(command=self.clear_handler)
+        self.btn_merge.configure(command=self.merge_handler)
+        self.btn_prev.configure(command=self.prev_handler)
+        self.btn_next.configure(command=self.next_handler)
+        self.rb_single.configure(command=self.preview_mode_handler)
+        self.rb_final.configure(command=self.preview_mode_handler)
+        self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())

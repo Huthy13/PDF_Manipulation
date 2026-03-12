@@ -32,6 +32,7 @@ class PdfMergeView(ttk.Frame):
         self.zoom_out_handler: Optional[Callable[[], None]] = None
         self.zoom_reset_handler: Optional[Callable[[], None]] = None
         self.fit_preview_handler: Optional[Callable[[], None]] = None
+        self.ctrl_wheel_zoom_handler: Optional[Callable[[int], None]] = None
 
         self._build_layout()
 
@@ -212,12 +213,18 @@ class PdfMergeView(ttk.Frame):
         self.preview_canvas.bind("<Button-5>", self.on_preview_mousewheel)
         self.preview_canvas.bind("<Shift-Button-4>", self.on_preview_shift_mousewheel)
         self.preview_canvas.bind("<Shift-Button-5>", self.on_preview_shift_mousewheel)
+        self.preview_canvas.bind("<Control-MouseWheel>", self.on_preview_ctrl_mousewheel)
+        self.preview_canvas.bind("<Control-Button-4>", self.on_preview_ctrl_mousewheel)
+        self.preview_canvas.bind("<Control-Button-5>", self.on_preview_ctrl_mousewheel)
         self.preview_label.bind("<MouseWheel>", self.on_preview_mousewheel)
         self.preview_label.bind("<Shift-MouseWheel>", self.on_preview_shift_mousewheel)
         self.preview_label.bind("<Button-4>", self.on_preview_mousewheel)
         self.preview_label.bind("<Button-5>", self.on_preview_mousewheel)
         self.preview_label.bind("<Shift-Button-4>", self.on_preview_shift_mousewheel)
         self.preview_label.bind("<Shift-Button-5>", self.on_preview_shift_mousewheel)
+        self.preview_label.bind("<Control-MouseWheel>", self.on_preview_ctrl_mousewheel)
+        self.preview_label.bind("<Control-Button-4>", self.on_preview_ctrl_mousewheel)
+        self.preview_label.bind("<Control-Button-5>", self.on_preview_ctrl_mousewheel)
 
     def on_preview_content_configure(self, _event: tk.Event) -> None:
         self.preview_canvas.configure(scrollregion=self.preview_canvas.bbox("all"))
@@ -257,6 +264,14 @@ class PdfMergeView(ttk.Frame):
         if units == 0:
             return "break"
         self.preview_canvas.xview_scroll(units, "units")
+        return "break"
+
+    def on_preview_ctrl_mousewheel(self, event: tk.Event) -> str:
+        units = self._mousewheel_units(event)
+        if units == 0:
+            return "break"
+        if self.ctrl_wheel_zoom_handler is not None:
+            self.ctrl_wheel_zoom_handler(units)
         return "break"
 
     def reset_preview_scroll(self) -> None:

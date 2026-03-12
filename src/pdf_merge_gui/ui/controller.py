@@ -226,10 +226,12 @@ class PdfMergeController:
     def show_preview_text(self, text: str) -> None:
         self.view.preview_label.configure(text=text, image="")
         self.view.preview_label.image = None
+        self.view.reset_preview_scroll()
 
     def show_preview_image(self, image: ImageTk.PhotoImage) -> None:
         self.view.preview_label.configure(image=image, text="")
         self.view.preview_label.image = image
+        self.view.reset_preview_scroll()
 
     def _clamp_zoom(self, zoom: float) -> float:
         return max(self.MIN_ZOOM, min(self.MAX_ZOOM, round(zoom, 2)))
@@ -240,8 +242,8 @@ class PdfMergeController:
         self.view.zoom_label.configure(text=f"{int(zoom_value * 100)}%{suffix}")
 
     def _panel_size(self) -> tuple[int, int]:
-        width = self.view.preview_panel.winfo_width() - 24
-        height = self.view.preview_panel.winfo_height() - 24
+        width = self.view.preview_canvas.winfo_width() - 8
+        height = self.view.preview_canvas.winfo_height() - 8
         return max(width, 1), max(height, 1)
 
     def _resolve_zoom(self, source_path: str, page_index: int) -> tuple[float, ImageTk.PhotoImage]:

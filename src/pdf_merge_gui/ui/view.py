@@ -181,14 +181,67 @@ class PdfMergeView(ttk.Frame):
         self.preview_panel.columnconfigure(0, weight=1)
         self.preview_panel.rowconfigure(0, weight=1)
 
+        self.preview_canvas = tk.Canvas(self.preview_panel, highlightthickness=0)
+        self.preview_canvas.grid(row=0, column=0, sticky="nsew")
+
+        self.preview_vscroll = ttk.Scrollbar(self.preview_panel, orient=tk.VERTICAL, command=self.preview_canvas.yview)
+        self.preview_vscroll.grid(row=0, column=1, sticky="ns")
+
+        self.preview_hscroll = ttk.Scrollbar(self.preview_panel, orient=tk.HORIZONTAL, command=self.preview_canvas.xview)
+        self.preview_hscroll.grid(row=1, column=0, sticky="ew")
+
+        self.preview_canvas.configure(
+            xscrollcommand=self.preview_hscroll.set,
+            yscrollcommand=self.preview_vscroll.set,
+        )
+
         self.preview_label = ttk.Label(
-            self.preview_panel,
+            self.preview_canvas,
             text="Open one or more PDFs to begin.",
             anchor="center",
             justify="center",
             padding=24,
         )
-        self.preview_label.grid(row=0, column=0, sticky="nsew")
+        self.preview_window = self.preview_canvas.create_window(0, 0, anchor="nw", window=self.preview_label)
+
+        self.preview_label.bind("<Configure>", self.on_preview_content_configure)
+        self.preview_canvas.bind("<Configure>", self.on_preview_canvas_configure)
+        self.preview_canvas.bind("<MouseWheel>", self.on_preview_mousewheel)
+        self.preview_canvas.bind("<Shift-MouseWheel>", self.on_preview_shift_mousewheel)
+        self.preview_label.bind("<MouseWheel>", self.on_preview_mousewheel)
+        self.preview_label.bind("<Shift-MouseWheel>", self.on_preview_shift_mousewheel)
+
+    def on_preview_content_configure(self, _event: tk.Event) -> None:
+        self.preview_canvas.configure(scrollregion=self.preview_canvas.bbox("all"))
+
+    def on_preview_canvas_configure(self, event: tk.Event) -> None:
+        content_width = self.preview_label.winfo_reqwidth()
+        content_height = self.preview_label.winfo_reqheight()
+        canvas_width = max(event.width, 1)
+        canvas_height = max(event.height, 1)
+
+        x_pos = max((canvas_width - content_width) // 2, 0)
+        y_pos = max((canvas_height - content_height) // 2, 0)
+        self.preview_canvas.coords(self.preview_window, x_pos, y_pos)
+        self.preview_canvas.configure(scrollregion=self.preview_canvas.bbox("all"))
+
+    def on_preview_mousewheel(self, event: tk.Event) -> str:
+        delta = event.delta or 0
+        if delta == 0:
+            return "break"
+        self.preview_canvas.yview_scroll(int(-delta / 120), "units")
+        return "break"
+
+    def on_preview_shift_mousewheel(self, event: tk.Event) -> str:
+        delta = event.delta or 0
+        if delta == 0:
+            return "break"
+        self.preview_canvas.xview_scroll(int(-delta / 120), "units")
+        return "break"
+
+    def reset_preview_scroll(self) -> None:
+        self.preview_canvas.xview_moveto(0.0)
+        self.preview_canvas.yview_moveto(0.0)
 
     def bind_handlers(self) -> None:
         self.btn_open.configure(command=self.open_handler)

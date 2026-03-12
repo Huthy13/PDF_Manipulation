@@ -11,6 +11,40 @@ from .model import MergeModel
 from .preview import PreviewDependencyUnavailable, PreviewRenderError, render_page
 
 
+class ToolTip:
+    def __init__(self, widget: tk.Widget, text: str) -> None:
+        self.widget = widget
+        self.text = text
+        self.tip_window: Optional[tk.Toplevel] = None
+        self.widget.bind("<Enter>", self._show)
+        self.widget.bind("<Leave>", self._hide)
+
+    def _show(self, _event: tk.Event) -> None:
+        if self.tip_window is not None:
+            return
+
+        x = self.widget.winfo_rootx() + (self.widget.winfo_width() // 2)
+        y = self.widget.winfo_rooty() + self.widget.winfo_height() + 6
+
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = ttk.Label(
+            tw,
+            text=self.text,
+            padding=(8, 4),
+            relief="solid",
+            borderwidth=1,
+            justify="left",
+        )
+        label.pack()
+
+    def _hide(self, _event: tk.Event) -> None:
+        if self.tip_window is not None:
+            self.tip_window.destroy()
+            self.tip_window = None
+
+
 class PdfMergeApp(ttk.Frame):
     PREVIEW_SINGLE = "single"
     PREVIEW_FINAL = "final"
@@ -25,6 +59,7 @@ class PdfMergeApp(ttk.Frame):
         self.final_preview_index = 0
         self.preview_zoom = 1.5
         self.preview_image_cache: dict[tuple[str, int, float], ImageTk.PhotoImage] = {}
+        self._tooltips: list[ToolTip] = []
 
         self._build_layout()
         self._refresh_list()
@@ -43,7 +78,7 @@ class PdfMergeApp(ttk.Frame):
 
         left = ttk.Frame(paned, padding=(0, 0, 10, 0))
         left.columnconfigure(0, weight=1)
-        left.rowconfigure(2, weight=1)
+        left.rowconfigure(1, weight=1)
 
         right = ttk.Frame(paned, padding=(10, 0, 0, 0))
         right.columnconfigure(0, weight=1)
@@ -52,32 +87,62 @@ class PdfMergeApp(ttk.Frame):
         paned.add(left, weight=2)
         paned.add(right, weight=3)
 
-        open_btn = ttk.Button(left, text="Open PDFs…", command=self.on_open_pdfs)
-        open_btn.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-
         controls = ttk.Frame(left)
-        controls.grid(row=1, column=0, sticky="ew", pady=(0, 8))
-        for col in range(2):
-            controls.columnconfigure(col, weight=1)
+        controls.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        for col in range(3):
+            controls.columnconfigure(col, weight=1, uniform="list_controls")
 
-        ttk.Button(controls, text="Move Up", command=self.on_move_up).grid(
-            row=0, column=0, sticky="ew", padx=(0, 4), pady=(0, 6)
+        self._create_icon_button(
+            controls,
+            symbol="➕",
+            tooltip="Add PDF pages from one or more documents",
+            command=self.on_open_pdfs,
+            row=0,
+            column=0,
         )
-        ttk.Button(controls, text="Move Down", command=self.on_move_down).grid(
-            row=0, column=1, sticky="ew", padx=(4, 0), pady=(0, 6)
+        self._create_icon_button(
+            controls,
+            symbol="⬆",
+            tooltip="Move selected page(s) up",
+            command=self.on_move_up,
+            row=0,
+            column=1,
         )
-        ttk.Button(controls, text="Remove Selected", command=self.on_remove_selected).grid(
-            row=1, column=0, sticky="ew", padx=(0, 4), pady=(0, 6)
+        self._create_icon_button(
+            controls,
+            symbol="⬇",
+            tooltip="Move selected page(s) down",
+            command=self.on_move_down,
+            row=0,
+            column=2,
         )
-        ttk.Button(controls, text="Clear All", command=self.on_clear_all).grid(
-            row=1, column=1, sticky="ew", padx=(4, 0), pady=(0, 6)
+        self._create_icon_button(
+            controls,
+            symbol="✖",
+            tooltip="Remove selected page(s)",
+            command=self.on_remove_selected,
+            row=1,
+            column=0,
         )
-        ttk.Button(controls, text="Merge/Export", command=self.on_merge_export).grid(
-            row=2, column=0, columnspan=2, sticky="ew"
+        self._create_icon_button(
+            controls,
+            symbol="➖",
+            tooltip="Clear all pages from the list",
+            command=self.on_clear_all,
+            row=1,
+            column=1,
+        )
+        self._create_icon_button(
+            controls,
+            symbol="💾",
+            tooltip="Merge/export the listed pages to a new PDF",
+            command=self.on_merge_export,
+            row=1,
+            column=2,
         )
 
         list_frame = ttk.Frame(left)
-        list_frame.grid(row=2, column=0, sticky="nsew")
+        list_frame.grid(row=1, column=0, sticky="nsew")
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
 
@@ -89,9 +154,9 @@ class PdfMergeApp(ttk.Frame):
             height=18,
         )
         self.page_list.heading("filename", text="Filename")
-        self.page_list.heading("page", text="Page")
+        self.page_list.heading("page", text="Document Page")
         self.page_list.column("filename", anchor="w", width=320, stretch=True)
-        self.page_list.column("page", anchor="center", width=80, stretch=False)
+        self.page_list.column("page", anchor="center", width=130, stretch=False)
         self.page_list.grid(row=0, column=0, sticky="nsew")
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.update_preview())
 
@@ -147,6 +212,19 @@ class PdfMergeApp(ttk.Frame):
             padding=24,
         )
         self.preview_label.grid(row=0, column=0, sticky="nsew")
+
+    def _create_icon_button(
+        self,
+        parent: ttk.Frame,
+        symbol: str,
+        tooltip: str,
+        command: object,
+        row: int,
+        column: int,
+    ) -> None:
+        btn = ttk.Button(parent, text=symbol, command=command, width=8)
+        btn.grid(row=row, column=column, sticky="ew", padx=4, pady=4)
+        self._tooltips.append(ToolTip(btn, tooltip))
 
     def _selected_indices(self) -> list[int]:
         selected: list[int] = []

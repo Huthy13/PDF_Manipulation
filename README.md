@@ -33,6 +33,12 @@ The backend has been split into modular layers to make future feature growth saf
 - `src/pdf_merge_gui/utils/`
   - `cache.py`: reusable LRU cache implementation
 
+## ADR index
+
+- [Architecture Decision Records](docs/adr/)
+- [ADR 0001: Layering boundaries](docs/adr/0001-layering-boundaries.md)
+- [ADR 0002: Error strategy and exception translation](docs/adr/0002-error-strategy.md)
+
 ## Installation
 
 1. Create and activate a virtual environment (recommended).

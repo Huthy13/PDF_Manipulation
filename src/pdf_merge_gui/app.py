@@ -1,63 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-from typing import List, Optional, Sequence
+from typing import Optional, Sequence
 
-
-@dataclass(frozen=True)
-class PageRef:
-    pdf_path: Path
-    page_index: int
-
-    @property
-    def display_name(self) -> str:
-        return f"{self.pdf_path.name} :: page {self.page_index + 1}"
-
-
-class MergeModel:
-    def __init__(self) -> None:
-        self.pages: List[PageRef] = []
-
-    def add_pdf_pages(self, pdf_path: Path, page_count: int) -> None:
-        for idx in range(page_count):
-            self.pages.append(PageRef(pdf_path=pdf_path, page_index=idx))
-
-    def clear(self) -> None:
-        self.pages.clear()
-
-    def remove_index(self, idx: int) -> None:
-        if 0 <= idx < len(self.pages):
-            del self.pages[idx]
-
-    def move_up(self, idx: int) -> int:
-        if 0 < idx < len(self.pages):
-            self.pages[idx - 1], self.pages[idx] = self.pages[idx], self.pages[idx - 1]
-            return idx - 1
-        return idx
-
-    def move_down(self, idx: int) -> int:
-        if 0 <= idx < len(self.pages) - 1:
-            self.pages[idx + 1], self.pages[idx] = self.pages[idx], self.pages[idx + 1]
-            return idx + 1
-        return idx
-
-
-def count_pdf_pages(pdf_path: Path) -> int:
-    """Best-effort page count with a lightweight fallback."""
-    try:
-        from pypdf import PdfReader  # type: ignore
-
-        return len(PdfReader(str(pdf_path)).pages)
-    except Exception:
-        try:
-            from PyPDF2 import PdfReader  # type: ignore
-
-            return len(PdfReader(str(pdf_path)).pages)
-        except Exception:
-            return 1
+from .model import MergeModel
 
 
 class PdfMergeApp(ttk.Frame):
@@ -192,10 +140,10 @@ class PdfMergeApp(ttk.Frame):
     def _refresh_list(self, select_index: Optional[int] = None) -> None:
         for item in self.page_list.get_children():
             self.page_list.delete(item)
-        for idx, page in enumerate(self.model.pages):
+        for idx, page in enumerate(self.model.sequence):
             self.page_list.insert("", tk.END, iid=str(idx), values=(page.display_name,))
 
-        if select_index is not None and 0 <= select_index < len(self.model.pages):
+        if select_index is not None and 0 <= select_index < len(self.model.sequence):
             iid = str(select_index)
             self.page_list.selection_set(iid)
             self.page_list.focus(iid)
@@ -210,12 +158,10 @@ class PdfMergeApp(ttk.Frame):
             return
 
         for filepath in filepaths:
-            pdf_path = Path(filepath)
-            page_count = count_pdf_pages(pdf_path)
-            self.model.add_pdf_pages(pdf_path, page_count)
+            self.model.add_pdf(filepath)
 
         self.final_preview_index = 0
-        self._refresh_list(select_index=len(self.model.pages) - 1)
+        self._refresh_list(select_index=len(self.model.sequence) - 1)
 
     def on_move_up(self) -> None:
         idx = self._selected_index()
@@ -235,13 +181,13 @@ class PdfMergeApp(ttk.Frame):
         idx = self._selected_index()
         if idx is None:
             return
-        self.model.remove_index(idx)
-        if not self.model.pages:
+        self.model.remove([idx])
+        if not self.model.sequence:
             self.final_preview_index = 0
             self._refresh_list()
             return
-        select_index = min(idx, len(self.model.pages) - 1)
-        self.final_preview_index = min(self.final_preview_index, len(self.model.pages) - 1)
+        select_index = min(idx, len(self.model.sequence) - 1)
+        self.final_preview_index = min(self.final_preview_index, len(self.model.sequence) - 1)
         self._refresh_list(select_index=select_index)
 
     def on_clear_all(self) -> None:
@@ -250,31 +196,42 @@ class PdfMergeApp(ttk.Frame):
         self._refresh_list()
 
     def on_merge_export(self) -> None:
-        if not self.model.pages:
+        if not self.model.sequence:
             messagebox.showwarning("Nothing to merge", "Please add at least one PDF page.")
             return
-        messagebox.showinfo(
-            "Merge/Export",
-            "Merge/Export wiring placeholder.\n"
-            "Connect this button to your PDF writer pipeline.",
+
+        output_path = filedialog.asksaveasfilename(
+            title="Save merged PDF",
+            defaultextension=".pdf",
+            filetypes=[("PDF Files", "*.pdf"), ("All Files", "*.*")],
         )
+        if not output_path:
+            return
+
+        try:
+            self.model.write_merged(output_path)
+        except Exception as exc:
+            messagebox.showerror("Merge failed", f"Could not write merged PDF:\n{exc}")
+            return
+
+        messagebox.showinfo("Merge complete", f"Merged PDF saved to:\n{output_path}")
 
     def on_prev_preview(self) -> None:
-        if not self.model.pages:
+        if not self.model.sequence:
             return
         if self.preview_mode.get() == self.PREVIEW_FINAL:
             self.final_preview_index = max(0, self.final_preview_index - 1)
             self.update_preview()
 
     def on_next_preview(self) -> None:
-        if not self.model.pages:
+        if not self.model.sequence:
             return
         if self.preview_mode.get() == self.PREVIEW_FINAL:
-            self.final_preview_index = min(len(self.model.pages) - 1, self.final_preview_index + 1)
+            self.final_preview_index = min(len(self.model.sequence) - 1, self.final_preview_index + 1)
             self.update_preview()
 
     def update_preview(self) -> None:
-        if not self.model.pages:
+        if not self.model.sequence:
             self.preview_caption.configure(text="No pages loaded")
             self.preview_label.configure(text="Open one or more PDFs to begin.")
             return
@@ -284,25 +241,25 @@ class PdfMergeApp(ttk.Frame):
             if idx is None:
                 idx = 0
                 self.page_list.selection_set(str(idx))
-            page = self.model.pages[idx]
-            self.preview_caption.configure(text=f"Single Page ({idx + 1}/{len(self.model.pages)})")
+            page = self.model.sequence[idx]
+            self.preview_caption.configure(text=f"Single Page ({idx + 1}/{len(self.model.sequence)})")
             self.preview_label.configure(
                 text=(
                     "Single-page preview\n\n"
-                    f"File: {page.pdf_path.name}\n"
+                    f"File: {Path(page.source_path).name}\n"
                     f"Page: {page.page_index + 1}"
                 )
             )
         else:
-            idx = min(self.final_preview_index, len(self.model.pages) - 1)
+            idx = min(self.final_preview_index, len(self.model.sequence) - 1)
             self.final_preview_index = idx
-            page = self.model.pages[idx]
-            self.preview_caption.configure(text=f"Final Output ({idx + 1}/{len(self.model.pages)})")
+            page = self.model.sequence[idx]
+            self.preview_caption.configure(text=f"Final Output ({idx + 1}/{len(self.model.sequence)})")
             self.preview_label.configure(
                 text=(
                     "Merged-order preview\n\n"
                     f"Sequence: {idx + 1}\n"
-                    f"From: {page.pdf_path.name}\n"
+                    f"From: {Path(page.source_path).name}\n"
                     f"Page: {page.page_index + 1}"
                 )
             )

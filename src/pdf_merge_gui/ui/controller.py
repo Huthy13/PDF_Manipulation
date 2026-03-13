@@ -52,6 +52,9 @@ class PdfMergeController:
         self.master.bind("<Delete>", self.on_delete_shortcut)
         self.master.bind("<Control-Up>", self.on_move_up_shortcut)
         self.master.bind("<Control-Down>", self.on_move_down_shortcut)
+        self.view.page_list.bind("<Delete>", self.on_delete_shortcut)
+        self.view.page_list.bind("<Control-Up>", self.on_move_up_shortcut)
+        self.view.page_list.bind("<Control-Down>", self.on_move_down_shortcut)
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
         self.view.preview_panel.bind("<Configure>", self.on_preview_panel_resize)
 

@@ -38,5 +38,8 @@ class MergeModel:
     def move_down_many(self, indices: Sequence[int]) -> list[int]:
         return self.sequence_service.move_down_many(indices)
 
+    def move_to(self, indices: Sequence[int], target_index: int) -> list[int]:
+        return self.sequence_service.move_to(indices, target_index)
+
     def write_merged(self, output_path: str) -> None:
         self.document_session.write_merged(self.sequence, output_path)

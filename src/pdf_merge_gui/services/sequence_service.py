@@ -81,3 +81,19 @@ class SequenceService:
                 moved.update(range(block_start, block_end + 1))
 
         return [idx + 1 if idx in moved else idx for idx in selected]
+
+    def move_to(self, indices: Sequence[int], target_index: int) -> list[int]:
+        selected = sorted({idx for idx in indices if 0 <= idx < len(self.sequence)})
+        if not selected:
+            return []
+
+        selected_set = set(selected)
+        block = [self.sequence[idx] for idx in selected]
+        remaining = [page for idx, page in enumerate(self.sequence) if idx not in selected_set]
+
+        clamped_target = max(0, min(target_index, len(self.sequence)))
+        adjusted_target = clamped_target - sum(1 for idx in selected if idx < clamped_target)
+        adjusted_target = max(0, min(adjusted_target, len(remaining)))
+
+        self.sequence[:] = remaining[:adjusted_target] + block + remaining[adjusted_target:]
+        return list(range(adjusted_target, adjusted_target + len(block)))

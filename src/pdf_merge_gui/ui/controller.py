@@ -22,6 +22,10 @@ class PdfMergeController:
 
         self.final_preview_index = 0
         self.preview_zoom = 1.5
+        self.anchor_index: Optional[int] = None
+        self.drag_indices: list[int] = []
+        self.drag_drop_index: Optional[int] = None
+        self.drag_active = False
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -31,8 +35,12 @@ class PdfMergeController:
         self.view.merge_handler = self.on_merge_export
         self.view.prev_handler = self.on_prev_preview
         self.view.next_handler = self.on_next_preview
-        self.view.selection_handler = self.update_preview
+        self.view.selection_handler = self.on_selection_changed
         self.view.preview_mode_handler = self.update_preview
+        self.view.drag_start_handler = self.on_drag_start
+        self.view.drag_motion_handler = self.on_drag_motion
+        self.view.drag_drop_handler = self.on_drag_drop
+        self.view.range_select_handler = self.on_ctrl_range_select
         self.view.bind_handlers()
 
         self.master.bind("<Delete>", self.on_delete_shortcut)
@@ -69,7 +77,100 @@ class PdfMergeController:
         self.view.page_list.selection_set(iids)
         self.view.page_list.focus(iids[0])
 
+    def clear_drag_state(self) -> None:
+        self.drag_indices = []
+        self.drag_drop_index = None
+        self.drag_active = False
+        self.view.clear_drop_target()
+        self.view.set_drag_status("")
+
+    def item_index_at(self, y: int) -> Optional[int]:
+        iid = self.view.page_list.identify_row(y)
+        if not iid:
+            return None
+        try:
+            return int(iid)
+        except ValueError:
+            return None
+
+    def on_selection_changed(self) -> None:
+        if not self.drag_active:
+            indices = self.selected_indices()
+            if indices:
+                self.anchor_index = indices[0]
+        self.update_preview()
+
+    def on_ctrl_range_select(self, event: tk.Event) -> str:
+        idx = self.item_index_at(event.y)
+        if idx is None:
+            return "break"
+
+        if self.anchor_index is None:
+            self.anchor_index = idx
+            self.set_selected_indices([idx])
+            self.update_preview()
+            return "break"
+
+        start = min(self.anchor_index, idx)
+        end = max(self.anchor_index, idx)
+        self.set_selected_indices(list(range(start, end + 1)))
+        self.update_preview()
+        return "break"
+
+    def on_drag_start(self, event: tk.Event) -> str | None:
+        idx = self.item_index_at(event.y)
+        if idx is None:
+            self.clear_drag_state()
+            return None
+
+        selected = self.selected_indices()
+        if idx not in selected:
+            self.set_selected_indices([idx])
+            selected = [idx]
+            self.anchor_index = idx
+
+        if selected:
+            self.drag_indices = selected
+            self.drag_active = True
+            self.view.set_drag_status(f"✋ Holding {len(selected)} item(s)")
+        return None
+
+    def on_drag_motion(self, event: tk.Event) -> str | None:
+        if not self.drag_active or not self.drag_indices:
+            return None
+
+        idx = self.item_index_at(event.y)
+        if idx is None:
+            self.drag_drop_index = len(self.model.sequence)
+            self.view.set_drop_target(len(self.model.sequence) - 1)
+            self.view.set_drag_status(f"✋ Holding {len(self.drag_indices)} item(s) • drop at end")
+            return None
+
+        bbox = self.view.page_list.bbox(str(idx))
+        drop_index = idx
+        if bbox:
+            _, top, _, height = bbox
+            if event.y > top + (height / 2):
+                drop_index = idx + 1
+
+        self.drag_drop_index = drop_index
+        target_marker = min(drop_index, max(len(self.model.sequence) - 1, 0))
+        self.view.set_drop_target(target_marker)
+        self.view.set_drag_status(f"✋ Holding {len(self.drag_indices)} item(s) • drop before row {drop_index + 1}")
+        return None
+
+    def on_drag_drop(self, _event: tk.Event) -> str | None:
+        if not self.drag_active or not self.drag_indices or self.drag_drop_index is None:
+            self.clear_drag_state()
+            return None
+
+        new_indices = self.model.move_to(self.drag_indices, self.drag_drop_index)
+        self.refresh_list(select_indices=new_indices)
+        self.clear_drag_state()
+        return "break"
+
     def refresh_list(self, select_index: Optional[int] = None, select_indices: Optional[Sequence[int]] = None) -> None:
+        self.view.clear_drop_target()
         for item in self.view.page_list.get_children():
             self.view.page_list.delete(item)
         for idx, page in enumerate(self.model.sequence):

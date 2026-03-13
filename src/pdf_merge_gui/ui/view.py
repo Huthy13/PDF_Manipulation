@@ -28,6 +28,10 @@ class PdfMergeView(ttk.Frame):
         self.next_handler: Optional[Callable[[], None]] = None
         self.selection_handler: Optional[Callable[[], None]] = None
         self.preview_mode_handler: Optional[Callable[[], None]] = None
+        self.drag_start_handler: Optional[Callable[[tk.Event], str | None]] = None
+        self.drag_motion_handler: Optional[Callable[[tk.Event], str | None]] = None
+        self.drag_drop_handler: Optional[Callable[[tk.Event], str | None]] = None
+        self.range_select_handler: Optional[Callable[[tk.Event], str | None]] = None
 
         self._build_layout()
 
@@ -109,10 +113,14 @@ class PdfMergeView(ttk.Frame):
         self.page_list.column("filename", anchor="w", width=320, stretch=True)
         self.page_list.column("page", anchor="center", width=130, stretch=False)
         self.page_list.grid(row=0, column=0, sticky="nsew")
+        self.page_list.tag_configure("drop_target", background="#d9ecff")
 
         yscroll = ttk.Scrollbar(list_frame, orient=tk.VERTICAL, command=self.page_list.yview)
         yscroll.grid(row=0, column=1, sticky="ns")
         self.page_list.configure(yscrollcommand=yscroll.set)
+
+        self.drag_status = ttk.Label(left, text="", foreground="#1f6fb2")
+        self.drag_status.grid(row=2, column=0, sticky="w", pady=(6, 0))
 
         mode_frame = ttk.LabelFrame(right, text="Preview Mode")
         mode_frame.grid(row=0, column=0, sticky="ew")
@@ -162,6 +170,23 @@ class PdfMergeView(ttk.Frame):
         )
         self.preview_label.grid(row=0, column=0, sticky="nsew")
 
+    def set_drag_status(self, text: str) -> None:
+        self.drag_status.configure(text=text)
+
+    def clear_drop_target(self) -> None:
+        for iid in self.page_list.get_children():
+            self.page_list.item(iid, tags=())
+
+    def set_drop_target(self, index: Optional[int]) -> None:
+        self.clear_drop_target()
+        if index is None:
+            return
+        children = self.page_list.get_children()
+        if not children:
+            return
+        marker = min(max(index, 0), len(children) - 1)
+        self.page_list.item(children[marker], tags=("drop_target",))
+
     def bind_handlers(self) -> None:
         self.btn_open.configure(command=self.open_handler)
         self.btn_up.configure(command=self.move_up_handler)
@@ -174,3 +199,7 @@ class PdfMergeView(ttk.Frame):
         self.rb_single.configure(command=self.preview_mode_handler)
         self.rb_final.configure(command=self.preview_mode_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())
+        self.page_list.bind("<ButtonPress-1>", lambda e: self.drag_start_handler(e) if self.drag_start_handler else None, add="+")
+        self.page_list.bind("<B1-Motion>", lambda e: self.drag_motion_handler(e) if self.drag_motion_handler else None, add="+")
+        self.page_list.bind("<ButtonRelease-1>", lambda e: self.drag_drop_handler(e) if self.drag_drop_handler else None, add="+")
+        self.page_list.bind("<Control-Button-1>", lambda e: self.range_select_handler(e) if self.range_select_handler else None, add="+")

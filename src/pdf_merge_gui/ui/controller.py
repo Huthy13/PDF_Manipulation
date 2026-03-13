@@ -3,7 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 from PIL import ImageTk
 
@@ -274,8 +274,13 @@ class PdfMergeController:
         self.set_selected_indices([min(len(self.model.sequence) - 1, idx + 1)])
         self.update_preview()
 
-    def _show_preview_widgets(self, widgets: list[tk.Widget], reset_scroll: bool = True) -> None:
+    def _show_preview_widgets(
+        self,
+        widget_builder: Callable[[], list[tk.Widget]],
+        reset_scroll: bool = True,
+    ) -> None:
         self.view.clear_preview_widgets()
+        widgets = widget_builder()
         for row, widget in enumerate(widgets):
             self.view.add_preview_widget(widget, row)
         self.view.refresh_preview_layout()
@@ -283,27 +288,37 @@ class PdfMergeController:
             self.view.reset_preview_scroll()
 
     def show_preview_text(self, text: str) -> None:
-        placeholder = ttk.Label(
-            self.view.preview_content,
-            text=text,
-            anchor="center",
-            justify="center",
-            padding=24,
-        )
-        self._show_preview_widgets([placeholder])
+        def build() -> list[tk.Widget]:
+            return [
+                ttk.Label(
+                    self.view.preview_content,
+                    text=text,
+                    anchor="center",
+                    justify="center",
+                    padding=24,
+                )
+            ]
+
+        self._show_preview_widgets(build)
 
     def show_preview_image(self, image: ImageTk.PhotoImage, reset_scroll: bool = True) -> None:
-        preview = ttk.Label(self.view.preview_content, image=image)
-        preview.image = image
-        self._show_preview_widgets([preview], reset_scroll=reset_scroll)
-
-    def show_preview_images(self, images: list[ImageTk.PhotoImage]) -> None:
-        widgets: list[tk.Widget] = []
-        for image in images:
+        def build() -> list[tk.Widget]:
             preview = ttk.Label(self.view.preview_content, image=image)
             preview.image = image
-            widgets.append(preview)
-        self._show_preview_widgets(widgets)
+            return [preview]
+
+        self._show_preview_widgets(build, reset_scroll=reset_scroll)
+
+    def show_preview_images(self, images: list[ImageTk.PhotoImage]) -> None:
+        def build() -> list[tk.Widget]:
+            widgets: list[tk.Widget] = []
+            for image in images:
+                preview = ttk.Label(self.view.preview_content, image=image)
+                preview.image = image
+                widgets.append(preview)
+            return widgets
+
+        self._show_preview_widgets(build)
 
     def _clamp_zoom(self, zoom: float) -> float:
         return max(self.MIN_ZOOM, min(self.MAX_ZOOM, round(zoom, 2)))

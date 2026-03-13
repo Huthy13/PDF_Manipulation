@@ -44,5 +44,11 @@ class MergeModel:
     def move_to(self, source_index: int, target_index: int) -> int:
         return self.sequence_service.move_to(source_index, target_index)
 
+    def reverse_all(self) -> list[int]:
+        return self.sequence_service.reverse_all()
+
+    def reverse_selected(self, indices: Sequence[int]) -> list[int]:
+        return self.sequence_service.reverse_selected(indices)
+
     def write_merged(self, output_path: str) -> None:
         self.document_session.write_merged(self.sequence, output_path)

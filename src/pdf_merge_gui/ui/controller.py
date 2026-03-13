@@ -34,6 +34,8 @@ class PdfMergeController:
         self.view.move_down_handler = self.on_move_down
         self.view.remove_handler = self.on_remove_selected
         self.view.clear_handler = self.on_clear_all
+        self.view.reverse_selected_handler = self.on_reverse_selected
+        self.view.reverse_all_handler = self.on_reverse_all
         self.view.merge_handler = self.on_merge_export
         self.view.prev_handler = self.on_prev_preview
         self.view.next_handler = self.on_next_preview
@@ -204,6 +206,31 @@ class PdfMergeController:
         self.model.clear()
         self.final_preview_index = 0
         self.preview_service.clear()
+        self.refresh_list()
+
+    def on_reverse_selected(self) -> None:
+        indices = self.selected_indices()
+        if not indices:
+            return
+
+        self.refresh_list(select_indices=self.model.reverse_selected(indices))
+
+    def on_reverse_all(self) -> None:
+        if not self.model.sequence:
+            return
+
+        selected = self.selected_indices()
+        if selected:
+            max_idx = len(self.model.sequence) - 1
+            remapped_selection = [max_idx - idx for idx in selected]
+        else:
+            remapped_selection = []
+
+        self.model.reverse_all()
+        self.final_preview_index = max(0, len(self.model.sequence) - 1 - self.final_preview_index)
+        if remapped_selection:
+            self.refresh_list(select_indices=remapped_selection)
+            return
         self.refresh_list()
 
     def on_merge_export(self) -> None:

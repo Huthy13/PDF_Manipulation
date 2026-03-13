@@ -73,3 +73,23 @@ def test_move_to_many_ignores_invalid_indices():
 
     assert [p.display_name for p in svc.sequence] == ["B", "A", "C"]
     assert new_indices == [0]
+
+
+def test_reverse_selected_flips_only_selected_positions():
+    svc = SequenceService()
+    svc.extend([make_page("A"), make_page("B"), make_page("C"), make_page("D"), make_page("E")])
+
+    selected = svc.reverse_selected([1, 3, 4])
+
+    assert [p.display_name for p in svc.sequence] == ["A", "E", "C", "D", "B"]
+    assert selected == [1, 3, 4]
+
+
+def test_reverse_all_flips_entire_sequence():
+    svc = SequenceService()
+    svc.extend([make_page("A"), make_page("B"), make_page("C")])
+
+    selected = svc.reverse_all()
+
+    assert [p.display_name for p in svc.sequence] == ["C", "B", "A"]
+    assert selected == [0, 1, 2]

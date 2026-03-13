@@ -82,40 +82,68 @@ class PdfMergeView(ttk.Frame):
 
         controls = ttk.Frame(left)
         controls.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        controls.columnconfigure(0, weight=1)
+        controls.columnconfigure(1, weight=1)
+
+        file_actions = ttk.LabelFrame(controls, text="File Actions")
+        file_actions.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        for col in range(2):
+            file_actions.columnconfigure(col, weight=1, uniform="file_actions")
+
+        self.btn_open = ttk.Button(file_actions, text="📂 Add PDF", width=16, padding=(14, 10))
+        self.btn_open.grid(row=0, column=0, sticky="ew", padx=6, pady=6)
+        self._tooltips.append(ToolTip(self.btn_open, "Import PDF files into the page list"))
+
+        self.btn_merge = ttk.Button(
+            file_actions,
+            text="💾 Export PDF",
+            style="Primary.TButton",
+            width=16,
+            padding=(14, 10),
+        )
+        self.btn_merge.grid(row=0, column=1, sticky="ew", padx=6, pady=6)
+        self._tooltips.append(ToolTip(self.btn_merge, "Save the arranged pages as one PDF"))
+
+        sequence_actions = ttk.LabelFrame(controls, text="Sequence Actions")
+        sequence_actions.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
         for col in range(3):
-            controls.columnconfigure(col, weight=1, uniform="list_controls")
+            sequence_actions.columnconfigure(col, weight=1, uniform="sequence_actions")
 
-        self.btn_open = ttk.Button(controls, text="➕", width=8)
-        self.btn_open.grid(row=0, column=0, sticky="ew", padx=4, pady=4)
-        self._tooltips.append(ToolTip(self.btn_open, "Add PDF pages from one or more documents"))
+        self.btn_up = ttk.Button(sequence_actions, text="⬆ Move Up", width=16, padding=(14, 10))
+        self.btn_up.grid(row=0, column=0, sticky="ew", padx=6, pady=6)
+        self._tooltips.append(ToolTip(self.btn_up, "Shift selected pages earlier"))
 
-        self.btn_up = ttk.Button(controls, text="⬆", width=8)
-        self.btn_up.grid(row=0, column=1, sticky="ew", padx=4, pady=4)
-        self._tooltips.append(ToolTip(self.btn_up, "Move selected page(s) up"))
+        self.btn_down = ttk.Button(sequence_actions, text="⬇ Move Down", width=16, padding=(14, 10))
+        self.btn_down.grid(row=0, column=1, sticky="ew", padx=6, pady=6)
+        self._tooltips.append(ToolTip(self.btn_down, "Shift selected pages later"))
 
-        self.btn_down = ttk.Button(controls, text="⬇", width=8)
-        self.btn_down.grid(row=0, column=2, sticky="ew", padx=4, pady=4)
-        self._tooltips.append(ToolTip(self.btn_down, "Move selected page(s) down"))
+        self.btn_reverse_selected = ttk.Button(sequence_actions, text="🔄 Reverse", width=16, padding=(14, 10))
+        self.btn_reverse_selected.grid(row=0, column=2, sticky="ew", padx=6, pady=6)
+        self._tooltips.append(ToolTip(self.btn_reverse_selected, "Flip the order of the current selection"))
 
-        self.btn_remove = ttk.Button(controls, text="✖", width=8)
-        self.btn_remove.grid(row=1, column=0, sticky="ew", padx=4, pady=4)
-        self._tooltips.append(ToolTip(self.btn_remove, "Remove selected page(s)"))
+        self.btn_remove = ttk.Button(
+            sequence_actions,
+            text="🗑 Remove",
+            style="Danger.TButton",
+            width=16,
+            padding=(14, 10),
+        )
+        self.btn_remove.grid(row=1, column=0, sticky="ew", padx=6, pady=6)
+        self._tooltips.append(ToolTip(self.btn_remove, "Delete selected pages from the list"))
 
-        self.btn_reverse_selected = ttk.Button(controls, text="⟲ Sel", width=8)
-        self.btn_reverse_selected.grid(row=1, column=1, sticky="ew", padx=4, pady=4)
-        self._tooltips.append(ToolTip(self.btn_reverse_selected, "Reverse selected page order"))
+        self.btn_clear = ttk.Button(
+            sequence_actions,
+            text="🧹 Clear",
+            style="Danger.TButton",
+            width=16,
+            padding=(14, 10),
+        )
+        self.btn_clear.grid(row=1, column=1, sticky="ew", padx=6, pady=6)
+        self._tooltips.append(ToolTip(self.btn_clear, "Remove every page from the list"))
 
-        self.btn_reverse_all = ttk.Button(controls, text="⟲ All", width=8)
-        self.btn_reverse_all.grid(row=1, column=2, sticky="ew", padx=4, pady=4)
-        self._tooltips.append(ToolTip(self.btn_reverse_all, "Reverse entire page order"))
-
-        self.btn_clear = ttk.Button(controls, text="➖", width=8)
-        self.btn_clear.grid(row=2, column=0, sticky="ew", padx=4, pady=4)
-        self._tooltips.append(ToolTip(self.btn_clear, "Clear all pages from the list"))
-
-        self.btn_merge = ttk.Button(controls, text="💾", width=8)
-        self.btn_merge.grid(row=2, column=1, columnspan=2, sticky="ew", padx=4, pady=4)
-        self._tooltips.append(ToolTip(self.btn_merge, "Merge/export the listed pages to a new PDF"))
+        self.btn_reverse_all = ttk.Button(sequence_actions, text="🔃 Reverse All", width=16, padding=(14, 10))
+        self.btn_reverse_all.grid(row=1, column=2, sticky="ew", padx=6, pady=6)
+        self._tooltips.append(ToolTip(self.btn_reverse_all, "Invert the full page sequence"))
 
         list_frame = ttk.Frame(left)
         list_frame.grid(row=1, column=0, sticky="nsew")

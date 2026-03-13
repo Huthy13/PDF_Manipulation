@@ -41,7 +41,7 @@ class PdfMergeView(ttk.Frame):
         self._list_drag_start_y: Optional[int] = None
         self._list_drag_preview_index: Optional[int] = None
         self._drag_ghost: Optional[tk.Label] = None
-        self._list_drag_target_iid: Optional[str] = None
+        self._drag_insert_hint: Optional[tk.Label] = None
 
         self._build_layout()
 
@@ -346,7 +346,7 @@ class PdfMergeView(ttk.Frame):
             self._list_drag_pending_iids = []
             self._show_drag_ghost(event.x, event.y)
             for iid in self._list_drag_source_iids:
-                self.page_list.item(iid, tags=("drag_source",))
+                self.page_list.item(iid, tags=())
 
         self._move_drag_ghost(event.x, event.y)
         source_iids = set(self._list_drag_source_iids)
@@ -387,12 +387,7 @@ class PdfMergeView(ttk.Frame):
                             break
 
         self._list_drag_preview_index = target_index
-        target_visual_iid = siblings[-1] if target_index >= len(siblings) else siblings[target_index]
-        if target_visual_iid != self._list_drag_target_iid:
-            if self._list_drag_target_iid is not None:
-                self.page_list.item(self._list_drag_target_iid, tags=())
-            self._list_drag_target_iid = target_visual_iid
-            self.page_list.item(target_visual_iid, tags=("drag_target",))
+        self._show_insert_hint(target_index, siblings)
 
     def on_list_drag_release(self, _event: tk.Event) -> None:
         self._list_drag_pending_iids = []
@@ -438,13 +433,50 @@ class PdfMergeView(ttk.Frame):
         if self._drag_ghost is not None:
             self._drag_ghost.place(x=x + 14, y=y + 14)
 
+    def _show_insert_hint(self, target_index: int, siblings: list[str]) -> None:
+        if not siblings:
+            return
+
+        if target_index <= 0:
+            ref_iid = siblings[0]
+            bbox = self.page_list.bbox(ref_iid)
+            if not bbox:
+                return
+            hint_y = bbox[1]
+        elif target_index >= len(siblings):
+            ref_iid = siblings[-1]
+            bbox = self.page_list.bbox(ref_iid)
+            if not bbox:
+                return
+            hint_y = bbox[1] + bbox[3]
+        else:
+            ref_iid = siblings[target_index]
+            bbox = self.page_list.bbox(ref_iid)
+            if not bbox:
+                return
+            hint_y = bbox[1]
+
+        if self._drag_insert_hint is None:
+            self._drag_insert_hint = tk.Label(
+                self.page_list,
+                text="Insert here",
+                bg="#CFE8FF",
+                fg="#0B3D91",
+                padx=8,
+                pady=1,
+            )
+
+        width = max(self.page_list.winfo_width() - 8, 90)
+        y_pos = max(hint_y - 10, 0)
+        self._drag_insert_hint.place(x=4, y=y_pos, width=width)
+
     def _clear_drag_visuals(self) -> None:
         if self._drag_ghost is not None:
             self._drag_ghost.destroy()
             self._drag_ghost = None
-        if self._list_drag_target_iid is not None:
-            self.page_list.item(self._list_drag_target_iid, tags=())
-            self._list_drag_target_iid = None
+        if self._drag_insert_hint is not None:
+            self._drag_insert_hint.destroy()
+            self._drag_insert_hint = None
         for iid in self._list_drag_source_iids:
             if iid in self.page_list.get_children():
                 self.page_list.item(iid, tags=())
@@ -466,7 +498,6 @@ class PdfMergeView(ttk.Frame):
         self.cb_fit_preview.configure(command=self.fit_preview_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())
         self.page_list.tag_configure("drag_source", background="#D6E4FF")
-        self.page_list.tag_configure("drag_target", background="#FFE6A8")
         self.page_list.bind("<ButtonPress-1>", self.on_list_drag_start, add="+")
         self.page_list.bind("<B1-Motion>", self.on_list_drag_motion, add="+")
         self.page_list.bind("<ButtonRelease-1>", self.on_list_drag_release, add="+")

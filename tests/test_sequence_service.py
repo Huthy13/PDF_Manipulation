@@ -53,3 +53,23 @@ def test_move_to_end_places_item_last():
 
     assert [p.display_name for p in svc.sequence] == ["B", "C", "A"]
     assert new_index == 2
+
+
+def test_move_to_many_moves_contiguous_selection_as_block():
+    svc = SequenceService()
+    svc.extend([make_page("A"), make_page("B"), make_page("C"), make_page("D"), make_page("E")])
+
+    new_indices = svc.move_to_many([1, 2], 3)
+
+    assert [p.display_name for p in svc.sequence] == ["A", "D", "E", "B", "C"]
+    assert new_indices == [3, 4]
+
+
+def test_move_to_many_ignores_invalid_indices():
+    svc = SequenceService()
+    svc.extend([make_page("A"), make_page("B"), make_page("C")])
+
+    new_indices = svc.move_to_many([-1, 1, 99], 0)
+
+    assert [p.display_name for p in svc.sequence] == ["B", "A", "C"]
+    assert new_indices == [0]

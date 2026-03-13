@@ -38,6 +38,9 @@ class MergeModel:
     def move_down_many(self, indices: Sequence[int]) -> list[int]:
         return self.sequence_service.move_down_many(indices)
 
+    def move_to_many(self, source_indices: Sequence[int], target_index: int) -> list[int]:
+        return self.sequence_service.move_to_many(source_indices, target_index)
+
     def move_to(self, source_index: int, target_index: int) -> int:
         return self.sequence_service.move_to(source_index, target_index)
 

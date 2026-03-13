@@ -45,6 +45,7 @@ class PdfMergeController:
         self.view.fit_preview_handler = self.on_toggle_fit_preview
         self.view.ctrl_wheel_zoom_handler = self.on_ctrl_wheel_zoom
         self.view.list_drag_drop_handler = self.on_list_drag_drop
+        self.view.list_ctrl_range_handler = self.on_list_ctrl_range
         self.view.bind_handlers()
         self._update_zoom_label()
 
@@ -82,6 +83,7 @@ class PdfMergeController:
         iids = [str(idx) for idx in valid]
         self.view.page_list.selection_set(iids)
         self.view.page_list.focus(iids[0])
+        self.view.set_list_selection_anchor(valid[0])
 
     def refresh_list(self, select_index: Optional[int] = None, select_indices: Optional[Sequence[int]] = None) -> None:
         for item in self.view.page_list.get_children():
@@ -137,20 +139,30 @@ class PdfMergeController:
             return
         self.refresh_list(select_indices=self.model.move_down_many(indices))
 
-    def on_list_drag_drop(self, source_index: int, preview_index: int) -> None:
+    def on_list_drag_drop(self, source_indices: list[int], preview_index: int) -> None:
+        if not self.model.sequence:
+            return
+
+        selected = sorted({idx for idx in source_indices if 0 <= idx < len(self.model.sequence)})
+        if not selected:
+            return
+
+        compact_len = len(self.model.sequence) - len(selected)
+        preview_index = max(0, min(preview_index, compact_len))
+        moved_indices = self.model.move_to_many(selected, preview_index)
+        if moved_indices:
+            self.refresh_list(select_indices=moved_indices)
+
+    def on_list_ctrl_range(self, anchor_index: int, clicked_index: int) -> None:
         if not self.model.sequence:
             return
 
         max_idx = len(self.model.sequence) - 1
-        source_index = max(0, min(source_index, max_idx))
-        preview_index = max(0, min(preview_index, max_idx))
-        if source_index == preview_index:
-            self.refresh_list(select_index=source_index)
-            return
-
-        target_index = preview_index if preview_index < source_index else preview_index + 1
-        moved_index = self.model.move_to(source_index, target_index)
-        self.refresh_list(select_index=moved_index)
+        anchor_index = max(0, min(anchor_index, max_idx))
+        clicked_index = max(0, min(clicked_index, max_idx))
+        start = min(anchor_index, clicked_index)
+        end = max(anchor_index, clicked_index)
+        self.set_selected_indices(range(start, end + 1))
 
     def on_move_up_shortcut(self, _event: tk.Event) -> str:
         self.on_move_up()

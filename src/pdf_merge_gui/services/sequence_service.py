@@ -82,6 +82,19 @@ class SequenceService:
 
         return [idx + 1 if idx in moved else idx for idx in selected]
 
+    def move_to_many(self, source_indices: Sequence[int], target_index: int) -> list[int]:
+        selected = sorted({idx for idx in source_indices if 0 <= idx < len(self.sequence)})
+        if not selected:
+            return []
+
+        selected_set = set(selected)
+        moving_pages = [self.sequence[idx] for idx in selected]
+        remaining_pages = [page for idx, page in enumerate(self.sequence) if idx not in selected_set]
+
+        insertion_index = max(0, min(target_index, len(remaining_pages)))
+        self.sequence[:] = remaining_pages[:insertion_index] + moving_pages + remaining_pages[insertion_index:]
+        return list(range(insertion_index, insertion_index + len(moving_pages)))
+
     def move_to(self, source_index: int, target_index: int) -> int:
         if source_index < 0 or source_index >= len(self.sequence):
             return source_index

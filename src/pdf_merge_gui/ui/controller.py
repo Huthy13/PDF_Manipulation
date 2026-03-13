@@ -27,6 +27,7 @@ class PdfMergeController:
 
         self.preview_zoom = self.DEFAULT_ZOOM
         self._pending_resize_after: Optional[str] = None
+        self._last_preview_render_key: Optional[tuple[object, ...]] = None
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -407,8 +408,26 @@ class PdfMergeController:
             self.show_preview_text("Unexpected error while rendering preview.")
             return None
 
+
+    def _sequence_signature(self) -> tuple[tuple[str, int], ...]:
+        return tuple((page.source_path, page.page_index) for page in self.model.sequence)
+
+    def _current_preview_key(self, mode: str, selected_index: Optional[int] = None) -> tuple[object, ...]:
+        key: list[object] = [
+            mode,
+            self._sequence_signature(),
+            round(self.preview_zoom, 2),
+            bool(self.view.fit_preview.get()),
+        ]
+        if self.view.fit_preview.get():
+            key.append(self._panel_size())
+        if mode == self.view.PREVIEW_SINGLE:
+            key.append(selected_index)
+        return tuple(key)
+
     def update_preview(self) -> None:
         if not self.model.sequence:
+            self._last_preview_render_key = None
             self.view.preview_caption.configure(text="No pages loaded")
             self._update_zoom_label()
             self.show_preview_text("Open one or more PDFs to begin.")
@@ -421,12 +440,21 @@ class PdfMergeController:
                 self.set_selected_indices([idx])
             page = self.model.sequence[idx]
             self.view.preview_caption.configure(text=f"Single Page ({idx + 1}/{len(self.model.sequence)})")
+            preview_key = self._current_preview_key(self.view.PREVIEW_SINGLE, selected_index=idx)
+            if preview_key == self._last_preview_render_key:
+                return
+
             rendered = self.render_preview_image(page.source_path, page.page_index)
             if rendered is not None:
                 self.show_preview_image(rendered)
+                self._last_preview_render_key = preview_key
             return
 
         self.view.preview_caption.configure(text=f"Final Output ({len(self.model.sequence)} pages)")
+        preview_key = self._current_preview_key(self.view.PREVIEW_FINAL)
+        if preview_key == self._last_preview_render_key:
+            return
+
         rendered_pages: list[ImageTk.PhotoImage] = []
         for page in self.model.sequence:
             rendered = self.render_preview_image(page.source_path, page.page_index)
@@ -434,3 +462,4 @@ class PdfMergeController:
                 return
             rendered_pages.append(rendered)
         self.show_preview_images(rendered_pages)
+        self._last_preview_render_key = preview_key

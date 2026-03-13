@@ -446,7 +446,20 @@ class PdfMergeView(ttk.Frame):
         if self.INSERT_HINT_IID in self.page_list.get_children():
             self.page_list.delete(self.INSERT_HINT_IID)
 
-        insertion_index = max(0, min(target_index, len(siblings)))
+        # `target_index` is computed against the compact list (`siblings`) that
+        # excludes dragged rows. Convert that index back to the visible Treeview
+        # index (which still includes dragged rows) so the hint sits exactly
+        # where the drop will occur.
+        full_children = [iid for iid in self.page_list.get_children() if iid != self.INSERT_HINT_IID]
+        bounded_index = max(0, min(target_index, len(siblings)))
+
+        if not siblings:
+            insertion_index = len(full_children)
+        elif bounded_index >= len(siblings):
+            insertion_index = full_children.index(siblings[-1]) + 1
+        else:
+            insertion_index = full_children.index(siblings[bounded_index])
+
         self.page_list.insert(
             "",
             insertion_index,

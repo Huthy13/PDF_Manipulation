@@ -33,3 +33,23 @@ def test_remove_ignores_invalid_indices():
     svc.remove([-1, 1, 99])
 
     assert [p.display_name for p in svc.sequence] == ["A", "C"]
+
+
+def test_move_to_reorders_item_to_new_position():
+    svc = SequenceService()
+    svc.extend([make_page("A"), make_page("B"), make_page("C"), make_page("D")])
+
+    new_index = svc.move_to(1, 3)
+
+    assert [p.display_name for p in svc.sequence] == ["A", "C", "B", "D"]
+    assert new_index == 2
+
+
+def test_move_to_end_places_item_last():
+    svc = SequenceService()
+    svc.extend([make_page("A"), make_page("B"), make_page("C")])
+
+    new_index = svc.move_to(0, 3)
+
+    assert [p.display_name for p in svc.sequence] == ["B", "C", "A"]
+    assert new_index == 2

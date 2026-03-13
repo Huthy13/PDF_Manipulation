@@ -81,3 +81,14 @@ class SequenceService:
                 moved.update(range(block_start, block_end + 1))
 
         return [idx + 1 if idx in moved else idx for idx in selected]
+
+    def move_to(self, source_index: int, target_index: int) -> int:
+        if source_index < 0 or source_index >= len(self.sequence):
+            return source_index
+
+        target_index = max(0, min(target_index, len(self.sequence)))
+        page = self.sequence.pop(source_index)
+        if source_index < target_index:
+            target_index -= 1
+        self.sequence.insert(target_index, page)
+        return target_index

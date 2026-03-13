@@ -33,6 +33,8 @@ class PdfMergeView(ttk.Frame):
         self.zoom_reset_handler: Optional[Callable[[], None]] = None
         self.fit_preview_handler: Optional[Callable[[], None]] = None
         self.ctrl_wheel_zoom_handler: Optional[Callable[[int], None]] = None
+        self.list_drag_drop_handler: Optional[Callable[[int, int], None]] = None
+        self._list_drag_source_iid: Optional[str] = None
 
         self._build_layout()
 
@@ -286,6 +288,36 @@ class PdfMergeView(ttk.Frame):
         self.preview_canvas.xview_moveto(0.0)
         self.preview_canvas.yview_moveto(0.0)
 
+    def on_list_drag_start(self, event: tk.Event) -> None:
+        self._list_drag_source_iid = self.page_list.identify_row(event.y) or None
+
+    def on_list_drag_release(self, event: tk.Event) -> None:
+        if self._list_drag_source_iid is None:
+            return
+
+        source_iid = self._list_drag_source_iid
+        self._list_drag_source_iid = None
+        target_iid = self.page_list.identify_row(event.y)
+
+        if not source_iid:
+            return
+
+        try:
+            source_idx = int(source_iid)
+        except ValueError:
+            return
+
+        if target_iid:
+            try:
+                target_idx = int(target_iid)
+            except ValueError:
+                return
+        else:
+            target_idx = len(self.page_list.get_children())
+
+        if self.list_drag_drop_handler is not None:
+            self.list_drag_drop_handler(source_idx, target_idx)
+
     def bind_handlers(self) -> None:
         self.btn_open.configure(command=self.open_handler)
         self.btn_up.configure(command=self.move_up_handler)
@@ -302,3 +334,5 @@ class PdfMergeView(ttk.Frame):
         self.btn_zoom_reset.configure(command=self.zoom_reset_handler)
         self.cb_fit_preview.configure(command=self.fit_preview_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())
+        self.page_list.bind("<ButtonPress-1>", self.on_list_drag_start, add="+")
+        self.page_list.bind("<ButtonRelease-1>", self.on_list_drag_release, add="+")

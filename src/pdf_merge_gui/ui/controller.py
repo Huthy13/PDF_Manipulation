@@ -44,6 +44,7 @@ class PdfMergeController:
         self.view.zoom_reset_handler = self.on_zoom_reset
         self.view.fit_preview_handler = self.on_toggle_fit_preview
         self.view.ctrl_wheel_zoom_handler = self.on_ctrl_wheel_zoom
+        self.view.list_drag_drop_handler = self.on_list_drag_drop
         self.view.bind_handlers()
         self._update_zoom_label()
 
@@ -135,6 +136,18 @@ class PdfMergeController:
             self.refresh_list(select_index=self.model.move_down(indices[0]))
             return
         self.refresh_list(select_indices=self.model.move_down_many(indices))
+
+    def on_list_drag_drop(self, source_index: int, target_index: int) -> None:
+        if not self.model.sequence:
+            return
+
+        source_index = max(0, min(source_index, len(self.model.sequence) - 1))
+        target_index = max(0, min(target_index, len(self.model.sequence)))
+        if source_index == target_index or source_index == target_index - 1:
+            return
+
+        moved_index = self.model.move_to(source_index, target_index)
+        self.refresh_list(select_index=moved_index)
 
     def on_move_up_shortcut(self, _event: tk.Event) -> str:
         self.on_move_up()

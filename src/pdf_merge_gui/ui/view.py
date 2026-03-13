@@ -337,6 +337,11 @@ class PdfMergeView(ttk.Frame):
         return None
 
     def on_list_drag_motion(self, event: tk.Event) -> None:
+        # Remove transient insert hint before hit-testing; otherwise the temporary
+        # row shifts subsequent rows down and skews insertion math while dragging.
+        if self.INSERT_HINT_IID in self.page_list.get_children():
+            self.page_list.delete(self.INSERT_HINT_IID)
+
         if not self._list_drag_source_iids:
             if not self._list_drag_pending_iids or self._list_drag_start_y is None:
                 return

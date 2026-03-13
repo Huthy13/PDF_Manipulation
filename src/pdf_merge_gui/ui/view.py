@@ -400,6 +400,19 @@ class PdfMergeView(ttk.Frame):
                             target_index = idx + 1
                             break
 
+        full_children = [iid for iid in self.page_list.get_children() if iid != self.INSERT_HINT_IID]
+        source_positions = [full_children.index(iid) for iid in self._list_drag_source_iids if iid in full_children]
+        if not source_positions:
+            self._list_drag_preview_index = None
+            return
+
+        first_source_pos = min(source_positions)
+        current_compact_index = sum(1 for iid in full_children[:first_source_pos] if iid not in source_iids)
+
+        if target_index == current_compact_index:
+            self._list_drag_preview_index = None
+            return
+
         self._list_drag_preview_index = target_index
         self._show_insert_hint(target_index, siblings)
 
@@ -432,9 +445,10 @@ class PdfMergeView(ttk.Frame):
             self._list_drag_preview_index = None
             return
 
-        preview_idx = self._list_drag_preview_index if self._list_drag_preview_index is not None else min(source_indices)
-
+        preview_idx = self._list_drag_preview_index
         self._list_drag_preview_index = None
+        if preview_idx is None:
+            return
 
         if self.list_drag_drop_handler is not None:
             self.list_drag_drop_handler(sorted(set(source_indices)), preview_idx)

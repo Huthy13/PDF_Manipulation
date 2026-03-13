@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -34,9 +33,7 @@ class PdfMergeController:
         self._pending_resize_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
         self._preview_image_refs: list[ImageTk.PhotoImage] = []
-        self._debug_preview_scroll = os.getenv("PDF_MERGE_DEBUG_SCROLL", "").lower() in {"1", "true", "yes", "on"}
-        if self._debug_preview_scroll:
-            logging.basicConfig(level=logging.DEBUG)
+        self._configure_preview_debug_logging()
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -367,9 +364,17 @@ class PdfMergeController:
             return None
         return (x1, y1, x2, y2)
 
+    def _configure_preview_debug_logging(self) -> None:
+        logger.setLevel(logging.DEBUG)
+        if not logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setLevel(logging.DEBUG)
+            formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
+        logger.propagate = False
+
     def _log_preview_debug(self, message: str, **context: object) -> None:
-        if not self._debug_preview_scroll:
-            return
         details = ", ".join(f"{key}={value}" for key, value in context.items())
         logger.debug("[preview-scroll] %s%s", message, f" | {details}" if details else "")
 

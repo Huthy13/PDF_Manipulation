@@ -105,3 +105,20 @@ class SequenceService:
             target_index -= 1
         self.sequence.insert(target_index, page)
         return target_index
+
+    def reverse_all(self) -> list[int]:
+        if not self.sequence:
+            return []
+
+        self.sequence.reverse()
+        return list(range(len(self.sequence)))
+
+    def reverse_selected(self, indices: Sequence[int]) -> list[int]:
+        selected = sorted({idx for idx in indices if 0 <= idx < len(self.sequence)})
+        if len(selected) < 2:
+            return selected
+
+        selected_pages = [self.sequence[idx] for idx in selected][::-1]
+        for idx, page in zip(selected, selected_pages):
+            self.sequence[idx] = page
+        return selected

@@ -24,6 +24,8 @@ class PdfMergeView(ttk.Frame):
         self.move_down_handler: Optional[Callable[[], None]] = None
         self.remove_handler: Optional[Callable[[], None]] = None
         self.clear_handler: Optional[Callable[[], None]] = None
+        self.reverse_selected_handler: Optional[Callable[[], None]] = None
+        self.reverse_all_handler: Optional[Callable[[], None]] = None
         self.merge_handler: Optional[Callable[[], None]] = None
         self.prev_handler: Optional[Callable[[], None]] = None
         self.next_handler: Optional[Callable[[], None]] = None
@@ -99,12 +101,20 @@ class PdfMergeView(ttk.Frame):
         self.btn_remove.grid(row=1, column=0, sticky="ew", padx=4, pady=4)
         self._tooltips.append(ToolTip(self.btn_remove, "Remove selected page(s)"))
 
+        self.btn_reverse_selected = ttk.Button(controls, text="⟲ Sel", width=8)
+        self.btn_reverse_selected.grid(row=1, column=1, sticky="ew", padx=4, pady=4)
+        self._tooltips.append(ToolTip(self.btn_reverse_selected, "Reverse selected page order"))
+
+        self.btn_reverse_all = ttk.Button(controls, text="⟲ All", width=8)
+        self.btn_reverse_all.grid(row=1, column=2, sticky="ew", padx=4, pady=4)
+        self._tooltips.append(ToolTip(self.btn_reverse_all, "Reverse entire page order"))
+
         self.btn_clear = ttk.Button(controls, text="➖", width=8)
-        self.btn_clear.grid(row=1, column=1, sticky="ew", padx=4, pady=4)
+        self.btn_clear.grid(row=2, column=0, sticky="ew", padx=4, pady=4)
         self._tooltips.append(ToolTip(self.btn_clear, "Clear all pages from the list"))
 
         self.btn_merge = ttk.Button(controls, text="💾", width=8)
-        self.btn_merge.grid(row=1, column=2, sticky="ew", padx=4, pady=4)
+        self.btn_merge.grid(row=2, column=1, columnspan=2, sticky="ew", padx=4, pady=4)
         self._tooltips.append(ToolTip(self.btn_merge, "Merge/export the listed pages to a new PDF"))
 
         list_frame = ttk.Frame(left)
@@ -511,6 +521,8 @@ class PdfMergeView(ttk.Frame):
         self.btn_down.configure(command=self.move_down_handler)
         self.btn_remove.configure(command=self.remove_handler)
         self.btn_clear.configure(command=self.clear_handler)
+        self.btn_reverse_selected.configure(command=self.reverse_selected_handler)
+        self.btn_reverse_all.configure(command=self.reverse_all_handler)
         self.btn_merge.configure(command=self.merge_handler)
         self.btn_prev.configure(command=self.prev_handler)
         self.btn_next.configure(command=self.next_handler)

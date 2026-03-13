@@ -320,7 +320,7 @@ class PdfMergeController:
     def show_preview_image(self, image: ImageTk.PhotoImage, reset_scroll: bool = True) -> None:
         self._preview_image_refs = [image]
         def build() -> list[tk.Widget]:
-            preview = ttk.Label(self.view.preview_content, image=image)
+            preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
             preview.image = image
             return [preview]
 
@@ -331,7 +331,7 @@ class PdfMergeController:
         def build() -> list[tk.Widget]:
             widgets: list[tk.Widget] = []
             for image in images:
-                preview = ttk.Label(self.view.preview_content, image=image)
+                preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
                 preview.image = image
                 widgets.append(preview)
             return widgets

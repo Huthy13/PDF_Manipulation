@@ -298,22 +298,52 @@ class PdfMergeView(ttk.Frame):
             return
 
         source_iid = self._list_drag_source_iid
+        try:
+            current_index = self.page_list.get_children().index(source_iid)
+        except ValueError:
+            return
+
         siblings = [iid for iid in self.page_list.get_children() if iid != source_iid]
         if not siblings:
             return
 
         target_iid = self.page_list.identify_row(event.y)
 
+        # While dragging, pointer hits on the moving row can transiently identify
+        # the source item itself; ignore those hits to avoid jumping to list end.
+        if target_iid == source_iid:
+            return
+
         if target_iid and target_iid in siblings:
             # Keep drag placement committed to one side (before the hovered row)
             # to avoid midpoint jitter/dead zones while moving.
             target_index = siblings.index(target_iid)
         else:
-            first_bbox = self.page_list.bbox(siblings[0])
-            if first_bbox and event.y < first_bbox[1]:
+            row_boxes = [(iid, self.page_list.bbox(iid)) for iid in siblings]
+            row_boxes = [(iid, bbox) for iid, bbox in row_boxes if bbox]
+            if not row_boxes:
+                return
+
+            first_bbox = row_boxes[0][1]
+            if event.y < first_bbox[1]:
                 target_index = 0
             else:
                 target_index = len(siblings)
+                for idx, (_iid, bbox) in enumerate(row_boxes):
+                    row_top = bbox[1]
+                    row_height = bbox[3]
+                    row_bottom = row_top + row_height
+                    if row_top <= event.y < row_bottom:
+                        target_index = idx
+                        break
+                    if idx + 1 < len(row_boxes):
+                        next_top = row_boxes[idx + 1][1][1]
+                        if row_bottom <= event.y < next_top:
+                            target_index = idx + 1
+                            break
+
+        if target_index == current_index:
+            return
 
         self._list_drag_preview_index = target_index
         self.page_list.move(source_iid, "", target_index)

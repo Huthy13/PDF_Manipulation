@@ -299,15 +299,21 @@ class PdfMergeView(ttk.Frame):
 
         source_iid = self._list_drag_source_iid
         siblings = [iid for iid in self.page_list.get_children() if iid != source_iid]
+        if not siblings:
+            return
+
         target_iid = self.page_list.identify_row(event.y)
 
         if target_iid and target_iid in siblings:
+            # Keep drag placement committed to one side (before the hovered row)
+            # to avoid midpoint jitter/dead zones while moving.
             target_index = siblings.index(target_iid)
-            bbox = self.page_list.bbox(target_iid)
-            if bbox and event.y > bbox[1] + (bbox[3] // 2):
-                target_index += 1
         else:
-            target_index = len(siblings)
+            first_bbox = self.page_list.bbox(siblings[0])
+            if first_bbox and event.y < first_bbox[1]:
+                target_index = 0
+            else:
+                target_index = len(siblings)
 
         self._list_drag_preview_index = target_index
         self.page_list.move(source_iid, "", target_index)

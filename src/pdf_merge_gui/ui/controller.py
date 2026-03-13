@@ -32,6 +32,10 @@ class PdfMergeController:
     FINAL_PREVIEW_PAGE_GAP = 12
     FINAL_PREVIEW_OVERSCAN_PAGES = 2
     FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT = 1300
+    RESIZE_DEBOUNCE_MS = 120
+    FINAL_RESIZE_DEBOUNCE_MS = 180
+    FINAL_RESIZE_SETTLE_MS = 240
+    RESIZE_NEGLIGIBLE_DELTA_PX = 6
 
     def __init__(self, master: tk.Tk) -> None:
         self.master = master
@@ -41,7 +45,9 @@ class PdfMergeController:
 
         self.preview_zoom = self.DEFAULT_ZOOM
         self._pending_resize_after: Optional[str] = None
+        self._pending_final_resize_settle_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
+        self._last_preview_canvas_size: tuple[int, int] = (0, 0)
         self._preview_image_refs: list[ImageTk.PhotoImage] = []
         self._final_preview_pages: list[FinalPreviewPage] = []
         self._final_preview_offsets: list[int] = [0]
@@ -424,12 +430,56 @@ class PdfMergeController:
     def on_preview_panel_resize(self, _event: tk.Event) -> None:
         if self._pending_resize_after is not None:
             self.master.after_cancel(self._pending_resize_after)
-        self._pending_resize_after = self.master.after(120, self._on_resize_debounced)
+        debounce_ms = (
+            self.FINAL_RESIZE_DEBOUNCE_MS
+            if self.view.preview_mode.get() == self.view.PREVIEW_FINAL
+            else self.RESIZE_DEBOUNCE_MS
+        )
+        self._pending_resize_after = self.master.after(debounce_ms, self._on_resize_debounced)
+
+    def _is_negligible_resize(self, previous: tuple[int, int], current: tuple[int, int]) -> bool:
+        return (
+            abs(previous[0] - current[0]) <= self.RESIZE_NEGLIGIBLE_DELTA_PX
+            and abs(previous[1] - current[1]) <= self.RESIZE_NEGLIGIBLE_DELTA_PX
+        )
+
+    def _update_final_preview_window_state(self) -> None:
+        top, bottom = self._visible_virtual_window()
+        start_idx, end_idx = self._visible_page_range(top, bottom)
+        self._final_preview_visible_indices = set(range(start_idx, end_idx + 1)) if end_idx >= start_idx else set()
+
+    def _schedule_final_resize_settled_render(self) -> None:
+        if self._pending_final_resize_settle_after is not None:
+            self.master.after_cancel(self._pending_final_resize_settle_after)
+        self._pending_final_resize_settle_after = self.master.after(
+            self.FINAL_RESIZE_SETTLE_MS,
+            self._on_final_resize_settled,
+        )
+
+    def _on_final_resize_settled(self) -> None:
+        self._pending_final_resize_settle_after = None
+        if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
+            return
+        if self._final_preview_rendering:
+            self._schedule_final_resize_settled_render()
+            return
+        self._render_virtual_final_preview(preserve_anchor=True)
 
     def _on_resize_debounced(self) -> None:
         self._pending_resize_after = None
         if self.view.preview_mode.get() == self.view.PREVIEW_FINAL:
-            self._render_virtual_final_preview(preserve_anchor=True)
+            current_size = (self.view.preview_canvas.winfo_width(), self.view.preview_canvas.winfo_height())
+            previous_size = self._last_preview_canvas_size
+            self._last_preview_canvas_size = current_size
+
+            if self._is_negligible_resize(previous_size, current_size):
+                return
+            if self._final_preview_rendering:
+                self._schedule_final_resize_settled_render()
+                return
+
+            self._update_final_preview_window_state()
+            self._schedule_final_resize_settled_render()
         elif self.view.fit_preview.get():
             self.update_preview()
 

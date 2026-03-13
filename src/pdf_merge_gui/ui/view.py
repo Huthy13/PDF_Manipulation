@@ -10,6 +10,7 @@ from .tooltip import ToolTip
 class PdfMergeView(ttk.Frame):
     PREVIEW_SINGLE = "single"
     PREVIEW_FINAL = "final"
+    INSERT_HINT_IID = "__insert_hint__"
 
     def __init__(self, master: tk.Tk) -> None:
         super().__init__(master, padding=12)
@@ -41,7 +42,6 @@ class PdfMergeView(ttk.Frame):
         self._list_drag_start_y: Optional[int] = None
         self._list_drag_preview_index: Optional[int] = None
         self._drag_ghost: Optional[tk.Label] = None
-        self._drag_insert_hint: Optional[tk.Label] = None
 
         self._build_layout()
 
@@ -350,7 +350,11 @@ class PdfMergeView(ttk.Frame):
 
         self._move_drag_ghost(event.x, event.y)
         source_iids = set(self._list_drag_source_iids)
-        siblings = [iid for iid in self.page_list.get_children() if iid not in source_iids]
+        siblings = [
+            iid
+            for iid in self.page_list.get_children()
+            if iid not in source_iids and iid != self.INSERT_HINT_IID
+        ]
         if not siblings:
             return
 
@@ -434,49 +438,24 @@ class PdfMergeView(ttk.Frame):
             self._drag_ghost.place(x=x + 14, y=y + 14)
 
     def _show_insert_hint(self, target_index: int, siblings: list[str]) -> None:
-        if not siblings:
-            return
+        if self.INSERT_HINT_IID in self.page_list.get_children():
+            self.page_list.delete(self.INSERT_HINT_IID)
 
-        if target_index <= 0:
-            ref_iid = siblings[0]
-            bbox = self.page_list.bbox(ref_iid)
-            if not bbox:
-                return
-            hint_y = bbox[1]
-        elif target_index >= len(siblings):
-            ref_iid = siblings[-1]
-            bbox = self.page_list.bbox(ref_iid)
-            if not bbox:
-                return
-            hint_y = bbox[1] + bbox[3]
-        else:
-            ref_iid = siblings[target_index]
-            bbox = self.page_list.bbox(ref_iid)
-            if not bbox:
-                return
-            hint_y = bbox[1]
-
-        if self._drag_insert_hint is None:
-            self._drag_insert_hint = tk.Label(
-                self.page_list,
-                text="Insert here",
-                bg="#CFE8FF",
-                fg="#0B3D91",
-                padx=8,
-                pady=1,
-            )
-
-        width = max(self.page_list.winfo_width() - 8, 90)
-        y_pos = max(hint_y - 10, 0)
-        self._drag_insert_hint.place(x=4, y=y_pos, width=width)
+        insertion_index = max(0, min(target_index, len(siblings)))
+        self.page_list.insert(
+            "",
+            insertion_index,
+            iid=self.INSERT_HINT_IID,
+            values=("Insert Here", ""),
+            tags=("insert_hint",),
+        )
 
     def _clear_drag_visuals(self) -> None:
         if self._drag_ghost is not None:
             self._drag_ghost.destroy()
             self._drag_ghost = None
-        if self._drag_insert_hint is not None:
-            self._drag_insert_hint.destroy()
-            self._drag_insert_hint = None
+        if self.INSERT_HINT_IID in self.page_list.get_children():
+            self.page_list.delete(self.INSERT_HINT_IID)
         for iid in self._list_drag_source_iids:
             if iid in self.page_list.get_children():
                 self.page_list.item(iid, tags=())
@@ -498,6 +477,7 @@ class PdfMergeView(ttk.Frame):
         self.cb_fit_preview.configure(command=self.fit_preview_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())
         self.page_list.tag_configure("drag_source", background="#D6E4FF")
+        self.page_list.tag_configure("insert_hint", background="#CFE8FF", foreground="#0B3D91")
         self.page_list.bind("<ButtonPress-1>", self.on_list_drag_start, add="+")
         self.page_list.bind("<B1-Motion>", self.on_list_drag_motion, add="+")
         self.page_list.bind("<ButtonRelease-1>", self.on_list_drag_release, add="+")

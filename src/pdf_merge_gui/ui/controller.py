@@ -325,17 +325,19 @@ class PdfMergeController:
             return None
         return (x1, y1, x2, y2)
 
-    def _is_zoom_geometry_change(self, preview_key: tuple[object, ...]) -> bool:
+    def _can_preserve_final_scroll(self, preview_key: tuple[object, ...]) -> bool:
         if self._last_preview_render_key is None:
             return False
-        if len(self._last_preview_render_key) < 4 or len(preview_key) < 4:
+        if preview_key[0] != self.view.PREVIEW_FINAL:
             return False
-        if self._last_preview_render_key[0] != preview_key[0]:
+        if self._last_preview_render_key[0] != self.view.PREVIEW_FINAL:
+            return False
+        if len(self._last_preview_render_key) < 4 or len(preview_key) < 4:
             return False
 
         previous_zoom_tuple = self._last_preview_render_key[2:5]
         current_zoom_tuple = preview_key[2:5]
-        return previous_zoom_tuple != current_zoom_tuple
+        return previous_zoom_tuple == current_zoom_tuple
 
     def show_preview_text(self, text: str) -> None:
         self._preview_image_refs = []
@@ -507,7 +509,7 @@ class PdfMergeController:
         if preview_key == self._last_preview_render_key:
             return
 
-        zoom_geometry_changed = self._is_zoom_geometry_change(preview_key)
+        preserve_scroll = self._can_preserve_final_scroll(preview_key)
 
         rendered_pages: list[ImageTk.PhotoImage] = []
         for page in self.model.sequence:
@@ -515,5 +517,5 @@ class PdfMergeController:
             if rendered is None:
                 return
             rendered_pages.append(rendered)
-        self.show_preview_images(rendered_pages, preserve_scroll=not zoom_geometry_changed)
+        self.show_preview_images(rendered_pages, preserve_scroll=preserve_scroll)
         self._last_preview_render_key = preview_key

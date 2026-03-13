@@ -284,11 +284,14 @@ class PdfMergeController:
         reset_scroll: bool = True,
         preserve_scroll: bool = False,
     ) -> None:
+        previous_scrollregion = self.view.preview_canvas.cget("scrollregion")
         scroll_x = 0.0
         scroll_y = 0.0
+        scroll_y_abs: Optional[float] = None
         if preserve_scroll:
             scroll_x = self.view.preview_canvas.xview()[0]
             scroll_y = self.view.preview_canvas.yview()[0]
+            scroll_y_abs = self.view.preview_canvas.canvasy(0)
 
         self.view.clear_preview_widgets()
         widgets = widget_builder()
@@ -298,9 +301,41 @@ class PdfMergeController:
 
         if preserve_scroll:
             self.view.preview_canvas.xview_moveto(scroll_x)
-            self.view.preview_canvas.yview_moveto(scroll_y)
+            restored = False
+            if scroll_y_abs is not None:
+                old_region = self._parse_scrollregion(previous_scrollregion)
+                new_region = self._parse_scrollregion(self.view.preview_canvas.cget("scrollregion"))
+                if old_region is not None and new_region is not None:
+                    old_height = max(old_region[3] - old_region[1], 1.0)
+                    new_height = max(new_region[3] - new_region[1], 1.0)
+                    old_ratio = max(0.0, min(1.0, scroll_y_abs / old_height))
+                    self.view.preview_canvas.yview_moveto(max(0.0, min(1.0, old_ratio * (old_height / new_height))))
+                    restored = True
+            if not restored:
+                self.view.preview_canvas.yview_moveto(scroll_y)
         elif reset_scroll:
             self.view.reset_preview_scroll()
+
+    def _parse_scrollregion(self, scrollregion: object) -> Optional[tuple[float, float, float, float]]:
+        if not isinstance(scrollregion, str) or not scrollregion.strip():
+            return None
+        try:
+            x1, y1, x2, y2 = (float(part) for part in scrollregion.split())
+        except (TypeError, ValueError):
+            return None
+        return (x1, y1, x2, y2)
+
+    def _is_zoom_geometry_change(self, preview_key: tuple[object, ...]) -> bool:
+        if self._last_preview_render_key is None:
+            return False
+        if len(self._last_preview_render_key) < 4 or len(preview_key) < 4:
+            return False
+        if self._last_preview_render_key[0] != preview_key[0]:
+            return False
+
+        previous_zoom_tuple = self._last_preview_render_key[2:5]
+        current_zoom_tuple = preview_key[2:5]
+        return previous_zoom_tuple != current_zoom_tuple
 
     def show_preview_text(self, text: str) -> None:
         self._preview_image_refs = []
@@ -472,11 +507,13 @@ class PdfMergeController:
         if preview_key == self._last_preview_render_key:
             return
 
+        zoom_geometry_changed = self._is_zoom_geometry_change(preview_key)
+
         rendered_pages: list[ImageTk.PhotoImage] = []
         for page in self.model.sequence:
             rendered = self.render_preview_image(page.source_path, page.page_index)
             if rendered is None:
                 return
             rendered_pages.append(rendered)
-        self.show_preview_images(rendered_pages, preserve_scroll=True)
+        self.show_preview_images(rendered_pages, preserve_scroll=not zoom_geometry_changed)
         self._last_preview_render_key = preview_key

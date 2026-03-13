@@ -41,6 +41,7 @@ class PdfMergeView(ttk.Frame):
         self._list_drag_pending_iids: list[str] = []
         self._list_drag_start_y: Optional[int] = None
         self._list_drag_preview_index: Optional[int] = None
+        self._list_drag_click_candidate_iid: Optional[str] = None
         self._drag_ghost: Optional[tk.Label] = None
 
         self._build_layout()
@@ -304,6 +305,7 @@ class PdfMergeView(ttk.Frame):
         self._list_drag_preview_index = None
         self._list_drag_pending_iids = []
         self._list_drag_start_y = event.y
+        self._list_drag_click_candidate_iid = None
 
         clicked_iid = self.page_list.identify_row(event.y) or None
         if clicked_iid is None:
@@ -331,9 +333,12 @@ class PdfMergeView(ttk.Frame):
         selected_iids = [iid for iid in self.page_list.selection() if iid in self.page_list.get_children()]
         if clicked_iid in selected_iids and len(selected_iids) > 1:
             pending_iids = selected_iids
-        else:
-            pending_iids = [clicked_iid]
-        self._list_drag_pending_iids = pending_iids
+            self._list_drag_click_candidate_iid = clicked_iid
+            self._list_drag_pending_iids = pending_iids
+            # Keep multi-selection highlighted until we know if this is a drag.
+            return "break"
+
+        self._list_drag_pending_iids = [clicked_iid]
         return None
 
     def on_list_drag_motion(self, event: tk.Event) -> None:
@@ -351,7 +356,7 @@ class PdfMergeView(ttk.Frame):
             self._list_drag_pending_iids = []
             self._show_drag_ghost(event.x, event.y)
             for iid in self._list_drag_source_iids:
-                self.page_list.item(iid, tags=())
+                self.page_list.item(iid, tags=("drag_source",))
 
         self._move_drag_ghost(event.x, event.y)
         source_iids = set(self._list_drag_source_iids)
@@ -401,9 +406,17 @@ class PdfMergeView(ttk.Frame):
     def on_list_drag_release(self, _event: tk.Event) -> None:
         self._list_drag_pending_iids = []
         self._list_drag_start_y = None
+        click_candidate = self._list_drag_click_candidate_iid
+        self._list_drag_click_candidate_iid = None
         self._clear_drag_visuals()
 
         if not self._list_drag_source_iids:
+            if click_candidate is not None and click_candidate in self.page_list.get_children():
+                self.page_list.selection_set((click_candidate,))
+                self.page_list.focus(click_candidate)
+                if self.selection_handler is not None:
+                    self.selection_handler()
+                return
             return
 
         source_indices: list[int] = []

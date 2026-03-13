@@ -279,13 +279,24 @@ class PdfMergeController:
         self,
         widget_builder: Callable[[], list[tk.Widget]],
         reset_scroll: bool = True,
+        preserve_scroll: bool = False,
     ) -> None:
+        scroll_x = 0.0
+        scroll_y = 0.0
+        if preserve_scroll:
+            scroll_x = self.view.preview_canvas.xview()[0]
+            scroll_y = self.view.preview_canvas.yview()[0]
+
         self.view.clear_preview_widgets()
         widgets = widget_builder()
         for row, widget in enumerate(widgets):
             self.view.add_preview_widget(widget, row)
         self.view.refresh_preview_layout()
-        if reset_scroll:
+
+        if preserve_scroll:
+            self.view.preview_canvas.xview_moveto(scroll_x)
+            self.view.preview_canvas.yview_moveto(scroll_y)
+        elif reset_scroll:
             self.view.reset_preview_scroll()
 
     def show_preview_text(self, text: str) -> None:
@@ -310,7 +321,7 @@ class PdfMergeController:
 
         self._show_preview_widgets(build, reset_scroll=reset_scroll)
 
-    def show_preview_images(self, images: list[ImageTk.PhotoImage]) -> None:
+    def show_preview_images(self, images: list[ImageTk.PhotoImage], preserve_scroll: bool = False) -> None:
         def build() -> list[tk.Widget]:
             widgets: list[tk.Widget] = []
             for image in images:
@@ -319,7 +330,7 @@ class PdfMergeController:
                 widgets.append(preview)
             return widgets
 
-        self._show_preview_widgets(build)
+        self._show_preview_widgets(build, preserve_scroll=preserve_scroll)
 
     def _clamp_zoom(self, zoom: float) -> float:
         return max(self.MIN_ZOOM, min(self.MAX_ZOOM, round(zoom, 2)))
@@ -461,5 +472,5 @@ class PdfMergeController:
             if rendered is None:
                 return
             rendered_pages.append(rendered)
-        self.show_preview_images(rendered_pages)
+        self.show_preview_images(rendered_pages, preserve_scroll=True)
         self._last_preview_render_key = preview_key

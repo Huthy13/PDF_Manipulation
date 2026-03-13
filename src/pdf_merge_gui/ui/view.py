@@ -28,6 +28,16 @@ class PdfMergeView(ttk.Frame):
         self.next_handler: Optional[Callable[[], None]] = None
         self.selection_handler: Optional[Callable[[], None]] = None
         self.preview_mode_handler: Optional[Callable[[], None]] = None
+        self.zoom_in_handler: Optional[Callable[[], None]] = None
+        self.zoom_out_handler: Optional[Callable[[], None]] = None
+        self.zoom_reset_handler: Optional[Callable[[], None]] = None
+        self.fit_preview_handler: Optional[Callable[[], None]] = None
+        self.ctrl_wheel_zoom_handler: Optional[Callable[[int], None]] = None
+        self.list_drag_drop_handler: Optional[Callable[[int, int], None]] = None
+        self._list_drag_source_iid: Optional[str] = None
+        self._list_drag_pending_iid: Optional[str] = None
+        self._list_drag_start_y: Optional[int] = None
+        self._list_drag_preview_index: Optional[int] = None
 
         self._build_layout()
 
@@ -136,6 +146,7 @@ class PdfMergeView(ttk.Frame):
         nav = ttk.Frame(right)
         nav.grid(row=1, column=0, sticky="ew", pady=(8, 8))
         nav.columnconfigure(0, weight=1)
+        nav.columnconfigure(1, weight=0)
         nav_inner = ttk.Frame(nav)
         nav_inner.grid(row=0, column=0)
 
@@ -148,19 +159,243 @@ class PdfMergeView(ttk.Frame):
         self.btn_next = ttk.Button(nav_inner, text="Next ▶")
         self.btn_next.grid(row=0, column=2, padx=(12, 0))
 
+        zoom_controls = ttk.Frame(nav)
+        zoom_controls.grid(row=0, column=1, sticky="e")
+
+        self.btn_zoom_out = ttk.Button(zoom_controls, text="−", width=3)
+        self.btn_zoom_out.grid(row=0, column=0, padx=(4, 2))
+        self._tooltips.append(ToolTip(self.btn_zoom_out, "Zoom out"))
+
+        self.zoom_label = ttk.Label(zoom_controls, text="100%")
+        self.zoom_label.grid(row=0, column=1, padx=2)
+
+        self.btn_zoom_in = ttk.Button(zoom_controls, text="+", width=3)
+        self.btn_zoom_in.grid(row=0, column=2, padx=(2, 4))
+        self._tooltips.append(ToolTip(self.btn_zoom_in, "Zoom in"))
+
+        self.btn_zoom_reset = ttk.Button(zoom_controls, text="Reset")
+        self.btn_zoom_reset.grid(row=0, column=3, padx=(2, 4))
+        self._tooltips.append(ToolTip(self.btn_zoom_reset, "Reset zoom to default"))
+
+        self.fit_preview = tk.BooleanVar(value=True)
+        self.cb_fit_preview = ttk.Checkbutton(zoom_controls, text="Fit", variable=self.fit_preview)
+        self.cb_fit_preview.grid(row=0, column=4)
+        self._tooltips.append(ToolTip(self.cb_fit_preview, "Scale preview to available panel size"))
+
         self.preview_panel = ttk.LabelFrame(right, text="Page Preview")
         self.preview_panel.grid(row=3, column=0, sticky="nsew")
         self.preview_panel.columnconfigure(0, weight=1)
         self.preview_panel.rowconfigure(0, weight=1)
 
+        self.preview_canvas = tk.Canvas(self.preview_panel, highlightthickness=0)
+        self.preview_canvas.grid(row=0, column=0, sticky="nsew")
+
+        self.preview_vscroll = ttk.Scrollbar(self.preview_panel, orient=tk.VERTICAL, command=self.preview_canvas.yview)
+        self.preview_vscroll.grid(row=0, column=1, sticky="ns")
+
+        self.preview_hscroll = ttk.Scrollbar(self.preview_panel, orient=tk.HORIZONTAL, command=self.preview_canvas.xview)
+        self.preview_hscroll.grid(row=1, column=0, sticky="ew")
+
+        self.preview_canvas.configure(
+            xscrollcommand=self.preview_hscroll.set,
+            yscrollcommand=self.preview_vscroll.set,
+        )
+
         self.preview_label = ttk.Label(
-            self.preview_panel,
+            self.preview_canvas,
             text="Open one or more PDFs to begin.",
             anchor="center",
             justify="center",
             padding=24,
         )
-        self.preview_label.grid(row=0, column=0, sticky="nsew")
+        self.preview_window = self.preview_canvas.create_window(0, 0, anchor="nw", window=self.preview_label)
+
+        self.preview_label.bind("<Configure>", self.on_preview_content_configure)
+        self.preview_canvas.bind("<Configure>", self.on_preview_canvas_configure)
+        self.preview_canvas.bind("<MouseWheel>", self.on_preview_mousewheel)
+        self.preview_canvas.bind("<Shift-MouseWheel>", self.on_preview_shift_mousewheel)
+        self.preview_canvas.bind("<Button-4>", self.on_preview_mousewheel)
+        self.preview_canvas.bind("<Button-5>", self.on_preview_mousewheel)
+        self.preview_canvas.bind("<Shift-Button-4>", self.on_preview_shift_mousewheel)
+        self.preview_canvas.bind("<Shift-Button-5>", self.on_preview_shift_mousewheel)
+        self.preview_canvas.bind("<Control-MouseWheel>", self.on_preview_ctrl_mousewheel)
+        self.preview_canvas.bind("<Control-Button-4>", self.on_preview_ctrl_mousewheel)
+        self.preview_canvas.bind("<Control-Button-5>", self.on_preview_ctrl_mousewheel)
+        self.preview_label.bind("<MouseWheel>", self.on_preview_mousewheel)
+        self.preview_label.bind("<Shift-MouseWheel>", self.on_preview_shift_mousewheel)
+        self.preview_label.bind("<Button-4>", self.on_preview_mousewheel)
+        self.preview_label.bind("<Button-5>", self.on_preview_mousewheel)
+        self.preview_label.bind("<Shift-Button-4>", self.on_preview_shift_mousewheel)
+        self.preview_label.bind("<Shift-Button-5>", self.on_preview_shift_mousewheel)
+        self.preview_label.bind("<Control-MouseWheel>", self.on_preview_ctrl_mousewheel)
+        self.preview_label.bind("<Control-Button-4>", self.on_preview_ctrl_mousewheel)
+        self.preview_label.bind("<Control-Button-5>", self.on_preview_ctrl_mousewheel)
+
+    def _reposition_preview_content(self, canvas_width: int, canvas_height: int) -> None:
+        content_width = max(self.preview_label.winfo_reqwidth(), 1)
+        content_height = max(self.preview_label.winfo_reqheight(), 1)
+
+        x_pos = max((canvas_width - content_width) // 2, 0)
+        y_pos = max((canvas_height - content_height) // 2, 0)
+        self.preview_canvas.coords(self.preview_window, x_pos, y_pos)
+
+        region_width = max(content_width + (2 * x_pos), canvas_width)
+        region_height = max(content_height + (2 * y_pos), canvas_height)
+        self.preview_canvas.configure(scrollregion=(0, 0, region_width, region_height))
+
+    def on_preview_content_configure(self, _event: tk.Event) -> None:
+        canvas_width = max(self.preview_canvas.winfo_width(), 1)
+        canvas_height = max(self.preview_canvas.winfo_height(), 1)
+        self._reposition_preview_content(canvas_width, canvas_height)
+
+    def on_preview_canvas_configure(self, event: tk.Event) -> None:
+        canvas_width = max(event.width, 1)
+        canvas_height = max(event.height, 1)
+        self._reposition_preview_content(canvas_width, canvas_height)
+
+    def _mousewheel_units(self, event: tk.Event) -> int:
+        delta = getattr(event, "delta", 0) or 0
+        if delta:
+            return int(-delta / 120) or (-1 if delta > 0 else 1)
+
+        num = getattr(event, "num", None)
+        if num == 4:
+            return -1
+        if num == 5:
+            return 1
+        return 0
+
+    def on_preview_mousewheel(self, event: tk.Event) -> str:
+        units = self._mousewheel_units(event)
+        if units == 0:
+            return "break"
+        self.preview_canvas.yview_scroll(units, "units")
+        return "break"
+
+    def on_preview_shift_mousewheel(self, event: tk.Event) -> str:
+        units = self._mousewheel_units(event)
+        if units == 0:
+            return "break"
+        self.preview_canvas.xview_scroll(units, "units")
+        return "break"
+
+    def on_preview_ctrl_mousewheel(self, event: tk.Event) -> str:
+        units = self._mousewheel_units(event)
+        if units == 0:
+            return "break"
+        if self.ctrl_wheel_zoom_handler is not None:
+            self.ctrl_wheel_zoom_handler(units)
+        return "break"
+
+    def reset_preview_scroll(self) -> None:
+        self.preview_canvas.xview_moveto(0.0)
+        self.preview_canvas.yview_moveto(0.0)
+
+    def on_list_drag_start(self, event: tk.Event) -> None:
+        self._list_drag_source_iid = None
+        self._list_drag_preview_index = None
+        self._list_drag_pending_iid = None
+        self._list_drag_start_y = event.y
+
+        clicked_iid = self.page_list.identify_row(event.y) or None
+        if clicked_iid is None:
+            return
+
+        # Preserve multiselect gestures and avoid accidental drags while selecting.
+        modifier_mask = event.state & (0x0001 | 0x0004)
+        if modifier_mask:
+            return
+
+        if len(self.page_list.selection()) > 1:
+            return
+
+        self._list_drag_pending_iid = clicked_iid
+
+    def on_list_drag_motion(self, event: tk.Event) -> None:
+        if self._list_drag_source_iid is None:
+            if self._list_drag_pending_iid is None or self._list_drag_start_y is None:
+                return
+            if abs(event.y - self._list_drag_start_y) < 4:
+                return
+            self._list_drag_source_iid = self._list_drag_pending_iid
+            self._list_drag_pending_iid = None
+
+        source_iid = self._list_drag_source_iid
+        try:
+            current_index = self.page_list.get_children().index(source_iid)
+        except ValueError:
+            return
+
+        siblings = [iid for iid in self.page_list.get_children() if iid != source_iid]
+        if not siblings:
+            return
+
+        target_iid = self.page_list.identify_row(event.y)
+
+        # While dragging, pointer hits on the moving row can transiently identify
+        # the source item itself; ignore those hits to avoid jumping to list end.
+        if target_iid == source_iid:
+            return
+
+        if target_iid and target_iid in siblings:
+            # Keep drag placement committed to one side (before the hovered row)
+            # to avoid midpoint jitter/dead zones while moving.
+            target_index = siblings.index(target_iid)
+        else:
+            row_boxes = [(iid, self.page_list.bbox(iid)) for iid in siblings]
+            row_boxes = [(iid, bbox) for iid, bbox in row_boxes if bbox]
+            if not row_boxes:
+                return
+
+            first_bbox = row_boxes[0][1]
+            if event.y < first_bbox[1]:
+                target_index = 0
+            else:
+                target_index = len(siblings)
+                for idx, (_iid, bbox) in enumerate(row_boxes):
+                    row_top = bbox[1]
+                    row_height = bbox[3]
+                    row_bottom = row_top + row_height
+                    if row_top <= event.y < row_bottom:
+                        target_index = idx
+                        break
+                    if idx + 1 < len(row_boxes):
+                        next_top = row_boxes[idx + 1][1][1]
+                        if row_bottom <= event.y < next_top:
+                            target_index = idx + 1
+                            break
+
+        if target_index == current_index:
+            return
+
+        self._list_drag_preview_index = target_index
+        self.page_list.move(source_iid, "", target_index)
+
+    def on_list_drag_release(self, _event: tk.Event) -> None:
+        self._list_drag_pending_iid = None
+        self._list_drag_start_y = None
+
+        if self._list_drag_source_iid is None:
+            return
+
+        source_iid = self._list_drag_source_iid
+        self._list_drag_source_iid = None
+
+        try:
+            source_idx = int(source_iid)
+        except ValueError:
+            self._list_drag_preview_index = None
+            return
+
+        try:
+            preview_idx = self.page_list.get_children().index(source_iid)
+        except ValueError:
+            preview_idx = source_idx
+
+        self._list_drag_preview_index = None
+
+        if self.list_drag_drop_handler is not None:
+            self.list_drag_drop_handler(source_idx, preview_idx)
 
     def bind_handlers(self) -> None:
         self.btn_open.configure(command=self.open_handler)
@@ -173,4 +408,11 @@ class PdfMergeView(ttk.Frame):
         self.btn_next.configure(command=self.next_handler)
         self.rb_single.configure(command=self.preview_mode_handler)
         self.rb_final.configure(command=self.preview_mode_handler)
+        self.btn_zoom_in.configure(command=self.zoom_in_handler)
+        self.btn_zoom_out.configure(command=self.zoom_out_handler)
+        self.btn_zoom_reset.configure(command=self.zoom_reset_handler)
+        self.cb_fit_preview.configure(command=self.fit_preview_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())
+        self.page_list.bind("<ButtonPress-1>", self.on_list_drag_start, add="+")
+        self.page_list.bind("<B1-Motion>", self.on_list_drag_motion, add="+")
+        self.page_list.bind("<ButtonRelease-1>", self.on_list_drag_release, add="+")

@@ -35,6 +35,8 @@ class PdfMergeView(ttk.Frame):
         self.ctrl_wheel_zoom_handler: Optional[Callable[[int], None]] = None
         self.list_drag_drop_handler: Optional[Callable[[int, int], None]] = None
         self._list_drag_source_iid: Optional[str] = None
+        self._list_drag_pending_iid: Optional[str] = None
+        self._list_drag_start_y: Optional[int] = None
         self._list_drag_preview_index: Optional[int] = None
 
         self._build_layout()
@@ -290,12 +292,33 @@ class PdfMergeView(ttk.Frame):
         self.preview_canvas.yview_moveto(0.0)
 
     def on_list_drag_start(self, event: tk.Event) -> None:
-        self._list_drag_source_iid = self.page_list.identify_row(event.y) or None
+        self._list_drag_source_iid = None
         self._list_drag_preview_index = None
+        self._list_drag_pending_iid = None
+        self._list_drag_start_y = event.y
+
+        clicked_iid = self.page_list.identify_row(event.y) or None
+        if clicked_iid is None:
+            return
+
+        # Preserve multiselect gestures and avoid accidental drags while selecting.
+        modifier_mask = event.state & (0x0001 | 0x0004)
+        if modifier_mask:
+            return
+
+        if len(self.page_list.selection()) > 1:
+            return
+
+        self._list_drag_pending_iid = clicked_iid
 
     def on_list_drag_motion(self, event: tk.Event) -> None:
         if self._list_drag_source_iid is None:
-            return
+            if self._list_drag_pending_iid is None or self._list_drag_start_y is None:
+                return
+            if abs(event.y - self._list_drag_start_y) < 4:
+                return
+            self._list_drag_source_iid = self._list_drag_pending_iid
+            self._list_drag_pending_iid = None
 
         source_iid = self._list_drag_source_iid
         try:
@@ -349,6 +372,9 @@ class PdfMergeView(ttk.Frame):
         self.page_list.move(source_iid, "", target_index)
 
     def on_list_drag_release(self, _event: tk.Event) -> None:
+        self._list_drag_pending_iid = None
+        self._list_drag_start_y = None
+
         if self._list_drag_source_iid is None:
             return
 

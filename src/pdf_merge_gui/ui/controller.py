@@ -280,10 +280,12 @@ class PdfMergeController:
 
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
+        self._deactivate_fit_preview()
         self.update_preview()
 
     def on_zoom_out(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom - self.ZOOM_STEP)
+        self._deactivate_fit_preview()
         self.update_preview()
 
     def on_zoom_reset(self) -> None:
@@ -295,7 +297,12 @@ class PdfMergeController:
         if abs(next_zoom - self.preview_zoom) < 0.001:
             return
         self.preview_zoom = next_zoom
+        self._deactivate_fit_preview()
         self.update_preview()
+
+    def _deactivate_fit_preview(self) -> None:
+        if self.view.fit_preview.get():
+            self.view.fit_preview.set(False)
 
     def on_toggle_fit_preview(self) -> None:
         self.update_preview()

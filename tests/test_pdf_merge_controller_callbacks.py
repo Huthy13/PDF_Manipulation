@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Generic, TypeVar
 
 from pdf_merge_gui.ui.controller import PdfMergeController
 
 
-class FakeVar:
-    def __init__(self, value: str) -> None:
+T = TypeVar("T")
+
+
+class FakeVar(Generic[T]):
+    def __init__(self, value: T) -> None:
         self._value = value
 
-    def get(self) -> str:
+    def get(self) -> T:
         return self._value
 
-    def set(self, value: str) -> None:
+    def set(self, value: T) -> None:
         self._value = value
 
 

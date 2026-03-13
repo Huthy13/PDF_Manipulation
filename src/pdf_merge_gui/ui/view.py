@@ -35,6 +35,7 @@ class PdfMergeView(ttk.Frame):
         self.ctrl_wheel_zoom_handler: Optional[Callable[[int], None]] = None
         self.list_drag_drop_handler: Optional[Callable[[int, int], None]] = None
         self._list_drag_source_iid: Optional[str] = None
+        self._list_drag_preview_index: Optional[int] = None
 
         self._build_layout()
 
@@ -290,33 +291,49 @@ class PdfMergeView(ttk.Frame):
 
     def on_list_drag_start(self, event: tk.Event) -> None:
         self._list_drag_source_iid = self.page_list.identify_row(event.y) or None
+        self._list_drag_preview_index = None
 
-    def on_list_drag_release(self, event: tk.Event) -> None:
+    def on_list_drag_motion(self, event: tk.Event) -> None:
+        if self._list_drag_source_iid is None:
+            return
+
+        source_iid = self._list_drag_source_iid
+        siblings = [iid for iid in self.page_list.get_children() if iid != source_iid]
+        target_iid = self.page_list.identify_row(event.y)
+
+        if target_iid and target_iid in siblings:
+            target_index = siblings.index(target_iid)
+            bbox = self.page_list.bbox(target_iid)
+            if bbox and event.y > bbox[1] + (bbox[3] // 2):
+                target_index += 1
+        else:
+            target_index = len(siblings)
+
+        self._list_drag_preview_index = target_index
+        self.page_list.move(source_iid, "", target_index)
+
+    def on_list_drag_release(self, _event: tk.Event) -> None:
         if self._list_drag_source_iid is None:
             return
 
         source_iid = self._list_drag_source_iid
         self._list_drag_source_iid = None
-        target_iid = self.page_list.identify_row(event.y)
-
-        if not source_iid:
-            return
 
         try:
             source_idx = int(source_iid)
         except ValueError:
+            self._list_drag_preview_index = None
             return
 
-        if target_iid:
-            try:
-                target_idx = int(target_iid)
-            except ValueError:
-                return
-        else:
-            target_idx = len(self.page_list.get_children())
+        try:
+            preview_idx = self.page_list.get_children().index(source_iid)
+        except ValueError:
+            preview_idx = source_idx
+
+        self._list_drag_preview_index = None
 
         if self.list_drag_drop_handler is not None:
-            self.list_drag_drop_handler(source_idx, target_idx)
+            self.list_drag_drop_handler(source_idx, preview_idx)
 
     def bind_handlers(self) -> None:
         self.btn_open.configure(command=self.open_handler)
@@ -335,4 +352,5 @@ class PdfMergeView(ttk.Frame):
         self.cb_fit_preview.configure(command=self.fit_preview_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())
         self.page_list.bind("<ButtonPress-1>", self.on_list_drag_start, add="+")
+        self.page_list.bind("<B1-Motion>", self.on_list_drag_motion, add="+")
         self.page_list.bind("<ButtonRelease-1>", self.on_list_drag_release, add="+")

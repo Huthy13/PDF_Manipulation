@@ -137,15 +137,18 @@ class PdfMergeController:
             return
         self.refresh_list(select_indices=self.model.move_down_many(indices))
 
-    def on_list_drag_drop(self, source_index: int, target_index: int) -> None:
+    def on_list_drag_drop(self, source_index: int, preview_index: int) -> None:
         if not self.model.sequence:
             return
 
-        source_index = max(0, min(source_index, len(self.model.sequence) - 1))
-        target_index = max(0, min(target_index, len(self.model.sequence)))
-        if source_index == target_index or source_index == target_index - 1:
+        max_idx = len(self.model.sequence) - 1
+        source_index = max(0, min(source_index, max_idx))
+        preview_index = max(0, min(preview_index, max_idx))
+        if source_index == preview_index:
+            self.refresh_list(select_index=source_index)
             return
 
+        target_index = preview_index if preview_index < source_index else preview_index + 1
         moved_index = self.model.move_to(source_index, target_index)
         self.refresh_list(select_index=moved_index)
 

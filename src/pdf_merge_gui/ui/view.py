@@ -10,6 +10,7 @@ from .tooltip import ToolTip
 class PdfMergeView(ttk.Frame):
     PREVIEW_SINGLE = "single"
     PREVIEW_FINAL = "final"
+    INSERT_HINT_IID = "__insert_hint__"
 
     def __init__(self, master: tk.Tk) -> None:
         super().__init__(master, padding=12)
@@ -33,11 +34,15 @@ class PdfMergeView(ttk.Frame):
         self.zoom_reset_handler: Optional[Callable[[], None]] = None
         self.fit_preview_handler: Optional[Callable[[], None]] = None
         self.ctrl_wheel_zoom_handler: Optional[Callable[[int], None]] = None
-        self.list_drag_drop_handler: Optional[Callable[[int, int], None]] = None
-        self._list_drag_source_iid: Optional[str] = None
-        self._list_drag_pending_iid: Optional[str] = None
+        self.list_drag_drop_handler: Optional[Callable[[list[int], int], None]] = None
+        self.list_ctrl_range_handler: Optional[Callable[[int, int], None]] = None
+        self._list_selection_anchor_iid: Optional[str] = None
+        self._list_drag_source_iids: list[str] = []
+        self._list_drag_pending_iids: list[str] = []
         self._list_drag_start_y: Optional[int] = None
         self._list_drag_preview_index: Optional[int] = None
+        self._list_drag_click_candidate_iid: Optional[str] = None
+        self._drag_ghost: Optional[tk.Label] = None
 
         self._build_layout()
 
@@ -291,51 +296,81 @@ class PdfMergeView(ttk.Frame):
         self.preview_canvas.xview_moveto(0.0)
         self.preview_canvas.yview_moveto(0.0)
 
-    def on_list_drag_start(self, event: tk.Event) -> None:
-        self._list_drag_source_iid = None
+    def set_list_selection_anchor(self, index: int) -> None:
+        self._list_selection_anchor_iid = str(index)
+
+    def on_list_drag_start(self, event: tk.Event) -> str | None:
+        self._clear_drag_visuals()
+        self._list_drag_source_iids = []
         self._list_drag_preview_index = None
-        self._list_drag_pending_iid = None
+        self._list_drag_pending_iids = []
         self._list_drag_start_y = event.y
+        self._list_drag_click_candidate_iid = None
 
         clicked_iid = self.page_list.identify_row(event.y) or None
         if clicked_iid is None:
-            return
+            return None
+
+        ctrl_pressed = bool(event.state & 0x0004)
+        shift_pressed = bool(event.state & 0x0001)
+        if ctrl_pressed and self.list_ctrl_range_handler is not None:
+            anchor_iid = self._list_selection_anchor_iid or clicked_iid
+            try:
+                anchor_index = int(anchor_iid)
+                clicked_index = int(clicked_iid)
+            except ValueError:
+                return None
+            self.list_ctrl_range_handler(anchor_index, clicked_index)
+            return "break"
+
+        if not shift_pressed:
+            self._list_selection_anchor_iid = clicked_iid
 
         # Preserve multiselect gestures and avoid accidental drags while selecting.
-        modifier_mask = event.state & (0x0001 | 0x0004)
-        if modifier_mask:
-            return
+        if shift_pressed:
+            return None
 
-        if len(self.page_list.selection()) > 1:
-            return
+        selected_iids = [iid for iid in self.page_list.selection() if iid in self.page_list.get_children()]
+        if clicked_iid in selected_iids and len(selected_iids) > 1:
+            pending_iids = selected_iids
+            self._list_drag_click_candidate_iid = clicked_iid
+            self._list_drag_pending_iids = pending_iids
+            # Keep multi-selection highlighted until we know if this is a drag.
+            return "break"
 
-        self._list_drag_pending_iid = clicked_iid
+        self._list_drag_pending_iids = [clicked_iid]
+        return None
 
     def on_list_drag_motion(self, event: tk.Event) -> None:
-        if self._list_drag_source_iid is None:
-            if self._list_drag_pending_iid is None or self._list_drag_start_y is None:
+        # Remove transient insert hint before hit-testing; otherwise the temporary
+        # row shifts subsequent rows down and skews insertion math while dragging.
+        if self.INSERT_HINT_IID in self.page_list.get_children():
+            self.page_list.delete(self.INSERT_HINT_IID)
+
+        if not self._list_drag_source_iids:
+            if not self._list_drag_pending_iids or self._list_drag_start_y is None:
                 return
             if abs(event.y - self._list_drag_start_y) < 4:
                 return
-            self._list_drag_source_iid = self._list_drag_pending_iid
-            self._list_drag_pending_iid = None
+            self._list_drag_source_iids = list(self._list_drag_pending_iids)
+            self._list_drag_pending_iids = []
+            self._show_drag_ghost(event.x, event.y)
+            for iid in self._list_drag_source_iids:
+                self.page_list.item(iid, tags=("drag_source",))
 
-        source_iid = self._list_drag_source_iid
-        try:
-            current_index = self.page_list.get_children().index(source_iid)
-        except ValueError:
-            return
-
-        siblings = [iid for iid in self.page_list.get_children() if iid != source_iid]
+        self._move_drag_ghost(event.x, event.y)
+        source_iids = set(self._list_drag_source_iids)
+        siblings = [
+            iid
+            for iid in self.page_list.get_children()
+            if iid not in source_iids and iid != self.INSERT_HINT_IID
+        ]
         if not siblings:
             return
 
         target_iid = self.page_list.identify_row(event.y)
-
-        # While dragging, pointer hits on the moving row can transiently identify
-        # the source item itself; ignore those hits to avoid jumping to list end.
-        if target_iid == source_iid:
-            return
+        if target_iid in source_iids:
+            target_iid = None
 
         if target_iid and target_iid in siblings:
             # Keep drag placement committed to one side (before the hovered row)
@@ -365,37 +400,110 @@ class PdfMergeView(ttk.Frame):
                             target_index = idx + 1
                             break
 
-        if target_index == current_index:
-            return
-
-        self._list_drag_preview_index = target_index
-        self.page_list.move(source_iid, "", target_index)
-
-    def on_list_drag_release(self, _event: tk.Event) -> None:
-        self._list_drag_pending_iid = None
-        self._list_drag_start_y = None
-
-        if self._list_drag_source_iid is None:
-            return
-
-        source_iid = self._list_drag_source_iid
-        self._list_drag_source_iid = None
-
-        try:
-            source_idx = int(source_iid)
-        except ValueError:
+        full_children = [iid for iid in self.page_list.get_children() if iid != self.INSERT_HINT_IID]
+        source_positions = [full_children.index(iid) for iid in self._list_drag_source_iids if iid in full_children]
+        if not source_positions:
             self._list_drag_preview_index = None
             return
 
-        try:
-            preview_idx = self.page_list.get_children().index(source_iid)
-        except ValueError:
-            preview_idx = source_idx
+        first_source_pos = min(source_positions)
+        current_compact_index = sum(1 for iid in full_children[:first_source_pos] if iid not in source_iids)
 
+        if target_index == current_compact_index:
+            self._list_drag_preview_index = None
+            return
+
+        self._list_drag_preview_index = target_index
+        self._show_insert_hint(target_index, siblings)
+
+    def on_list_drag_release(self, _event: tk.Event) -> None:
+        self._list_drag_pending_iids = []
+        self._list_drag_start_y = None
+        click_candidate = self._list_drag_click_candidate_iid
+        self._list_drag_click_candidate_iid = None
+        self._clear_drag_visuals()
+
+        if not self._list_drag_source_iids:
+            if click_candidate is not None and click_candidate in self.page_list.get_children():
+                self.page_list.selection_set((click_candidate,))
+                self.page_list.focus(click_candidate)
+                if self.selection_handler is not None:
+                    self.selection_handler()
+                return
+            return
+
+        source_indices: list[int] = []
+        for source_iid in self._list_drag_source_iids:
+            try:
+                source_indices.append(int(source_iid))
+            except ValueError:
+                continue
+
+        self._list_drag_source_iids = []
+
+        if not source_indices:
+            self._list_drag_preview_index = None
+            return
+
+        preview_idx = self._list_drag_preview_index
         self._list_drag_preview_index = None
+        if preview_idx is None:
+            return
 
         if self.list_drag_drop_handler is not None:
-            self.list_drag_drop_handler(source_idx, preview_idx)
+            self.list_drag_drop_handler(sorted(set(source_indices)), preview_idx)
+
+    def _show_drag_ghost(self, x: int, y: int) -> None:
+        count = len(self._list_drag_source_iids)
+        self._drag_ghost = tk.Label(
+            self.page_list,
+            text=f"📄 Moving {count} item{'s' if count != 1 else ''}",
+            bg="#202020",
+            fg="white",
+            padx=8,
+            pady=3,
+        )
+        self._drag_ghost.place(x=x + 14, y=y + 14)
+
+    def _move_drag_ghost(self, x: int, y: int) -> None:
+        if self._drag_ghost is not None:
+            self._drag_ghost.place(x=x + 14, y=y + 14)
+
+    def _show_insert_hint(self, target_index: int, siblings: list[str]) -> None:
+        if self.INSERT_HINT_IID in self.page_list.get_children():
+            self.page_list.delete(self.INSERT_HINT_IID)
+
+        # `target_index` is computed against the compact list (`siblings`) that
+        # excludes dragged rows. Convert that index back to the visible Treeview
+        # index (which still includes dragged rows) so the hint sits exactly
+        # where the drop will occur.
+        full_children = [iid for iid in self.page_list.get_children() if iid != self.INSERT_HINT_IID]
+        bounded_index = max(0, min(target_index, len(siblings)))
+
+        if not siblings:
+            insertion_index = len(full_children)
+        elif bounded_index >= len(siblings):
+            insertion_index = full_children.index(siblings[-1]) + 1
+        else:
+            insertion_index = full_children.index(siblings[bounded_index])
+
+        self.page_list.insert(
+            "",
+            insertion_index,
+            iid=self.INSERT_HINT_IID,
+            values=("Insert Here", ""),
+            tags=("insert_hint",),
+        )
+
+    def _clear_drag_visuals(self) -> None:
+        if self._drag_ghost is not None:
+            self._drag_ghost.destroy()
+            self._drag_ghost = None
+        if self.INSERT_HINT_IID in self.page_list.get_children():
+            self.page_list.delete(self.INSERT_HINT_IID)
+        for iid in self._list_drag_source_iids:
+            if iid in self.page_list.get_children():
+                self.page_list.item(iid, tags=())
 
     def bind_handlers(self) -> None:
         self.btn_open.configure(command=self.open_handler)
@@ -413,6 +521,8 @@ class PdfMergeView(ttk.Frame):
         self.btn_zoom_reset.configure(command=self.zoom_reset_handler)
         self.cb_fit_preview.configure(command=self.fit_preview_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())
+        self.page_list.tag_configure("drag_source", background="#D6E4FF")
+        self.page_list.tag_configure("insert_hint", background="#CFE8FF", foreground="#0B3D91")
         self.page_list.bind("<ButtonPress-1>", self.on_list_drag_start, add="+")
         self.page_list.bind("<B1-Motion>", self.on_list_drag_motion, add="+")
         self.page_list.bind("<ButtonRelease-1>", self.on_list_drag_release, add="+")

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 from typing import Optional, Sequence
 
 from PIL import ImageTk
@@ -25,7 +25,6 @@ class PdfMergeController:
         self.model = MergeModel()
         self.preview_service = PreviewService(cache_size=120)
 
-        self.final_preview_index = 0
         self.preview_zoom = self.DEFAULT_ZOOM
         self._pending_resize_after: Optional[str] = None
 
@@ -123,7 +122,6 @@ class PdfMergeController:
         if not added_any:
             return
 
-        self.final_preview_index = 0
         self.refresh_list(select_index=len(self.model.sequence) - 1)
 
     def on_move_up(self) -> None:
@@ -190,12 +188,10 @@ class PdfMergeController:
                 self.preview_service.clear_for_source(source)
 
         if not self.model.sequence:
-            self.final_preview_index = 0
             self.refresh_list()
             return
 
         select_index = min(first_idx, len(self.model.sequence) - 1)
-        self.final_preview_index = min(self.final_preview_index, len(self.model.sequence) - 1)
         self.refresh_list(select_index=select_index)
 
     def on_delete_shortcut(self, _event: tk.Event) -> str:
@@ -204,7 +200,6 @@ class PdfMergeController:
 
     def on_clear_all(self) -> None:
         self.model.clear()
-        self.final_preview_index = 0
         self.preview_service.clear()
         self.refresh_list()
 
@@ -227,7 +222,6 @@ class PdfMergeController:
             remapped_selection = []
 
         self.model.reverse_all()
-        self.final_preview_index = max(0, len(self.model.sequence) - 1 - self.final_preview_index)
         if remapped_selection:
             self.refresh_list(select_indices=remapped_selection)
             return
@@ -258,8 +252,7 @@ class PdfMergeController:
         if not self.model.sequence:
             return
         if self.view.preview_mode.get() == self.view.PREVIEW_FINAL:
-            self.final_preview_index = max(0, self.final_preview_index - 1)
-            self.update_preview()
+            self.view.preview_canvas.yview_scroll(-1, "pages")
             return
 
         idx = self.selected_index()
@@ -272,8 +265,7 @@ class PdfMergeController:
         if not self.model.sequence:
             return
         if self.view.preview_mode.get() == self.view.PREVIEW_FINAL:
-            self.final_preview_index = min(len(self.model.sequence) - 1, self.final_preview_index + 1)
-            self.update_preview()
+            self.view.preview_canvas.yview_scroll(1, "pages")
             return
 
         idx = self.selected_index()
@@ -282,15 +274,36 @@ class PdfMergeController:
         self.set_selected_indices([min(len(self.model.sequence) - 1, idx + 1)])
         self.update_preview()
 
-    def show_preview_text(self, text: str) -> None:
-        self.view.preview_label.configure(text=text, image="")
-        self.view.preview_label.image = None
-        self.view.reset_preview_scroll()
+    def _show_preview_widgets(self, widgets: list[tk.Widget], reset_scroll: bool = True) -> None:
+        self.view.clear_preview_widgets()
+        for row, widget in enumerate(widgets):
+            self.view.add_preview_widget(widget, row)
+        self.view.refresh_preview_layout()
+        if reset_scroll:
+            self.view.reset_preview_scroll()
 
-    def show_preview_image(self, image: ImageTk.PhotoImage) -> None:
-        self.view.preview_label.configure(image=image, text="")
-        self.view.preview_label.image = image
-        self.view.reset_preview_scroll()
+    def show_preview_text(self, text: str) -> None:
+        placeholder = ttk.Label(
+            self.view.preview_content,
+            text=text,
+            anchor="center",
+            justify="center",
+            padding=24,
+        )
+        self._show_preview_widgets([placeholder])
+
+    def show_preview_image(self, image: ImageTk.PhotoImage, reset_scroll: bool = True) -> None:
+        preview = ttk.Label(self.view.preview_content, image=image)
+        preview.image = image
+        self._show_preview_widgets([preview], reset_scroll=reset_scroll)
+
+    def show_preview_images(self, images: list[ImageTk.PhotoImage]) -> None:
+        widgets: list[tk.Widget] = []
+        for image in images:
+            preview = ttk.Label(self.view.preview_content, image=image)
+            preview.image = image
+            widgets.append(preview)
+        self._show_preview_widgets(widgets)
 
     def _clamp_zoom(self, zoom: float) -> float:
         return max(self.MIN_ZOOM, min(self.MAX_ZOOM, round(zoom, 2)))
@@ -393,12 +406,16 @@ class PdfMergeController:
                 self.set_selected_indices([idx])
             page = self.model.sequence[idx]
             self.view.preview_caption.configure(text=f"Single Page ({idx + 1}/{len(self.model.sequence)})")
-        else:
-            idx = min(self.final_preview_index, len(self.model.sequence) - 1)
-            self.final_preview_index = idx
-            page = self.model.sequence[idx]
-            self.view.preview_caption.configure(text=f"Final Output ({idx + 1}/{len(self.model.sequence)})")
+            rendered = self.render_preview_image(page.source_path, page.page_index)
+            if rendered is not None:
+                self.show_preview_image(rendered)
+            return
 
-        rendered = self.render_preview_image(page.source_path, page.page_index)
-        if rendered is not None:
-            self.show_preview_image(rendered)
+        self.view.preview_caption.configure(text=f"Final Output ({len(self.model.sequence)} pages)")
+        rendered_pages: list[ImageTk.PhotoImage] = []
+        for page in self.model.sequence:
+            rendered = self.render_preview_image(page.source_path, page.page_index)
+            if rendered is None:
+                return
+            rendered_pages.append(rendered)
+        self.show_preview_images(rendered_pages)

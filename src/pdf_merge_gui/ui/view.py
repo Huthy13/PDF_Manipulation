@@ -216,39 +216,53 @@ class PdfMergeView(ttk.Frame):
             yscrollcommand=self.preview_vscroll.set,
         )
 
-        self.preview_label = ttk.Label(
-            self.preview_canvas,
+        self.preview_content = ttk.Frame(self.preview_canvas, padding=12)
+        self.preview_content.columnconfigure(0, weight=1)
+        self.preview_window = self.preview_canvas.create_window(0, 0, anchor="nw", window=self.preview_content)
+
+        self.preview_placeholder = ttk.Label(
+            self.preview_content,
             text="Open one or more PDFs to begin.",
             anchor="center",
             justify="center",
             padding=24,
         )
-        self.preview_window = self.preview_canvas.create_window(0, 0, anchor="nw", window=self.preview_label)
+        self.preview_placeholder.grid(row=0, column=0, sticky="nsew")
 
-        self.preview_label.bind("<Configure>", self.on_preview_content_configure)
+        self.preview_content.bind("<Configure>", self.on_preview_content_configure)
         self.preview_canvas.bind("<Configure>", self.on_preview_canvas_configure)
-        self.preview_canvas.bind("<MouseWheel>", self.on_preview_mousewheel)
-        self.preview_canvas.bind("<Shift-MouseWheel>", self.on_preview_shift_mousewheel)
-        self.preview_canvas.bind("<Button-4>", self.on_preview_mousewheel)
-        self.preview_canvas.bind("<Button-5>", self.on_preview_mousewheel)
-        self.preview_canvas.bind("<Shift-Button-4>", self.on_preview_shift_mousewheel)
-        self.preview_canvas.bind("<Shift-Button-5>", self.on_preview_shift_mousewheel)
-        self.preview_canvas.bind("<Control-MouseWheel>", self.on_preview_ctrl_mousewheel)
-        self.preview_canvas.bind("<Control-Button-4>", self.on_preview_ctrl_mousewheel)
-        self.preview_canvas.bind("<Control-Button-5>", self.on_preview_ctrl_mousewheel)
-        self.preview_label.bind("<MouseWheel>", self.on_preview_mousewheel)
-        self.preview_label.bind("<Shift-MouseWheel>", self.on_preview_shift_mousewheel)
-        self.preview_label.bind("<Button-4>", self.on_preview_mousewheel)
-        self.preview_label.bind("<Button-5>", self.on_preview_mousewheel)
-        self.preview_label.bind("<Shift-Button-4>", self.on_preview_shift_mousewheel)
-        self.preview_label.bind("<Shift-Button-5>", self.on_preview_shift_mousewheel)
-        self.preview_label.bind("<Control-MouseWheel>", self.on_preview_ctrl_mousewheel)
-        self.preview_label.bind("<Control-Button-4>", self.on_preview_ctrl_mousewheel)
-        self.preview_label.bind("<Control-Button-5>", self.on_preview_ctrl_mousewheel)
+        self._bind_preview_wheel(self.preview_canvas)
+        self._bind_preview_wheel(self.preview_content)
+        self._bind_preview_wheel(self.preview_placeholder)
+
+    def _bind_preview_wheel(self, widget: tk.Widget) -> None:
+        widget.bind("<MouseWheel>", self.on_preview_mousewheel)
+        widget.bind("<Shift-MouseWheel>", self.on_preview_shift_mousewheel)
+        widget.bind("<Button-4>", self.on_preview_mousewheel)
+        widget.bind("<Button-5>", self.on_preview_mousewheel)
+        widget.bind("<Shift-Button-4>", self.on_preview_shift_mousewheel)
+        widget.bind("<Shift-Button-5>", self.on_preview_shift_mousewheel)
+        widget.bind("<Control-MouseWheel>", self.on_preview_ctrl_mousewheel)
+        widget.bind("<Control-Button-4>", self.on_preview_ctrl_mousewheel)
+        widget.bind("<Control-Button-5>", self.on_preview_ctrl_mousewheel)
+
+    def clear_preview_widgets(self) -> None:
+        for widget in self.preview_content.winfo_children():
+            widget.destroy()
+
+    def add_preview_widget(self, widget: tk.Widget, row: int) -> None:
+        self._bind_preview_wheel(widget)
+        widget.grid(row=row, column=0, pady=6)
+
+    def refresh_preview_layout(self) -> None:
+        self.preview_content.update_idletasks()
+        canvas_width = max(self.preview_canvas.winfo_width(), 1)
+        canvas_height = max(self.preview_canvas.winfo_height(), 1)
+        self._reposition_preview_content(canvas_width, canvas_height)
 
     def _reposition_preview_content(self, canvas_width: int, canvas_height: int) -> None:
-        content_width = max(self.preview_label.winfo_reqwidth(), 1)
-        content_height = max(self.preview_label.winfo_reqheight(), 1)
+        content_width = max(self.preview_content.winfo_reqwidth(), 1)
+        content_height = max(self.preview_content.winfo_reqheight(), 1)
 
         x_pos = max((canvas_width - content_width) // 2, 0)
         y_pos = max((canvas_height - content_height) // 2, 0)

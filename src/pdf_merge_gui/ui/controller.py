@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import os
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -11,6 +13,9 @@ from ..model import MergeModel
 from ..preview import PreviewDependencyUnavailable, PreviewRenderError
 from ..services.preview_service import PreviewService
 from .view import PdfMergeView
+
+
+logger = logging.getLogger(__name__)
 
 
 class PdfMergeController:
@@ -29,6 +34,9 @@ class PdfMergeController:
         self._pending_resize_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
         self._preview_image_refs: list[ImageTk.PhotoImage] = []
+        self._debug_preview_scroll = os.getenv("PDF_MERGE_DEBUG_SCROLL", "").lower() in {"1", "true", "yes", "on"}
+        if self._debug_preview_scroll:
+            logging.basicConfig(level=logging.DEBUG)
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -285,6 +293,15 @@ class PdfMergeController:
         preserve_scroll: bool = False,
     ) -> None:
         previous_scrollregion = self.view.preview_canvas.cget("scrollregion")
+        self._log_preview_debug(
+            "before rebuild",
+            preserve_scroll=preserve_scroll,
+            reset_scroll=reset_scroll,
+            previous_scrollregion=previous_scrollregion,
+            xview=self.view.preview_canvas.xview(),
+            yview=self.view.preview_canvas.yview(),
+            canvasy0=self.view.preview_canvas.canvasy(0),
+        )
         scroll_x = 0.0
         scroll_y = 0.0
         scroll_y_abs: Optional[float] = None
@@ -299,6 +316,14 @@ class PdfMergeController:
             self.view.add_preview_widget(widget, row)
         self.view.refresh_preview_layout()
 
+        self._log_preview_debug(
+            "after layout",
+            new_scrollregion=self.view.preview_canvas.cget("scrollregion"),
+            xview=self.view.preview_canvas.xview(),
+            yview=self.view.preview_canvas.yview(),
+            canvasy0=self.view.preview_canvas.canvasy(0),
+        )
+
         if preserve_scroll:
             self.view.preview_canvas.xview_moveto(scroll_x)
             restored = False
@@ -309,12 +334,29 @@ class PdfMergeController:
                     old_height = max(old_region[3] - old_region[1], 1.0)
                     new_height = max(new_region[3] - new_region[1], 1.0)
                     old_ratio = max(0.0, min(1.0, scroll_y_abs / old_height))
-                    self.view.preview_canvas.yview_moveto(max(0.0, min(1.0, old_ratio * (old_height / new_height))))
+                    target_y = max(0.0, min(1.0, old_ratio * (old_height / new_height)))
+                    self.view.preview_canvas.yview_moveto(target_y)
+                    self._log_preview_debug(
+                        "restored proportional y",
+                        old_height=old_height,
+                        new_height=new_height,
+                        old_ratio=old_ratio,
+                        target_y=target_y,
+                    )
                     restored = True
             if not restored:
                 self.view.preview_canvas.yview_moveto(scroll_y)
+                self._log_preview_debug("restored fractional y fallback", scroll_y=scroll_y)
         elif reset_scroll:
             self.view.reset_preview_scroll()
+            self._log_preview_debug("reset scroll to origin")
+
+        self._log_preview_debug(
+            "after restore",
+            xview=self.view.preview_canvas.xview(),
+            yview=self.view.preview_canvas.yview(),
+            canvasy0=self.view.preview_canvas.canvasy(0),
+        )
 
     def _parse_scrollregion(self, scrollregion: object) -> Optional[tuple[float, float, float, float]]:
         if not isinstance(scrollregion, str) or not scrollregion.strip():
@@ -324,6 +366,12 @@ class PdfMergeController:
         except (TypeError, ValueError):
             return None
         return (x1, y1, x2, y2)
+
+    def _log_preview_debug(self, message: str, **context: object) -> None:
+        if not self._debug_preview_scroll:
+            return
+        details = ", ".join(f"{key}={value}" for key, value in context.items())
+        logger.debug("[preview-scroll] %s%s", message, f" | {details}" if details else "")
 
     def _can_preserve_final_scroll(self, preview_key: tuple[object, ...]) -> bool:
         if self._last_preview_render_key is None:
@@ -510,6 +558,15 @@ class PdfMergeController:
             return
 
         preserve_scroll = self._can_preserve_final_scroll(preview_key)
+        self._log_preview_debug(
+            "final preview render decision",
+            preserve_scroll=preserve_scroll,
+            previous_key=self._last_preview_render_key,
+            preview_key=preview_key,
+            zoom=self.preview_zoom,
+            fit_preview=self.view.fit_preview.get(),
+            panel_size=self._panel_size(),
+        )
 
         rendered_pages: list[ImageTk.PhotoImage] = []
         for page in self.model.sequence:

@@ -49,6 +49,7 @@ class PdfMergeController:
         self._final_preview_visible_indices: set[int] = set()
         self._final_preview_anchor_fraction = 0.0
         self._final_preview_syncing_scrollbar = False
+        self._final_preview_rendering = False
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -436,7 +437,7 @@ class PdfMergeController:
         self.view.preview_vscroll.set(first, last)
         if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
             return
-        if self._final_preview_syncing_scrollbar:
+        if self._final_preview_syncing_scrollbar or self._final_preview_rendering:
             return
         try:
             first_fraction = float(first)
@@ -547,70 +548,76 @@ class PdfMergeController:
         self._final_preview_anchor_fraction = 0.0 if max_start == 0 else clamped / max_start
 
     def _render_virtual_final_preview(self, preserve_anchor: bool) -> None:
-        if not self._final_preview_pages:
-            self.show_preview_text("Open one or more PDFs to begin.")
-            return
-        if not preserve_anchor:
-            self._set_virtual_anchor(0)
-
-        top, bottom = self._visible_virtual_window()
-        start_idx, end_idx = self._visible_page_range(top, bottom)
-        if end_idx < start_idx:
-            return
-
-        images_by_index: dict[int, ImageTk.PhotoImage] = {}
-        for idx in range(start_idx, end_idx + 1):
-            descriptor = self._final_preview_pages[idx]
-            rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
-            if rendered is None:
+        self._final_preview_rendering = True
+        try:
+            if not self._final_preview_pages:
+                self.show_preview_text("Open one or more PDFs to begin.")
                 return
-            images_by_index[idx] = rendered
-            measured_height = max(rendered.height(), 1)
-            if measured_height != descriptor.estimated_height:
-                descriptor.estimated_height = measured_height
+            if not preserve_anchor:
+                self._set_virtual_anchor(0)
 
-        self._recompute_final_preview_offsets()
-        top, bottom = self._visible_virtual_window()
-        start_idx, end_idx = self._visible_page_range(top, bottom)
-
-        self._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
-        self._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
-
-        for idx in range(start_idx, end_idx + 1):
-            if idx in images_by_index:
-                continue
-            descriptor = self._final_preview_pages[idx]
-            rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
-            if rendered is None:
+            top, bottom = self._visible_virtual_window()
+            start_idx, end_idx = self._visible_page_range(top, bottom)
+            if end_idx < start_idx:
                 return
-            images_by_index[idx] = rendered
 
-        top_spacer = self._final_preview_offsets[start_idx]
-        bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[end_idx + 1], 0)
-
-        def build() -> list[tk.Widget]:
-            widgets: list[tk.Widget] = []
-            if top_spacer:
-                spacer_top = ttk.Frame(self.view.preview_content, height=top_spacer)
-                spacer_top.grid_propagate(False)
-                widgets.append(spacer_top)
+            images_by_index: dict[int, ImageTk.PhotoImage] = {}
             for idx in range(start_idx, end_idx + 1):
-                image = images_by_index.get(idx)
-                if image is None:
-                    continue
-                preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
-                preview.image = image
-                widgets.append(preview)
-            if bottom_spacer:
-                spacer_bottom = ttk.Frame(self.view.preview_content, height=bottom_spacer)
-                spacer_bottom.grid_propagate(False)
-                widgets.append(spacer_bottom)
-            return widgets
+                descriptor = self._final_preview_pages[idx]
+                rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
+                if rendered is None:
+                    return
+                images_by_index[idx] = rendered
+                measured_height = max(rendered.height(), 1)
+                if measured_height != descriptor.estimated_height:
+                    descriptor.estimated_height = measured_height
 
-        self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
-        self._final_preview_syncing_scrollbar = True
-        self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
-        self._final_preview_syncing_scrollbar = False
+            self._recompute_final_preview_offsets()
+            top, bottom = self._visible_virtual_window()
+            start_idx, end_idx = self._visible_page_range(top, bottom)
+
+            self._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
+            self._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
+
+            for idx in range(start_idx, end_idx + 1):
+                if idx in images_by_index:
+                    continue
+                descriptor = self._final_preview_pages[idx]
+                rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
+                if rendered is None:
+                    return
+                images_by_index[idx] = rendered
+
+            top_spacer = self._final_preview_offsets[start_idx]
+            bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[end_idx + 1], 0)
+
+            def build() -> list[tk.Widget]:
+                widgets: list[tk.Widget] = []
+                if top_spacer:
+                    spacer_top = ttk.Frame(self.view.preview_content, height=top_spacer)
+                    spacer_top.grid_propagate(False)
+                    widgets.append(spacer_top)
+                for idx in range(start_idx, end_idx + 1):
+                    image = images_by_index.get(idx)
+                    if image is None:
+                        continue
+                    preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
+                    preview.image = image
+                    widgets.append(preview)
+                if bottom_spacer:
+                    spacer_bottom = ttk.Frame(self.view.preview_content, height=bottom_spacer)
+                    spacer_bottom.grid_propagate(False)
+                    widgets.append(spacer_bottom)
+                return widgets
+
+            self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
+            self._final_preview_syncing_scrollbar = True
+            try:
+                self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
+            finally:
+                self._final_preview_syncing_scrollbar = False
+        finally:
+            self._final_preview_rendering = False
 
     def update_preview(self) -> None:
         if not self.model.sequence:

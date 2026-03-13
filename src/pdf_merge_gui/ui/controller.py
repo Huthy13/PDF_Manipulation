@@ -28,6 +28,7 @@ class PdfMergeController:
         self.preview_zoom = self.DEFAULT_ZOOM
         self._pending_resize_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
+        self._preview_image_refs: list[ImageTk.PhotoImage] = []
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -64,6 +65,7 @@ class PdfMergeController:
 
     def on_close(self) -> None:
         self.preview_service.clear()
+        self._preview_image_refs = []
         self.model.clear()
         self.master.destroy()
 
@@ -202,6 +204,7 @@ class PdfMergeController:
     def on_clear_all(self) -> None:
         self.model.clear()
         self.preview_service.clear()
+        self._preview_image_refs = []
         self.refresh_list()
 
     def on_reverse_selected(self) -> None:
@@ -300,6 +303,7 @@ class PdfMergeController:
             self.view.reset_preview_scroll()
 
     def show_preview_text(self, text: str) -> None:
+        self._preview_image_refs = []
         def build() -> list[tk.Widget]:
             return [
                 ttk.Label(
@@ -314,6 +318,7 @@ class PdfMergeController:
         self._show_preview_widgets(build)
 
     def show_preview_image(self, image: ImageTk.PhotoImage, reset_scroll: bool = True) -> None:
+        self._preview_image_refs = [image]
         def build() -> list[tk.Widget]:
             preview = ttk.Label(self.view.preview_content, image=image)
             preview.image = image
@@ -322,6 +327,7 @@ class PdfMergeController:
         self._show_preview_widgets(build, reset_scroll=reset_scroll)
 
     def show_preview_images(self, images: list[ImageTk.PhotoImage], preserve_scroll: bool = False) -> None:
+        self._preview_image_refs = list(images)
         def build() -> list[tk.Widget]:
             widgets: list[tk.Widget] = []
             for image in images:

@@ -16,6 +16,10 @@ class MergeModel:
     def sequence(self) -> list[PageRef]:
         return self.sequence_service.sequence
 
+    @property
+    def sequence_version(self) -> int:
+        return self.sequence_service.sequence_version
+
     def add_pdf(self, path: str) -> None:
         self.sequence_service.extend(self.document_session.load_pdf_pages(path))
 

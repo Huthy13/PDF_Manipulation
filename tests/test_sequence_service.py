@@ -93,3 +93,48 @@ def test_reverse_all_flips_entire_sequence():
 
     assert [p.display_name for p in svc.sequence] == ["C", "B", "A"]
     assert selected == [0, 1, 2]
+
+
+def test_sequence_version_non_mutating_actions_do_not_bump() -> None:
+    svc = SequenceService()
+    svc.extend([make_page("A"), make_page("B"), make_page("C")])
+    initial_version = svc.sequence_version
+
+    assert svc.move_up(0) == 0
+    assert svc.move_down(len(svc.sequence) - 1) == len(svc.sequence) - 1
+    assert svc.move_to(1, 2) == 1
+    assert svc.move_to_many([1], 1) == [1]
+    assert svc.reverse_selected([1]) == [1]
+    svc.remove([-1, 99])
+
+    assert svc.sequence_version == initial_version
+
+
+def test_sequence_version_mutating_actions_bump() -> None:
+    svc = SequenceService()
+
+    assert svc.sequence_version == 0
+
+    svc.extend([make_page("A")])
+    assert svc.sequence_version == 1
+
+    svc.extend([make_page("B")])
+    assert svc.sequence_version == 2
+
+    svc.move_up(1)
+    assert svc.sequence_version == 3
+
+    svc.move_down(0)
+    assert svc.sequence_version == 4
+
+    svc.reverse_selected([0, 1])
+    assert svc.sequence_version == 5
+
+    svc.reverse_all()
+    assert svc.sequence_version == 6
+
+    svc.remove([0])
+    assert svc.sequence_version == 7
+
+    svc.clear()
+    assert svc.sequence_version == 8

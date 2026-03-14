@@ -1073,9 +1073,6 @@ class PdfMergeController:
                         end_idx,
                         preserve_anchor,
                     )
-                self._final_preview_syncing_scrollbar = True
-                self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
-                self._final_preview_syncing_scrollbar = False
                 skip_reason = "cache_hit"
                 return False
 

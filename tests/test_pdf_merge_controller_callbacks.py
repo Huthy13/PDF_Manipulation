@@ -250,7 +250,7 @@ def test_virtual_preview_cache_skip_requires_matching_layout_signature() -> None
     assert rendered is False
     assert render_calls == []
     assert widget_builds == []
-    assert yview_calls
+    assert yview_calls == [0.5]
 
 
 class FakeCaption:

@@ -288,3 +288,31 @@ def test_final_preview_latest_scroll_wins_when_callbacks_arrive_out_of_order() -
     assert draw_calls == [(2, 3, 7)]
     assert controller._final_preview_rendered_pil[2].height == 180
     assert 3 not in controller._final_preview_rendered_pil
+
+
+def test_constrain_photoimage_size_scales_images_over_dimension_limit() -> None:
+    controller = _build_controller(mode="single")
+
+    oversized = Image.new("RGB", (24_000, 12_000), color="white")
+    constrained = controller._constrain_photoimage_size(oversized)
+
+    assert constrained.size == (controller.PHOTOIMAGE_MAX_DIMENSION, 8192)
+
+
+def test_create_photoimage_with_fallback_retries_with_constrained_image(monkeypatch) -> None:
+    controller = _build_controller(mode="single")
+
+    calls: list[tuple[int, int]] = []
+
+    def fake_photoimage(image: Image.Image):
+        calls.append(image.size)
+        if image.width > controller.PHOTOIMAGE_MAX_DIMENSION:
+            raise RuntimeError("Tk_GetPixmap: Error from CreateDIBSection")
+        return image.size
+
+    monkeypatch.setattr("pdf_merge_gui.ui.controller.ImageTk.PhotoImage", fake_photoimage)
+
+    result = controller._create_photoimage_with_fallback(Image.new("RGB", (20_000, 10_000), color="white"))
+
+    assert calls == [(20_000, 10_000), (16_384, 8192)]
+    assert result == (16_384, 8192)

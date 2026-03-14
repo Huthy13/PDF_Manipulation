@@ -78,6 +78,11 @@ class PdfMergeController:
         self._final_preview_decoded_by_index: dict[int, tuple[PrimaryCacheKey, Image.Image]] = {}
         self._final_preview_render_errors: set[int] = set()
         self._final_preview_pending_indices: set[int] = set()
+        self._final_preview_pool_top_spacer: Optional[ttk.Frame] = None
+        self._final_preview_pool_bottom_spacer: Optional[ttk.Frame] = None
+        self._final_preview_row_pool: list[ttk.Frame] = []
+        self._final_preview_row_labels: list[tk.Label] = []
+        self._final_preview_row_bound_indices: list[Optional[int]] = []
         self._final_preview_pipeline = PreviewRenderPipeline(on_result=self._on_final_preview_result)
         self._last_preview_mode = self.view.preview_mode.get()
 
@@ -132,6 +137,7 @@ class PdfMergeController:
         self._final_preview_pages = []
         self._final_preview_images_by_index = {}
         self._final_preview_decoded_by_index = {}
+        self._clear_final_preview_row_pool()
         self.model.clear()
         self.master.destroy()
 
@@ -375,6 +381,7 @@ class PdfMergeController:
 
     def show_preview_text(self, text: str) -> None:
         self._preview_image_refs = []
+        self._clear_final_preview_row_pool()
         def build() -> list[tk.Widget]:
             return [
                 ttk.Label(
@@ -391,6 +398,7 @@ class PdfMergeController:
     def show_preview_image(self, image: ImageTk.PhotoImage, reset_scroll: bool = True) -> None:
         self._preview_image_refs = [image]
         self._final_preview_visible_indices = set()
+        self._clear_final_preview_row_pool()
         def build() -> list[tk.Widget]:
             preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
             preview.image = image
@@ -401,6 +409,7 @@ class PdfMergeController:
     def show_preview_images(self, images: list[ImageTk.PhotoImage], preserve_scroll: bool = False) -> None:
         self._preview_image_refs = list(images)
         self._final_preview_visible_indices = set()
+        self._clear_final_preview_row_pool()
         def build() -> list[tk.Widget]:
             widgets: list[tk.Widget] = []
             for image in images:
@@ -774,7 +783,7 @@ class PdfMergeController:
             idx for idx in range(start_idx, end_idx + 1) if idx not in self._final_preview_decoded_by_index
         ]
         if not request_indices:
-            self._compose_final_preview_widgets()
+            self._compose_final_preview_widgets(allow_fast_path=True)
             self._trim_preview_caches()
             return
 
@@ -794,9 +803,53 @@ class PdfMergeController:
                 priority=priority,
             )
 
-        self._compose_final_preview_widgets()
+        self._compose_final_preview_widgets(allow_fast_path=False)
 
-    def _compose_final_preview_widgets(self) -> None:
+    def _clear_final_preview_row_pool(self) -> None:
+        self._final_preview_pool_top_spacer = None
+        self._final_preview_pool_bottom_spacer = None
+        self._final_preview_row_pool = []
+        self._final_preview_row_labels = []
+        self._final_preview_row_bound_indices = []
+
+    def _ensure_final_preview_row_pool(self, visible_count: int) -> None:
+        if self._final_preview_pool_top_spacer is None or not self._final_preview_pool_top_spacer.winfo_exists():
+            self._final_preview_pool_top_spacer = ttk.Frame(self.view.preview_content, height=0)
+            self._final_preview_pool_top_spacer.grid_propagate(False)
+        if self._final_preview_pool_bottom_spacer is None or not self._final_preview_pool_bottom_spacer.winfo_exists():
+            self._final_preview_pool_bottom_spacer = ttk.Frame(self.view.preview_content, height=0)
+            self._final_preview_pool_bottom_spacer.grid_propagate(False)
+
+        while len(self._final_preview_row_pool) < visible_count:
+            row_frame = ttk.Frame(self.view.preview_content, height=1)
+            row_frame.grid_propagate(False)
+            row_label = tk.Label(row_frame, bd=0, highlightthickness=0)
+            row_label.pack(fill="both", expand=True)
+            self._final_preview_row_pool.append(row_frame)
+            self._final_preview_row_labels.append(row_label)
+            self._final_preview_row_bound_indices.append(None)
+
+        while len(self._final_preview_row_pool) > visible_count:
+            row_frame = self._final_preview_row_pool.pop()
+            self._final_preview_row_labels.pop()
+            self._final_preview_row_bound_indices.pop()
+            row_frame.destroy()
+
+    def _bind_final_preview_row(self, pool_slot: int, page_index: int, images_by_index: dict[int, ImageTk.PhotoImage]) -> None:
+        row_frame = self._final_preview_row_pool[pool_slot]
+        row_label = self._final_preview_row_labels[pool_slot]
+        image = images_by_index.get(page_index)
+        if image is None:
+            row_label.configure(image="", text="")
+            row_label.image = None
+            row_frame.configure(height=max(self._final_preview_pages[page_index].logical_height, 1))
+        else:
+            row_label.configure(image=image, text="")
+            row_label.image = image
+            row_frame.configure(height=max(image.height(), 1))
+        self._final_preview_row_bound_indices[pool_slot] = page_index
+
+    def _compose_final_preview_widgets(self, allow_fast_path: bool) -> None:
         start_idx, end_idx = self._final_preview_active_range
         if end_idx < start_idx:
             return
@@ -815,33 +868,65 @@ class PdfMergeController:
 
         self._final_preview_images_by_index = images_by_index
 
-        def build() -> list[tk.Widget]:
-            widgets: list[tk.Widget] = []
-            if top_spacer:
-                spacer_top = ttk.Frame(self.view.preview_content, height=top_spacer)
-                spacer_top.grid_propagate(False)
-                widgets.append(spacer_top)
-            for idx in range(start_idx, end_idx + 1):
-                image = images_by_index.get(idx)
-                if image is None:
-                    placeholder = ttk.Frame(
-                        self.view.preview_content,
-                        height=max(self._final_preview_pages[idx].logical_height, 1),
-                    )
-                    placeholder.grid_propagate(False)
-                    widgets.append(placeholder)
-                    continue
-                preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
-                preview.image = image
-                widgets.append(preview)
-            if bottom_spacer:
-                spacer_bottom = ttk.Frame(self.view.preview_content, height=bottom_spacer)
-                spacer_bottom.grid_propagate(False)
-                widgets.append(spacer_bottom)
-            return widgets
+        visible_count = end_idx - start_idx + 1
+        previous_bound = list(self._final_preview_row_bound_indices)
+        self._ensure_final_preview_row_pool(visible_count)
+
+        if self._final_preview_pool_top_spacer is not None:
+            self._final_preview_pool_top_spacer.configure(height=top_spacer)
+        if self._final_preview_pool_bottom_spacer is not None:
+            self._final_preview_pool_bottom_spacer.configure(height=bottom_spacer)
+
+        if allow_fast_path and previous_bound:
+            prev_start = previous_bound[0]
+            prev_end = previous_bound[-1]
+            if prev_start is not None and prev_end is not None and len(previous_bound) == visible_count:
+                offset = start_idx - prev_start
+                if prev_end == end_idx - offset and 0 < abs(offset) < visible_count:
+                    if offset > 0:
+                        self._final_preview_row_pool = self._final_preview_row_pool[offset:] + self._final_preview_row_pool[:offset]
+                        self._final_preview_row_labels = self._final_preview_row_labels[offset:] + self._final_preview_row_labels[:offset]
+                        self._final_preview_row_bound_indices = (
+                            self._final_preview_row_bound_indices[offset:] + self._final_preview_row_bound_indices[:offset]
+                        )
+                        for slot in range(visible_count - offset, visible_count):
+                            self._bind_final_preview_row(slot, start_idx + slot, images_by_index)
+                    else:
+                        shift = abs(offset)
+                        self._final_preview_row_pool = self._final_preview_row_pool[-shift:] + self._final_preview_row_pool[:-shift]
+                        self._final_preview_row_labels = self._final_preview_row_labels[-shift:] + self._final_preview_row_labels[:-shift]
+                        self._final_preview_row_bound_indices = (
+                            self._final_preview_row_bound_indices[-shift:] + self._final_preview_row_bound_indices[:-shift]
+                        )
+                        for slot in range(0, shift):
+                            self._bind_final_preview_row(slot, start_idx + slot, images_by_index)
+                else:
+                    for slot in range(visible_count):
+                        page_idx = start_idx + slot
+                        if self._final_preview_row_bound_indices[slot] != page_idx:
+                            self._bind_final_preview_row(slot, page_idx, images_by_index)
+            else:
+                for slot in range(visible_count):
+                    self._bind_final_preview_row(slot, start_idx + slot, images_by_index)
+        else:
+            for slot in range(visible_count):
+                page_idx = start_idx + slot
+                if self._final_preview_row_bound_indices[slot] != page_idx:
+                    self._bind_final_preview_row(slot, page_idx, images_by_index)
+
+        self.view.clear_preview_widgets()
+        row = 0
+        if self._final_preview_pool_top_spacer is not None:
+            self.view.add_preview_widget(self._final_preview_pool_top_spacer, row)
+            row += 1
+        for pooled_row in self._final_preview_row_pool:
+            self.view.add_preview_widget(pooled_row, row)
+            row += 1
+        if self._final_preview_pool_bottom_spacer is not None:
+            self.view.add_preview_widget(self._final_preview_pool_bottom_spacer, row)
 
         self._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
-        self._show_preview_widgets(build, reset_scroll=False, preserve_scroll=False)
+        self.view.refresh_preview_layout()
         virtual_top = self._virtual_top_from_anchor()
         self._final_preview_syncing_scrollbar = True
         try:
@@ -896,7 +981,7 @@ class PdfMergeController:
             descriptor.estimated_height = measured_height
             self._recompute_final_preview_offsets()
 
-        self._compose_final_preview_widgets()
+        self._compose_final_preview_widgets(allow_fast_path=True)
         if not self._final_preview_pending_indices:
             self._final_preview_rendering = False
 

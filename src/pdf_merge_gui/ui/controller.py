@@ -38,6 +38,7 @@ class PdfMergeController:
     FINAL_RESIZE_SETTLE_MS = 240
     FINAL_SCROLL_RENDER_DEBOUNCE_MS = 24
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
+    PHOTOIMAGE_MAX_DIMENSION = 16_384
 
     def __init__(self, master: tk.Tk) -> None:
         self.master = master
@@ -536,7 +537,7 @@ class PdfMergeController:
         try:
             effective_zoom, rendered_pil = self._resolve_zoom(source_path, page_index)
             self._update_zoom_label(effective_zoom=effective_zoom)
-            return ImageTk.PhotoImage(rendered_pil)
+            return self._create_photoimage_with_fallback(rendered_pil)
         except PreviewDependencyUnavailable as exc:
             self._update_zoom_label()
             self.show_preview_text(f"Preview unavailable\n\n{exc}")
@@ -551,6 +552,29 @@ class PdfMergeController:
             messagebox.showerror("Preview failed", f"Unexpected preview error:\n{exc}")
             self.show_preview_text("Unexpected error while rendering preview.")
             return None
+
+    def _create_photoimage_with_fallback(self, image: Image.Image) -> ImageTk.PhotoImage:
+        try:
+            return ImageTk.PhotoImage(image)
+        except Exception as exc:
+            constrained = self._constrain_photoimage_size(image)
+            if constrained.size == image.size:
+                raise exc
+            return ImageTk.PhotoImage(constrained)
+
+    def _constrain_photoimage_size(self, image: Image.Image) -> Image.Image:
+        max_dim = self.PHOTOIMAGE_MAX_DIMENSION
+        width = max(image.width, 1)
+        height = max(image.height, 1)
+        largest = max(width, height)
+        if largest <= max_dim:
+            return image
+        scale = max_dim / largest
+        constrained_size = (
+            max(1, int(width * scale)),
+            max(1, int(height * scale)),
+        )
+        return image.resize(constrained_size, Image.Resampling.LANCZOS)
 
 
     def _current_preview_key(self, mode: str, selected_index: Optional[int] = None) -> tuple[object, ...]:
@@ -756,7 +780,7 @@ class PdfMergeController:
                 widgets.append(spacer_top)
             for idx in range(start_idx, end_idx + 1):
                 if idx in self._final_preview_rendered_pil:
-                    photo = ImageTk.PhotoImage(self._final_preview_rendered_pil[idx])
+                    photo = self._create_photoimage_with_fallback(self._final_preview_rendered_pil[idx])
                     self._preview_image_refs.append(photo)
                     preview = tk.Label(self.view.preview_content, image=photo, bd=0, highlightthickness=0)
                     preview.image = photo

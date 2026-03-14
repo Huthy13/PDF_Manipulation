@@ -40,6 +40,17 @@ class FakeCanvas:
         return self.height
 
 
+class FakePipeline:
+    def __init__(self) -> None:
+        self.generations: list[int] = []
+
+    def set_active_generation(self, generation_id: int) -> None:
+        self.generations.append(generation_id)
+
+    def stop(self) -> None:
+        return
+
+
 class FakeMaster:
     def __init__(self) -> None:
         self._next = 0
@@ -83,34 +94,34 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._final_preview_rendering = False
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
+    controller._final_preview_pages = []
+    controller._final_preview_generation = 0
+    controller._final_preview_pending_indices = set()
+    controller._final_preview_images_by_index = {}
+    controller._final_preview_active_range = (0, -1)
+    controller._final_preview_pipeline = FakePipeline()
     return controller
 
 
-def test_regression_final_preview_scroll_loop_does_not_reenter_render() -> None:
+def test_regression_final_preview_scroll_loop_debounces_and_cancels_prior_dispatch() -> None:
     controller = _build_controller(mode="final")
-    render_calls: list[float] = []
-
-    def fake_render(*, preserve_anchor: bool) -> None:
-        render_calls.append(controller._final_preview_anchor_fraction)
-        controller._final_preview_rendering = True
-        try:
-            controller._on_preview_canvas_yscroll("0.73", "0.92")
-        finally:
-            controller._final_preview_rendering = False
-
-    controller._render_virtual_final_preview = fake_render
+    render_calls: list[bool] = []
+    controller._request_final_preview_render = lambda *, preserve_anchor, refresh_generation: render_calls.append(
+        preserve_anchor and refresh_generation
+    )
 
     for _ in range(20):
         controller._on_preview_canvas_yscroll("0.25", "0.60")
-        pending = controller._pending_final_scroll_render_after
-        assert pending is not None
-        callback = controller.master.scheduled[pending]
-        callback()
 
-    assert len(render_calls) == 20
     assert controller._final_preview_anchor_fraction == 0.25
+    assert len(controller.master.after_cancel_calls) == 19
     assert controller.view.preview_vscroll.calls.count(("0.25", "0.60")) == 20
-    assert controller.view.preview_vscroll.calls.count(("0.73", "0.92")) == 20
+
+    pending = controller._pending_final_scroll_render_after
+    assert pending is not None
+    callback = controller.master.scheduled[pending]
+    callback()
+    assert render_calls == [True]
 
 
 def test_on_preview_panel_resize_debounces_pending_callback() -> None:
@@ -126,22 +137,22 @@ def test_on_preview_panel_resize_debounces_pending_callback() -> None:
     assert controller.master.after_calls[-1][1] == controller.FINAL_RESIZE_DEBOUNCE_MS
 
 
-def test_final_resize_debounced_handler_guards_render_and_settles() -> None:
+def test_final_resize_debounced_handler_schedules_settled_render() -> None:
     controller = _build_controller(mode="final", width=1200, height=900)
     state_updates: list[str] = []
     render_calls: list[bool] = []
 
     controller._update_final_preview_window_state = lambda: state_updates.append("updated")
-    controller._render_virtual_final_preview = lambda *, preserve_anchor: render_calls.append(preserve_anchor)
+    controller._request_final_preview_render = lambda *, preserve_anchor, refresh_generation: render_calls.append(
+        preserve_anchor and refresh_generation
+    )
 
-    controller._final_preview_rendering = True
     controller._on_resize_debounced()
 
-    assert state_updates == []
+    assert state_updates == ["updated"]
     assert render_calls == []
     assert controller._pending_final_resize_settle_after is not None
 
-    controller._final_preview_rendering = False
     controller._on_final_resize_settled()
 
     assert render_calls == [True]

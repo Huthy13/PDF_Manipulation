@@ -681,6 +681,14 @@ class PdfMergeController:
         estimated_total = sum(max(page.estimated_height, 1) for page in self._final_preview_pages)
         available_height = self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT - (len(self._final_preview_pages) * self.FINAL_PREVIEW_PAGE_GAP)
         scale = 1.0 if estimated_total <= max(available_height, 1) else max(available_height, 1) / estimated_total
+        estimated_heights = [page.estimated_height for page in self._final_preview_pages]
+        logger.debug(
+            "Recomputing final preview offsets estimated_total=%s available_height=%s scale=%.8f page_count=%s",
+            estimated_total,
+            available_height,
+            scale,
+            len(self._final_preview_pages),
+        )
 
         offsets = [0]
         running = 0
@@ -690,6 +698,36 @@ class PdfMergeController:
             offsets.append(running)
         self._final_preview_offsets = offsets
         self._final_preview_total_height = running
+
+        logical_heights = [page.logical_height for page in self._final_preview_pages]
+        logger.debug(
+            "Final preview offsets stats final_preview_total_height=%s estimated_height_min=%s estimated_height_max=%s logical_height_min=%s logical_height_max=%s",
+            self._final_preview_total_height,
+            min(estimated_heights),
+            max(estimated_heights),
+            min(logical_heights),
+            max(logical_heights),
+        )
+        logger.debug(
+            "Final preview offsets sample first=%s last=%s offset_count=%s",
+            offsets[:5],
+            offsets[-5:] if len(offsets) > 5 else offsets,
+            len(offsets),
+        )
+
+        monotonic = all(current >= previous for previous, current in zip(offsets, offsets[1:]))
+        if not monotonic:
+            logger.warning(
+                "Final preview offsets non-monotonic detected first=%s last=%s",
+                offsets[:5],
+                offsets[-5:] if len(offsets) > 5 else offsets,
+            )
+        if offsets[-1] != self._final_preview_total_height:
+            logger.warning(
+                "Final preview offsets mismatch offset_end=%s final_preview_total_height=%s",
+                offsets[-1],
+                self._final_preview_total_height,
+            )
 
     def _visible_virtual_window(self) -> tuple[int, int]:
         viewport_height = max(self.view.preview_canvas.winfo_height(), 1)

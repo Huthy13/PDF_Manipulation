@@ -4,6 +4,7 @@ import tkinter as tk
 from bisect import bisect_right
 from dataclasses import dataclass
 from pathlib import Path
+from time import monotonic
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Optional, Sequence
 
@@ -24,7 +25,7 @@ class FinalPreviewPage:
 
 
 class PdfMergeController:
-    USE_VIRTUAL_FINAL_PREVIEW = False
+    USE_VIRTUAL_FINAL_PREVIEW = True
     MIN_ZOOM = 0.4
     MAX_ZOOM = 4.0
     ZOOM_STEP = 0.2
@@ -32,6 +33,9 @@ class PdfMergeController:
     FINAL_PREVIEW_SAFE_SCROLL_HEIGHT = 900_000
     FINAL_PREVIEW_PAGE_GAP = 12
     FINAL_PREVIEW_OVERSCAN_PAGES = 2
+    FINAL_PREVIEW_MAX_OVERSCAN_PAGES = 14
+    FINAL_PREVIEW_OVERSCAN_VELOCITY_FACTOR = 20.0
+    FINAL_PREVIEW_OVERSCAN_IDLE_RESET_MS = 240
     FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT = 1300
     RESIZE_DEBOUNCE_MS = 120
     FINAL_RESIZE_DEBOUNCE_MS = 180
@@ -57,6 +61,8 @@ class PdfMergeController:
         self._final_preview_total_height = 0
         self._final_preview_visible_indices: set[int] = set()
         self._final_preview_anchor_fraction = 0.0
+        self._final_preview_dynamic_overscan_pages = self.FINAL_PREVIEW_OVERSCAN_PAGES
+        self._final_preview_last_scroll_sample: Optional[tuple[float, float]] = None
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
         self._pending_preview_scroll_restore: Optional[tuple[float, float]] = None
@@ -537,6 +543,20 @@ class PdfMergeController:
             first_fraction = float(first)
         except ValueError:
             return
+        now = monotonic()
+        if self._final_preview_last_scroll_sample is not None:
+            last_time, last_fraction = self._final_preview_last_scroll_sample
+            elapsed = max(now - last_time, 0.0)
+            if elapsed > 0:
+                velocity = abs(first_fraction - last_fraction) / elapsed
+                boosted_overscan = self.FINAL_PREVIEW_OVERSCAN_PAGES + int(
+                    velocity * self.FINAL_PREVIEW_OVERSCAN_VELOCITY_FACTOR
+                )
+                self._final_preview_dynamic_overscan_pages = max(
+                    self.FINAL_PREVIEW_OVERSCAN_PAGES,
+                    min(boosted_overscan, self.FINAL_PREVIEW_MAX_OVERSCAN_PAGES),
+                )
+        self._final_preview_last_scroll_sample = (now, first_fraction)
         self._final_preview_anchor_fraction = max(0.0, min(1.0, first_fraction))
         if self._pending_final_scroll_render_after is not None:
             return
@@ -643,12 +663,25 @@ class PdfMergeController:
     def _visible_page_range(self, top: int, bottom: int) -> tuple[int, int]:
         if not self._final_preview_pages:
             return 0, -1
-        start = max(bisect_right(self._final_preview_offsets, top) - 1 - self.FINAL_PREVIEW_OVERSCAN_PAGES, 0)
+        overscan_pages = self._current_overscan_pages()
+        start = max(bisect_right(self._final_preview_offsets, top) - 1 - overscan_pages, 0)
         end = min(
-            bisect_right(self._final_preview_offsets, bottom) - 1 + self.FINAL_PREVIEW_OVERSCAN_PAGES,
+            bisect_right(self._final_preview_offsets, bottom) - 1 + overscan_pages,
             len(self._final_preview_pages) - 1,
         )
         return start, end
+
+    def _current_overscan_pages(self) -> int:
+        if self._final_preview_last_scroll_sample is None:
+            return self.FINAL_PREVIEW_OVERSCAN_PAGES
+        last_time, _ = self._final_preview_last_scroll_sample
+        idle_for_ms = (monotonic() - last_time) * 1000
+        if idle_for_ms >= self.FINAL_PREVIEW_OVERSCAN_IDLE_RESET_MS:
+            return self.FINAL_PREVIEW_OVERSCAN_PAGES
+        return max(
+            self.FINAL_PREVIEW_OVERSCAN_PAGES,
+            min(self._final_preview_dynamic_overscan_pages, self.FINAL_PREVIEW_MAX_OVERSCAN_PAGES),
+        )
 
     def _set_virtual_anchor(self, virtual_top: int) -> None:
         viewport_height = max(self.view.preview_canvas.winfo_height(), 1)

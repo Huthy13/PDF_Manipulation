@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import logging
+
 from PIL import ImageTk
 
 from ..preview import render_page
 from ..utils.cache import LRUCache
 from .telemetry import get_telemetry
+
+
+logger = logging.getLogger(__name__)
 
 
 class PreviewService:
@@ -23,9 +28,11 @@ class PreviewService:
         cached = self.cache.get(key)
         if cached is not None:
             telemetry.increment("preview_cache_hit")
+            logger.debug("Preview cache hit for %s page=%s zoom=%.2f", source_path, page_index, zoom)
             return cached
 
         telemetry.increment("preview_cache_miss")
+        logger.debug("Preview cache miss for %s page=%s zoom=%.2f", source_path, page_index, zoom)
         with telemetry.time_block("preview_render_miss"):
             image = render_page(source_path, page_index, zoom=zoom)
             photo = ImageTk.PhotoImage(image)

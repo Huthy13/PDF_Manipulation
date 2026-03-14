@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from bisect import bisect_right
 from dataclasses import dataclass
@@ -15,6 +16,9 @@ from ..services.preview_service import PreviewService
 from .view import PdfMergeView
 
 
+logger = logging.getLogger(__name__)
+
+
 @dataclass
 class FinalPreviewPage:
     source_path: str
@@ -24,7 +28,7 @@ class FinalPreviewPage:
 
 
 class PdfMergeController:
-    USE_VIRTUAL_FINAL_PREVIEW = False
+    USE_VIRTUAL_FINAL_PREVIEW = True
     MIN_ZOOM = 0.4
     MAX_ZOOM = 4.0
     ZOOM_STEP = 0.2
@@ -660,6 +664,7 @@ class PdfMergeController:
         if self._final_preview_rendering:
             return
         self._final_preview_rendering = True
+        logger.debug("Rendering virtual final preview preserve_anchor=%s anchor=%.4f pages=%s", preserve_anchor, self._final_preview_anchor_fraction, len(self._final_preview_pages))
         try:
             if not self._final_preview_pages:
                 self.show_preview_text("Open one or more PDFs to begin.")
@@ -669,11 +674,13 @@ class PdfMergeController:
 
             top, bottom = self._visible_virtual_window()
             start_idx, end_idx = self._visible_page_range(top, bottom)
+            logger.debug("Virtual preview window top=%s bottom=%s start_idx=%s end_idx=%s", top, bottom, start_idx, end_idx)
             if end_idx < start_idx:
                 return
 
             requested_indices = set(range(start_idx, end_idx + 1))
             if preserve_anchor and requested_indices == self._final_preview_visible_indices:
+                logger.debug("Skipping virtual render; visible window unchanged indices=%s", sorted(requested_indices))
                 self._final_preview_syncing_scrollbar = True
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
                 self._final_preview_syncing_scrollbar = False
@@ -693,6 +700,7 @@ class PdfMergeController:
             self._recompute_final_preview_offsets()
             top, bottom = self._visible_virtual_window()
             start_idx, end_idx = self._visible_page_range(top, bottom)
+            logger.debug("Virtual preview window recomputed top=%s bottom=%s start_idx=%s end_idx=%s", top, bottom, start_idx, end_idx)
 
             self._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
             self._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
@@ -729,6 +737,7 @@ class PdfMergeController:
                 return widgets
 
             self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
+            logger.debug("Rendered virtual preview indices=%s top_spacer=%s bottom_spacer=%s", list(range(start_idx, end_idx + 1)), top_spacer, bottom_spacer)
             self._final_preview_syncing_scrollbar = True
             try:
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
@@ -736,6 +745,7 @@ class PdfMergeController:
                 self._final_preview_syncing_scrollbar = False
         finally:
             self._final_preview_rendering = False
+            logger.debug("Virtual final preview render complete")
 
     def update_preview(self) -> None:
         if not self.model.sequence:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Generic, TypeVar
 
 from pdf_merge_gui.ui.controller import PdfMergeController
@@ -146,3 +147,41 @@ def test_final_resize_debounced_handler_guards_render_and_settles() -> None:
     controller._on_final_resize_settled()
 
     assert render_calls == [True]
+
+
+def test_virtual_final_preview_enabled_by_default() -> None:
+    assert PdfMergeController.USE_VIRTUAL_FINAL_PREVIEW is True
+
+
+def test_render_virtual_final_preview_emits_debug_logs(monkeypatch) -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_pages = [SimpleNamespace(source_path="doc.pdf", page_index=0, estimated_height=1200, logical_height=1)]
+    controller._final_preview_offsets = [0, 1300]
+    controller._final_preview_visible_indices = set()
+    controller._preview_image_refs = []
+
+    messages: list[str] = []
+
+    def fake_debug(message, *args):
+        if args:
+            messages.append(message % args)
+        else:
+            messages.append(str(message))
+
+    monkeypatch.setattr("pdf_merge_gui.ui.controller.logger.debug", fake_debug)
+    controller.render_preview_image = lambda source_path, page_index: SimpleNamespace(height=lambda: 500)
+    controller._recompute_final_preview_offsets = lambda: None
+    controller._show_preview_widgets = lambda build, reset_scroll=False, preserve_scroll=False: None
+    controller._visible_virtual_window = lambda: (0, 600)
+    controller._visible_page_range = lambda top, bottom: (0, 0)
+    controller.view.preview_canvas = SimpleNamespace(
+        winfo_height=lambda: 768,
+        yview_moveto=lambda _fraction: None,
+    )
+
+    controller._render_virtual_final_preview(preserve_anchor=True)
+
+    assert any("Rendering virtual final preview" in msg for msg in messages)
+    assert any("Virtual preview window top=" in msg for msg in messages)
+    assert any("Rendered virtual preview indices=" in msg for msg in messages)
+    assert any("Virtual final preview render complete" in msg for msg in messages)

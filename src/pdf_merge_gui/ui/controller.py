@@ -61,6 +61,7 @@ class PdfMergeController:
         self._final_preview_total_height = 0
         self._final_preview_visible_indices: set[int] = set()
         self._final_preview_rendered_indices: set[int] = set()
+        self._final_preview_render_signature: Optional[tuple[tuple[int, ...], int, int, int, int]] = None
         self._final_preview_anchor_fraction = 0.0
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
@@ -114,6 +115,7 @@ class PdfMergeController:
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
+        self._final_preview_render_signature = None
         self.model.clear()
         self.master.destroy()
 
@@ -256,6 +258,7 @@ class PdfMergeController:
         self._final_preview_pages = []
         self._final_preview_visible_indices = set()
         self._final_preview_rendered_indices = set()
+        self._final_preview_render_signature = None
         self.refresh_list()
 
     def on_reverse_selected(self) -> None:
@@ -378,6 +381,7 @@ class PdfMergeController:
     def show_preview_text(self, text: str) -> None:
         self._preview_image_refs = []
         self._final_preview_rendered_indices = set()
+        self._final_preview_render_signature = None
         def build() -> list[tk.Widget]:
             return [
                 ttk.Label(
@@ -395,6 +399,7 @@ class PdfMergeController:
         self._preview_image_refs = [image]
         self._final_preview_visible_indices = set()
         self._final_preview_rendered_indices = set()
+        self._final_preview_render_signature = None
         def build() -> list[tk.Widget]:
             preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
             preview.image = image
@@ -406,6 +411,7 @@ class PdfMergeController:
         self._preview_image_refs = list(images)
         self._final_preview_visible_indices = set()
         self._final_preview_rendered_indices = set()
+        self._final_preview_render_signature = None
         def build() -> list[tk.Widget]:
             widgets: list[tk.Widget] = []
             for image in images:
@@ -671,6 +677,7 @@ class PdfMergeController:
 
         self._final_preview_visible_indices = set()
         self._final_preview_rendered_indices = set()
+        self._final_preview_render_signature = None
 
         previous_heights = {
             (page.source_path, page.page_index): page.estimated_height
@@ -820,11 +827,30 @@ class PdfMergeController:
 
             requested_indices = set(range(start_idx, end_idx + 1))
             self._final_preview_visible_indices = requested_indices
-            if preserve_anchor and requested_indices == self._final_preview_rendered_indices:
+            requested_indices_sorted = tuple(sorted(requested_indices))
+            top_spacer = self._final_preview_offsets[start_idx]
+            bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[end_idx + 1], 0)
+            canvas_width = max(self.view.preview_canvas.winfo_width(), 1)
+            canvas_height = max(self.view.preview_canvas.winfo_height(), 1)
+            render_signature = (
+                requested_indices_sorted,
+                top_spacer,
+                bottom_spacer,
+                canvas_width,
+                canvas_height,
+            )
+            has_existing_widgets = bool(self.view.preview_content.winfo_children())
+            if (
+                preserve_anchor
+                and requested_indices == self._final_preview_rendered_indices
+                and render_signature == self._final_preview_render_signature
+                and has_existing_widgets
+            ):
                 logger.debug(
-                    "Skipping virtual render (cache hit, canvas unchanged); requested_indices=%s last_rendered_indices=%s",
-                    sorted(requested_indices),
+                    "Skipping virtual render (cache hit, canvas unchanged); requested_indices=%s last_rendered_indices=%s render_signature=%s",
+                    list(requested_indices_sorted),
                     sorted(self._final_preview_rendered_indices),
+                    render_signature,
                 )
                 self._final_preview_syncing_scrollbar = True
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
@@ -920,6 +946,13 @@ class PdfMergeController:
                 widget_count,
             )
             self._final_preview_rendered_indices = final_requested_indices
+            self._final_preview_render_signature = (
+                tuple(sorted(final_requested_indices)),
+                top_spacer,
+                bottom_spacer,
+                max(self.view.preview_canvas.winfo_width(), 1),
+                max(self.view.preview_canvas.winfo_height(), 1),
+            )
             logger.debug("Rendered virtual preview indices=%s top_spacer=%s bottom_spacer=%s", list(range(start_idx, end_idx + 1)), top_spacer, bottom_spacer)
             self._final_preview_syncing_scrollbar = True
             try:
@@ -957,6 +990,7 @@ class PdfMergeController:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
             self._final_preview_rendered_indices = set()
+            self._final_preview_render_signature = None
             idx = self.selected_index()
             if idx is None:
                 idx = 0
@@ -991,6 +1025,7 @@ class PdfMergeController:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
             self._final_preview_rendered_indices = set()
+            self._final_preview_render_signature = None
             images: list[ImageTk.PhotoImage] = []
             for page in self.model.sequence:
                 rendered = self.render_preview_image(page.source_path, page.page_index)

@@ -873,6 +873,8 @@ class PdfMergeController:
     def _bind_final_preview_row(self, pool_slot: int, page_index: int, images_by_index: dict[int, ImageTk.PhotoImage]) -> None:
         row_frame = self._final_preview_row_pool[pool_slot]
         row_label = self._final_preview_row_labels[pool_slot]
+        if not row_frame.winfo_exists() or not row_label.winfo_exists():
+            return
         image = images_by_index.get(page_index)
         if image is None:
             row_label.configure(image="", text="")
@@ -949,7 +951,9 @@ class PdfMergeController:
                 if self._final_preview_row_bound_indices[slot] != page_idx:
                     self._bind_final_preview_row(slot, page_idx, images_by_index)
 
-        self.view.clear_preview_widgets()
+        if not self.view.preview_content.winfo_exists():
+            return
+        self.view.clear_preview_widget_layout()
         row = 0
         if self._final_preview_pool_top_spacer is not None:
             self.view.add_preview_widget(self._final_preview_pool_top_spacer, row)

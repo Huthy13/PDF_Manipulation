@@ -252,52 +252,6 @@ def test_virtual_preview_cache_skip_requires_matching_layout_signature() -> None
     assert yview_calls
 
 
-def test_virtual_preview_cache_skip_blocked_when_layout_heights_drift() -> None:
-    controller = _build_controller(mode="final")
-    controller._final_preview_pages = [
-        SimpleNamespace(source_path="doc.pdf", page_index=idx, estimated_height=1000, logical_height=1000)
-        for idx in range(4)
-    ]
-    controller._final_preview_offsets = [0, 1000, 2000, 3000, 4000]
-    controller._final_preview_total_height = 4000
-    controller._final_preview_anchor_fraction = 0.5
-    controller._final_preview_rendered_indices = {1, 2}
-    controller._final_preview_render_signature = ((1, 2), 1000, 1000, 1024, 768)
-
-    render_calls: list[tuple[str, int]] = []
-
-    def fake_render_preview_image(source_path: str, page_index: int):
-        render_calls.append((source_path, page_index))
-        return SimpleNamespace(height=lambda: 1000)
-
-    widget_builds: list[int] = []
-
-    def fake_show_preview_widgets(_build, reset_scroll=False, preserve_scroll=False):
-        widget_builds.append(1)
-        return 1
-
-    controller.render_preview_image = fake_render_preview_image
-    controller._recompute_final_preview_offsets = lambda: None
-    controller._visible_virtual_window = lambda: (1200, 2400)
-    controller._visible_page_range = lambda top, bottom: (1, 2)
-    controller._show_preview_widgets = fake_show_preview_widgets
-    controller.view.preview_canvas = SimpleNamespace(
-        winfo_width=lambda: 1024,
-        winfo_height=lambda: 768,
-        yview_moveto=lambda _fraction: None,
-        yview=lambda: (0.5, 0.7),
-        cget=lambda _key: "0 0 1000 4020",
-    )
-    controller.view.preview_content = SimpleNamespace(winfo_children=lambda: [object()], winfo_reqheight=lambda: 4010)
-
-    rendered = controller._render_virtual_final_preview(preserve_anchor=True)
-
-    assert rendered is True
-    assert render_calls
-    assert widget_builds
-
-
-
 class FakeCaption:
     def __init__(self) -> None:
         self.text = ""

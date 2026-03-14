@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import tkinter as tk
+import logging
 from bisect import bisect_right
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Optional, Sequence
 
@@ -13,6 +15,9 @@ from ..model import MergeModel
 from ..preview import PreviewDependencyUnavailable, PreviewRenderError
 from ..services.preview_service import PreviewService
 from .view import PdfMergeView
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -40,6 +45,10 @@ class PdfMergeController:
     FINAL_SCROLL_RENDER_DEBOUNCE_MS = 24
     FINAL_SCROLL_UPGRADE_DEBOUNCE_MS = 220
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
+    FINAL_PREVIEW_HIGH_ZOOM_THRESHOLD = 2.0
+    FINAL_PREVIEW_HIGH_ZOOM_HARD_CAP = 4
+    FINAL_PREVIEW_FRAME_BUDGET_MS = 40
+    FINAL_PREVIEW_IDLE_RENDER_DELAY_MS = 12
 
     def __init__(self, master: tk.Tk) -> None:
         self.master = master
@@ -52,6 +61,7 @@ class PdfMergeController:
         self._pending_final_resize_settle_after: Optional[str] = None
         self._pending_final_scroll_render_after: Optional[str] = None
         self._pending_final_scroll_upgrade_after: Optional[str] = None
+        self._pending_final_idle_render_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
         self._last_preview_canvas_size: tuple[int, int] = (0, 0)
         self._preview_image_refs: list[ImageTk.PhotoImage] = []
@@ -64,6 +74,7 @@ class PdfMergeController:
         self._final_preview_rendering = False
         self._pending_preview_scroll_restore: Optional[tuple[float, float]] = None
         self._final_preview_prioritize_focus = True
+        self._final_preview_deferred_indices: list[int] = []
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -115,6 +126,10 @@ class PdfMergeController:
         if pending_upgrade is not None:
             self.master.after_cancel(pending_upgrade)
             self._pending_final_scroll_upgrade_after = None
+        if self._pending_final_idle_render_after is not None:
+            self.master.after_cancel(self._pending_final_idle_render_after)
+            self._pending_final_idle_render_after = None
+        self._final_preview_deferred_indices = []
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
@@ -724,7 +739,48 @@ class PdfMergeController:
         clamped = max(0, min(virtual_top, max_start))
         self._final_preview_anchor_fraction = 0.0 if max_start == 0 else clamped / max_start
 
-    def _render_virtual_final_preview(self, preserve_anchor: bool) -> None:
+    def _center_out_indices(self, start_idx: int, end_idx: int, focus_idx: int) -> list[int]:
+        if end_idx < start_idx:
+            return []
+        indices = [focus_idx]
+        left = focus_idx - 1
+        right = focus_idx + 1
+        while left >= start_idx or right <= end_idx:
+            if left >= start_idx:
+                indices.append(left)
+                left -= 1
+            if right <= end_idx:
+                indices.append(right)
+                right += 1
+        return indices
+
+    def _schedule_deferred_virtual_render(self) -> None:
+        if not self._final_preview_deferred_indices:
+            return
+        if self._pending_final_idle_render_after is not None:
+            return
+        self._pending_final_idle_render_after = self.master.after(
+            self.FINAL_PREVIEW_IDLE_RENDER_DELAY_MS,
+            self._render_deferred_virtual_final_preview,
+        )
+
+    def _render_deferred_virtual_final_preview(self) -> None:
+        self._pending_final_idle_render_after = None
+        if self.view.preview_mode.get() != self.view.PREVIEW_FINAL or not self.USE_VIRTUAL_FINAL_PREVIEW:
+            self._final_preview_deferred_indices = []
+            return
+        if self._final_preview_rendering:
+            self._schedule_deferred_virtual_render()
+            return
+        deferred_indices = list(self._final_preview_deferred_indices)
+        self._final_preview_deferred_indices = []
+        self._render_virtual_final_preview(preserve_anchor=True, preferred_indices=deferred_indices)
+
+    def _render_virtual_final_preview(
+        self,
+        preserve_anchor: bool,
+        preferred_indices: Optional[Sequence[int]] = None,
+    ) -> None:
         if self._final_preview_rendering:
             return
         self._final_preview_rendering = True
@@ -740,8 +796,9 @@ class PdfMergeController:
             if end_idx < start_idx:
                 return
 
-            requested_indices = set(range(start_idx, end_idx + 1))
-            if preserve_anchor and requested_indices == self._final_preview_visible_indices:
+            requested_indices = list(range(start_idx, end_idx + 1))
+            requested_set = set(requested_indices)
+            if preserve_anchor and requested_set == self._final_preview_visible_indices and not preferred_indices:
                 self._final_preview_syncing_scrollbar = True
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
                 self._final_preview_syncing_scrollbar = False
@@ -752,8 +809,33 @@ class PdfMergeController:
             if selected_idx is not None and start_idx <= selected_idx <= end_idx:
                 focus_idx = selected_idx
 
+            ordered_indices = self._center_out_indices(start_idx, end_idx, focus_idx)
+            if preferred_indices:
+                preferred = [idx for idx in preferred_indices if idx in requested_set]
+                if preferred:
+                    used = set(preferred)
+                    ordered_indices = preferred + [idx for idx in ordered_indices if idx not in used]
+
+            hard_cap = len(ordered_indices)
+            if self.preview_zoom >= self.FINAL_PREVIEW_HIGH_ZOOM_THRESHOLD:
+                hard_cap = min(
+                    hard_cap,
+                    self.FINAL_PREVIEW_HIGH_ZOOM_HARD_CAP + (self.FINAL_PREVIEW_OVERSCAN_PAGES * 2),
+                )
+
+            frame_budget_s = self.FINAL_PREVIEW_FRAME_BUDGET_MS / 1000.0
+            pass_started_at = perf_counter()
+
             images_by_index: dict[int, ImageTk.PhotoImage] = {}
-            for idx in range(start_idx, end_idx + 1):
+            rendered_order: list[int] = []
+            deferred_indices: list[int] = []
+            for order, idx in enumerate(ordered_indices):
+                if order >= hard_cap:
+                    deferred_indices.extend(ordered_indices[order:])
+                    break
+                if rendered_order and (perf_counter() - pass_started_at) >= frame_budget_s:
+                    deferred_indices.extend(ordered_indices[order:])
+                    break
                 descriptor = self._final_preview_pages[idx]
                 is_focus = idx == focus_idx
                 quality_tier = "focus" if (self._final_preview_prioritize_focus and is_focus) else "draft"
@@ -765,29 +847,28 @@ class PdfMergeController:
                 if rendered is None:
                     return
                 images_by_index[idx] = rendered
+                rendered_order.append(idx)
                 if is_focus:
                     measured_height = max(rendered.height(), 1)
                     if measured_height != descriptor.estimated_height:
                         descriptor.estimated_height = measured_height
 
+            if not rendered_order:
+                return
+
             self._recompute_final_preview_offsets()
-            top, bottom = self._visible_virtual_window()
-            start_idx, end_idx = self._visible_page_range(top, bottom)
+            rendered_start_idx = min(rendered_order)
+            rendered_end_idx = max(rendered_order)
 
-            self._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
-            self._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
+            self._preview_image_refs = [
+                images_by_index[idx]
+                for idx in range(rendered_start_idx, rendered_end_idx + 1)
+                if idx in images_by_index
+            ]
+            self._final_preview_visible_indices = set(range(rendered_start_idx, rendered_end_idx + 1))
 
-            for idx in range(start_idx, end_idx + 1):
-                if idx in images_by_index:
-                    continue
-                descriptor = self._final_preview_pages[idx]
-                rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index, quality_tier="draft")
-                if rendered is None:
-                    return
-                images_by_index[idx] = rendered
-
-            top_spacer = self._final_preview_offsets[start_idx]
-            bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[end_idx + 1], 0)
+            top_spacer = self._final_preview_offsets[rendered_start_idx]
+            bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[rendered_end_idx + 1], 0)
 
             def build() -> list[tk.Widget]:
                 widgets: list[tk.Widget] = []
@@ -795,7 +876,7 @@ class PdfMergeController:
                     spacer_top = ttk.Frame(self.view.preview_content, height=top_spacer)
                     spacer_top.grid_propagate(False)
                     widgets.append(spacer_top)
-                for idx in range(start_idx, end_idx + 1):
+                for idx in range(rendered_start_idx, rendered_end_idx + 1):
                     image = images_by_index.get(idx)
                     if image is None:
                         continue
@@ -814,6 +895,23 @@ class PdfMergeController:
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
             finally:
                 self._final_preview_syncing_scrollbar = False
+
+            remaining = [idx for idx in deferred_indices if idx not in self._final_preview_visible_indices]
+            self._final_preview_deferred_indices = remaining
+            if not remaining and self._pending_final_idle_render_after is not None:
+                self.master.after_cancel(self._pending_final_idle_render_after)
+                self._pending_final_idle_render_after = None
+            self._schedule_deferred_virtual_render()
+
+            logger.debug(
+                "virtual final preview pass: requested=%d rendered=%d elapsed_ms=%.2f zoom=%.2f cap=%d deferred=%d",
+                len(requested_indices),
+                len(rendered_order),
+                (perf_counter() - pass_started_at) * 1000,
+                self.preview_zoom,
+                hard_cap,
+                len(self._final_preview_deferred_indices),
+            )
         finally:
             self._final_preview_rendering = False
 
@@ -828,6 +926,10 @@ class PdfMergeController:
         if self.view.preview_mode.get() == self.view.PREVIEW_SINGLE:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
+            self._final_preview_deferred_indices = []
+            if self._pending_final_idle_render_after is not None:
+                self.master.after_cancel(self._pending_final_idle_render_after)
+                self._pending_final_idle_render_after = None
             idx = self.selected_index()
             if idx is None:
                 idx = 0

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from pdf_merge_gui.ui.controller import PdfMergeController
+from pdf_merge_gui.ui.controller import FinalPreviewPage, PdfMergeController
 
 
 T = TypeVar("T")
@@ -236,3 +236,39 @@ def test_zoom_in_final_mode_routes_to_virtual_render_path() -> None:
     controller.on_zoom_in()
 
     assert calls == ["build", "render:True"]
+
+
+def test_recompute_final_preview_offsets_uses_fixed_logical_slots() -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_pages = [
+        FinalPreviewPage(source_path="a.pdf", page_index=0, estimated_height=900),
+        FinalPreviewPage(source_path="a.pdf", page_index=1, estimated_height=3200),
+        FinalPreviewPage(source_path="a.pdf", page_index=2, estimated_height=120),
+    ]
+
+    controller._recompute_final_preview_offsets()
+
+    logical_heights = {page.logical_height for page in controller._final_preview_pages}
+    assert logical_heights == {controller._final_preview_pages[0].logical_height}
+    assert controller._final_preview_offsets == [
+        0,
+        controller._final_preview_pages[0].logical_height + controller.FINAL_PREVIEW_PAGE_GAP,
+        (controller._final_preview_pages[0].logical_height + controller.FINAL_PREVIEW_PAGE_GAP) * 2,
+        (controller._final_preview_pages[0].logical_height + controller.FINAL_PREVIEW_PAGE_GAP) * 3,
+    ]
+
+
+def test_visible_page_range_uses_bisect_offsets_with_fixed_logical_heights() -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_pages = [
+        FinalPreviewPage(source_path="a.pdf", page_index=idx, estimated_height=1000 + (idx * 500))
+        for idx in range(6)
+    ]
+
+    controller._recompute_final_preview_offsets()
+
+    logical_step = controller._final_preview_pages[0].logical_height + controller.FINAL_PREVIEW_PAGE_GAP
+    start, end = controller._visible_page_range(logical_step + 5, (logical_step * 3) - 1)
+
+    assert start == 0
+    assert end == 4

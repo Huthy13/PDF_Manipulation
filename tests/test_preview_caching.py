@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from PIL import Image
 
 from pdf_merge_gui.preview import DocumentHandleCache, SourceFingerprint
@@ -67,8 +65,6 @@ def test_preview_service_photo_cache_reuses_tk_image(monkeypatch, tmp_path) -> N
 
     assert first is second
     assert render_count == 1
-
-
 
 
 def test_preview_service_photo_cache_counts_hit_telemetry(monkeypatch, tmp_path) -> None:

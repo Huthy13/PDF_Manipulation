@@ -1,0 +1,655 @@
+2026-03-14 15:01:48,725 [DEBUG] pdf_merge_gui.ui.controller: Preview render key reset to None (no pages loaded)
+2026-03-14 15:01:48,742 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=252 content_height=103 x_pos=0 y_pos=0 scrollregion=0 0 252 103
+2026-03-14 15:01:48,826 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=252 content_height=103 x_pos=0 y_pos=0 scrollregion=0 0 252 103
+2026-03-14 15:01:48,862 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=252 content_height=103 x_pos=151 y_pos=222 scrollregion=0 0 554 547
+2026-03-14 15:01:48,877 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=252 content_height=103 x_pos=151 y_pos=222 scrollregion=0 0 554 547
+2026-03-14 15:01:48,972 [DEBUG] pdf_merge_gui.ui.controller: Preview render key reset to None (no pages loaded)
+2026-03-14 15:01:48,981 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=252 content_height=103 x_pos=151 y_pos=222 scrollregion=0 0 554 547
+2026-03-14 15:01:50,501 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=252 content_height=103 x_pos=574 y_pos=556 scrollregion=0 0 1400 1216
+2026-03-14 15:01:50,532 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=252 content_height=103 x_pos=574 y_pos=556 scrollregion=0 0 1400 1216
+2026-03-14 15:01:50,607 [DEBUG] pdf_merge_gui.ui.controller: Preview render key reset to None (no pages loaded)
+2026-03-14 15:01:50,614 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=252 content_height=103 x_pos=574 y_pos=556 scrollregion=0 0 1400 1216
+2026-03-14 15:01:55,546 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\quote (1).pdf page=0 zoom=1.50
+2026-03-14 15:01:55,627 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\quote (1).pdf page=0 zoom=1.43
+2026-03-14 15:01:55,665 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=875 content_height=1241 x_pos=262 y_pos=0 scrollregion=0 0 1400 1241
+2026-03-14 15:01:55,675 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=875 content_height=1241 x_pos=262 y_pos=0 scrollregion=0 0 1400 1241
+2026-03-14 15:01:55,693 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=875 content_height=1241 x_pos=262 y_pos=0 scrollregion=0 0 1400 1241
+2026-03-14 15:01:55,693 [DEBUG] pdf_merge_gui.ui.controller: Preview render key updated after single preview canvas update; preview_key=('single', (('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 2), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 3), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 4), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 5), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 6), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 7), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 8), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 9), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 10), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 11), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 12), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 13), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 14), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 15), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 16), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 17), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 18), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 19), ('C:\\Users\\DanielHuth\\Downloads\\Order Details_Amazon.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_7.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_6.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_5.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_4.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_3.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_2.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_1.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\051_5HP_Starter_PES_Schneider Electric_NEMA-Type-S-Motor-.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\051_5HP_Starter_PES_Schneider Electric_NEMA-Type-S-Motor-.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\051_5HP_Starter_PES_Schneider Electric_NEMA-Type-S-Motor-.pdf', 2), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 2), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 3), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 4), ('C:\\Users\\DanielHuth\\Downloads\\Hydro-Dam Control Panel_Q-6744616-PD-003_BOM_Line Item Price.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Hydro-Dam Control Panel_Q-6744616-PD-003_BOM_Line Item Price.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\quote (1).pdf', 0)), 1.5, True, (1392, 1208), 39)
+2026-03-14 15:01:55,694 [DEBUG] pdf_merge_gui.ui.controller: Skipping single preview update (cache hit); preview_key=('single', (('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 2), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 3), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 4), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 5), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 6), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 7), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 8), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 9), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 10), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 11), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 12), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 13), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 14), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 15), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 16), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 17), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 18), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 19), ('C:\\Users\\DanielHuth\\Downloads\\Order Details_Amazon.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_7.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_6.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_5.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_4.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_3.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_2.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_1.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\051_5HP_Starter_PES_Schneider Electric_NEMA-Type-S-Motor-.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\051_5HP_Starter_PES_Schneider Electric_NEMA-Type-S-Motor-.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\051_5HP_Starter_PES_Schneider Electric_NEMA-Type-S-Motor-.pdf', 2), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 2), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 3), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 4), ('C:\\Users\\DanielHuth\\Downloads\\Hydro-Dam Control Panel_Q-6744616-PD-003_BOM_Line Item Price.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Hydro-Dam Control Panel_Q-6744616-PD-003_BOM_Line Item Price.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\quote (1).pdf', 0)), 1.5, True, (1392, 1208), 39)
+2026-03-14 15:01:57,076 [DEBUG] pdf_merge_gui.ui.controller: Final preview sequence snapshot sequence_len=40 existing_len=0 first_entries=[('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 2)] last_entries=[('C:\\Users\\DanielHuth\\Downloads\\Hydro-Dam Control Panel_Q-6744616-PD-003_BOM_Line Item Price.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Hydro-Dam Control Panel_Q-6744616-PD-003_BOM_Line Item Price.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\quote (1).pdf', 0)] unique_source_paths=14 min_page_index=0 max_page_index=19
+2026-03-14 15:01:57,077 [DEBUG] pdf_merge_gui.ui.controller: Final preview model rebuilt final_preview_pages_len=40 reused_heights=0 default_heights=40 short_circuited=False
+2026-03-14 15:01:57,077 [DEBUG] pdf_merge_gui.ui.controller: Recomputing final preview offsets estimated_total=52000 available_height=899520 scale=1.00000000 page_count=40
+2026-03-14 15:01:57,077 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets stats final_preview_total_height=52480 estimated_height_min=1300 estimated_height_max=1300 logical_height_min=1300 logical_height_max=1300
+2026-03-14 15:01:57,077 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets sample first=[0, 1312, 2624, 3936, 5248] last=[47232, 48544, 49856, 51168, 52480] offset_count=41
+2026-03-14 15:01:57,077 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0000 pages=40
+2026-03-14 15:01:57,077 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.000000 viewport_height=1216 final_preview_total_height=52480 max_start=51264 virtual_top=0
+2026-03-14 15:01:57,077 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=0 bottom=1216 start_idx=0 end_idx=2
+2026-03-14 15:01:57,077 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=0 zoom=1.50
+2026-03-14 15:01:57,103 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=0 zoom=1.53
+2026-03-14 15:01:57,115 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=1 zoom=1.50
+2026-03-14 15:01:57,128 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=1 zoom=1.53
+2026-03-14 15:01:57,141 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.50
+2026-03-14 15:01:57,160 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.39
+2026-03-14 15:01:57,173 [DEBUG] pdf_merge_gui.ui.controller: Recomputing final preview offsets estimated_total=51732 available_height=899520 scale=1.00000000 page_count=40
+2026-03-14 15:01:57,173 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets stats final_preview_total_height=52212 estimated_height_min=1208 estimated_height_max=1300 logical_height_min=1208 logical_height_max=1300
+2026-03-14 15:01:57,173 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets sample first=[0, 1224, 2448, 3668, 4980] last=[46964, 48276, 49588, 50900, 52212] offset_count=41
+2026-03-14 15:01:57,173 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.000000 viewport_height=1216 final_preview_total_height=52212 max_start=50996 virtual_top=0
+2026-03-14 15:01:57,173 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window recomputed top=0 bottom=1216 start_idx=0 end_idx=2
+2026-03-14 15:01:57,173 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update starting start_idx=0 end_idx=2 images_by_index=3
+2026-03-14 15:01:57,197 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52248 x_pos=219 y_pos=0 scrollregion=0 0 1400 52248
+2026-03-14 15:01:57,301 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52248 x_pos=219 y_pos=0 scrollregion=0 0 1400 52248
+2026-03-14 15:01:57,405 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52248 x_pos=219 y_pos=0 scrollregion=0 0 1400 52248
+2026-03-14 15:01:57,405 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview post-widget metrics scrollregion=0 0 1400 52248 preview_content_reqheight=52248 preview_canvas_height=1216 top_spacer=0 bottom_spacer=48544 visible_rendered_height=3632
+2026-03-14 15:01:57,405 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update finished start_idx=0 end_idx=2 images_by_index=3 widget_count=4
+2026-03-14 15:01:57,405 [DEBUG] pdf_merge_gui.ui.controller: Rendered virtual preview indices=[0, 1, 2] top_spacer=0 bottom_spacer=48544
+2026-03-14 15:01:57,406 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview before anchor moveto anchor=0.000000 yview=(0.0, 0.023273618128923597)
+2026-03-14 15:01:57,406 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview after anchor moveto anchor=0.000000 yview=(0.0, 0.023273618128923597)
+2026-03-14 15:01:57,406 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:01:57,406 [DEBUG] pdf_merge_gui.ui.controller: Preview render key updated after final preview canvas update; preview_key=('final', (('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 2), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 3), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 4), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 5), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 6), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 7), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 8), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 9), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 10), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 11), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 12), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 13), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 14), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 15), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 16), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 17), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 18), ('C:\\Users\\DanielHuth\\Downloads\\Test_File.pdf', 19), ('C:\\Users\\DanielHuth\\Downloads\\Order Details_Amazon.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_7.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_6.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_5.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_4.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_3.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_2.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay_1.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Order details _ eBay.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\051_5HP_Starter_PES_Schneider Electric_NEMA-Type-S-Motor-.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\051_5HP_Starter_PES_Schneider Electric_NEMA-Type-S-Motor-.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\051_5HP_Starter_PES_Schneider Electric_NEMA-Type-S-Motor-.pdf', 2), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 2), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 3), ('C:\\Users\\DanielHuth\\Downloads\\050_Square-D-NEMA-Relay_8501XO40V02.pdf', 4), ('C:\\Users\\DanielHuth\\Downloads\\Hydro-Dam Control Panel_Q-6744616-PD-003_BOM_Line Item Price.pdf', 0), ('C:\\Users\\DanielHuth\\Downloads\\Hydro-Dam Control Panel_Q-6744616-PD-003_BOM_Line Item Price.pdf', 1), ('C:\\Users\\DanielHuth\\Downloads\\quote (1).pdf', 0)), 1.5, True, (1392, 1208))
+2026-03-14 15:01:57,409 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.0' raw_last='0.023273618128923597' parsed_first=0.000000 clamped_anchor=0.000000 anchor_clamped=False
+2026-03-14 15:01:57,505 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0000 pages=40
+2026-03-14 15:01:57,505 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.000000 viewport_height=1216 final_preview_total_height=52212 max_start=50996 virtual_top=0
+2026-03-14 15:01:57,506 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=0 bottom=1216 start_idx=0 end_idx=2
+2026-03-14 15:01:57,506 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2] last_rendered_indices=[0, 1, 2] render_signature=((0, 1, 2), 0, 48544, 1400, 1216)
+2026-03-14 15:01:57,506 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:01:58,239 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52248 x_pos=219 y_pos=0 scrollregion=0 0 1400 52248
+2026-03-14 15:01:58,244 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.0023158781197366407' raw_last='0.025589496248660235' parsed_first=0.002316 clamped_anchor=0.002316 anchor_clamped=False
+2026-03-14 15:01:58,354 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0023 pages=40
+2026-03-14 15:01:58,354 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.002316 viewport_height=1216 final_preview_total_height=52212 max_start=50996 virtual_top=118
+2026-03-14 15:01:58,354 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=118 bottom=1334 start_idx=0 end_idx=3
+2026-03-14 15:01:58,354 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=0 zoom=1.50
+2026-03-14 15:01:58,354 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=0 zoom=1.53
+2026-03-14 15:01:58,355 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=1 zoom=1.50
+2026-03-14 15:01:58,355 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=1 zoom=1.53
+2026-03-14 15:01:58,355 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.50
+2026-03-14 15:01:58,355 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.39
+2026-03-14 15:01:58,355 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=3 zoom=1.50
+2026-03-14 15:01:58,368 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=3 zoom=1.43
+2026-03-14 15:01:58,380 [DEBUG] pdf_merge_gui.ui.controller: Recomputing final preview offsets estimated_total=51638 available_height=899520 scale=1.00000000 page_count=40
+2026-03-14 15:01:58,380 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets stats final_preview_total_height=52118 estimated_height_min=1206 estimated_height_max=1300 logical_height_min=1206 logical_height_max=1300
+2026-03-14 15:01:58,380 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets sample first=[0, 1224, 2448, 3668, 4886] last=[46870, 48182, 49494, 50806, 52118] offset_count=41
+2026-03-14 15:01:58,380 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.002316 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=117
+2026-03-14 15:01:58,380 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window recomputed top=117 bottom=1333 start_idx=0 end_idx=3
+2026-03-14 15:01:58,380 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update starting start_idx=0 end_idx=3 images_by_index=4
+2026-03-14 15:01:58,391 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:01:58,519 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:01:58,519 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview post-widget metrics scrollregion=0 0 1400 52154 preview_content_reqheight=52154 preview_canvas_height=1216 top_spacer=0 bottom_spacer=47232 visible_rendered_height=4838
+2026-03-14 15:01:58,519 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update finished start_idx=0 end_idx=3 images_by_index=4 widget_count=5
+2026-03-14 15:01:58,519 [DEBUG] pdf_merge_gui.ui.controller: Rendered virtual preview indices=[0, 1, 2, 3] top_spacer=0 bottom_spacer=47232
+2026-03-14 15:01:58,519 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview before anchor moveto anchor=0.002316 yview=(0.002320052153238486, 0.025635617594048397)
+2026-03-14 15:01:58,519 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview after anchor moveto anchor=0.002316 yview=(0.002320052153238486, 0.025635617594048397)
+2026-03-14 15:01:58,519 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:01:58,521 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:01:58,525 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.009299382597691452' raw_last='0.03261494803850136' parsed_first=0.009299 clamped_anchor=0.009299 anchor_clamped=False
+2026-03-14 15:01:58,622 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0093 pages=40
+2026-03-14 15:01:58,622 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.009299 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=473
+2026-03-14 15:01:58,622 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=473 bottom=1689 start_idx=0 end_idx=3
+2026-03-14 15:01:58,622 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:01:58,623 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:01:58,628 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.009299382597691452' raw_last='0.03261494803850136' parsed_first=0.009299 clamped_anchor=0.009299 anchor_clamped=False
+2026-03-14 15:01:58,730 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0093 pages=40
+2026-03-14 15:01:58,730 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.009299 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=473
+2026-03-14 15:01:58,730 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=473 bottom=1689 start_idx=0 end_idx=3
+2026-03-14 15:01:58,730 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:01:58,730 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:01:58,734 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.009299382597691452' raw_last='0.03261494803850136' parsed_first=0.009299 clamped_anchor=0.009299 anchor_clamped=False
+2026-03-14 15:01:58,763 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0093 pages=40
+2026-03-14 15:01:58,763 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.009299 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=473
+2026-03-14 15:01:58,763 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=473 bottom=1689 start_idx=0 end_idx=3
+2026-03-14 15:01:58,763 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:01:58,763 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:01:58,795 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:01:58,797 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.011619434750929938' raw_last='0.03493500019173985' parsed_first=0.011619 clamped_anchor=0.011619 anchor_clamped=False
+2026-03-14 15:01:58,904 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0116 pages=40
+2026-03-14 15:01:58,904 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.011619 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=591
+2026-03-14 15:01:58,904 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=591 bottom=1807 start_idx=0 end_idx=3
+2026-03-14 15:01:58,905 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:01:58,905 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:01:58,908 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.011619434750929938' raw_last='0.03493500019173985' parsed_first=0.011619 clamped_anchor=0.011619 anchor_clamped=False
+2026-03-14 15:01:58,934 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0116 pages=40
+2026-03-14 15:01:58,934 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.011619 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=591
+2026-03-14 15:01:58,934 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=591 bottom=1807 start_idx=0 end_idx=3
+2026-03-14 15:01:58,934 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:01:58,934 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:01:59,365 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:01:59,369 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.013939486904168425' raw_last='0.037255052344978334' parsed_first=0.013939 clamped_anchor=0.013939 anchor_clamped=False
+2026-03-14 15:01:59,477 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0139 pages=40
+2026-03-14 15:01:59,477 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.013939 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=709
+2026-03-14 15:01:59,477 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=709 bottom=1925 start_idx=0 end_idx=3
+2026-03-14 15:01:59,477 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:01:59,477 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:01:59,480 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.013939486904168425' raw_last='0.037255052344978334' parsed_first=0.013939 clamped_anchor=0.013939 anchor_clamped=False
+2026-03-14 15:01:59,583 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0139 pages=40
+2026-03-14 15:01:59,583 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.013939 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=709
+2026-03-14 15:01:59,583 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=709 bottom=1925 start_idx=0 end_idx=3
+2026-03-14 15:01:59,583 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:01:59,583 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:01:59,587 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.013939486904168425' raw_last='0.037255052344978334' parsed_first=0.013939 clamped_anchor=0.013939 anchor_clamped=False
+2026-03-14 15:01:59,612 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0139 pages=40
+2026-03-14 15:01:59,612 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.013939 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=709
+2026-03-14 15:01:59,612 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=709 bottom=1925 start_idx=0 end_idx=3
+2026-03-14 15:01:59,612 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:01:59,612 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:00,143 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:02:00,148 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.01625953905740691' raw_last='0.03957510449821682' parsed_first=0.016260 clamped_anchor=0.016260 anchor_clamped=False
+2026-03-14 15:02:00,259 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0163 pages=40
+2026-03-14 15:02:00,260 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.016260 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=827
+2026-03-14 15:02:00,260 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=827 bottom=2043 start_idx=0 end_idx=3
+2026-03-14 15:02:00,260 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:02:00,260 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:00,264 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.01625953905740691' raw_last='0.03957510449821682' parsed_first=0.016260 clamped_anchor=0.016260 anchor_clamped=False
+2026-03-14 15:02:00,270 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:02:00,273 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.018579591210645396' raw_last='0.0418951566514553' parsed_first=0.018580 clamped_anchor=0.018580 anchor_clamped=False
+2026-03-14 15:02:00,377 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0186 pages=40
+2026-03-14 15:02:00,378 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.018580 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=945
+2026-03-14 15:02:00,378 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=945 bottom=2161 start_idx=0 end_idx=3
+2026-03-14 15:02:00,378 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:02:00,378 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:00,386 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.018579591210645396' raw_last='0.0418951566514553' parsed_first=0.018580 clamped_anchor=0.018580 anchor_clamped=False
+2026-03-14 15:02:00,499 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0186 pages=40
+2026-03-14 15:02:00,499 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.018580 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=945
+2026-03-14 15:02:00,499 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=945 bottom=2161 start_idx=0 end_idx=3
+2026-03-14 15:02:00,499 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:02:00,499 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:00,503 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.018579591210645396' raw_last='0.0418951566514553' parsed_first=0.018580 clamped_anchor=0.018580 anchor_clamped=False
+2026-03-14 15:02:00,528 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0186 pages=40
+2026-03-14 15:02:00,528 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.018580 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=945
+2026-03-14 15:02:00,528 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=945 bottom=2161 start_idx=0 end_idx=3
+2026-03-14 15:02:00,528 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:02:00,528 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:00,579 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:02:00,581 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.020899643363883884' raw_last='0.04421520880469379' parsed_first=0.020900 clamped_anchor=0.020900 anchor_clamped=False
+2026-03-14 15:02:00,697 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0209 pages=40
+2026-03-14 15:02:00,697 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.020900 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=1063
+2026-03-14 15:02:00,697 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=1063 bottom=2279 start_idx=0 end_idx=3
+2026-03-14 15:02:00,697 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:02:00,697 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:00,701 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.020899643363883884' raw_last='0.04421520880469379' parsed_first=0.020900 clamped_anchor=0.020900 anchor_clamped=False
+2026-03-14 15:02:00,733 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0209 pages=40
+2026-03-14 15:02:00,733 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.020900 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=1063
+2026-03-14 15:02:00,733 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=1063 bottom=2279 start_idx=0 end_idx=3
+2026-03-14 15:02:00,733 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:02:00,733 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:01,073 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:02:01,077 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.023219695517122368' raw_last='0.04653526095793228' parsed_first=0.023220 clamped_anchor=0.023220 anchor_clamped=False
+2026-03-14 15:02:01,193 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0232 pages=40
+2026-03-14 15:02:01,193 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.023220 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=1181
+2026-03-14 15:02:01,193 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=1181 bottom=2397 start_idx=0 end_idx=3
+2026-03-14 15:02:01,193 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3] last_rendered_indices=[0, 1, 2, 3] render_signature=((0, 1, 2, 3), 0, 47232, 1400, 1216)
+2026-03-14 15:02:01,193 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:01,197 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.023219695517122368' raw_last='0.04653526095793228' parsed_first=0.023220 clamped_anchor=0.023220 anchor_clamped=False
+2026-03-14 15:02:01,213 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:02:01,214 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.025539747670360855' raw_last='0.048855313111170764' parsed_first=0.025540 clamped_anchor=0.025540 anchor_clamped=False
+2026-03-14 15:02:01,325 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0255 pages=40
+2026-03-14 15:02:01,325 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.025540 viewport_height=1216 final_preview_total_height=52118 max_start=50902 virtual_top=1300
+2026-03-14 15:02:01,325 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=1300 bottom=2516 start_idx=0 end_idx=4
+2026-03-14 15:02:01,325 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=0 zoom=1.50
+2026-03-14 15:02:01,325 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=0 zoom=1.53
+2026-03-14 15:02:01,325 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=1 zoom=1.50
+2026-03-14 15:02:01,325 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=1 zoom=1.53
+2026-03-14 15:02:01,325 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.50
+2026-03-14 15:02:01,326 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.39
+2026-03-14 15:02:01,326 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=3 zoom=1.50
+2026-03-14 15:02:01,326 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=3 zoom=1.43
+2026-03-14 15:02:01,326 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=4 zoom=1.50
+2026-03-14 15:02:01,356 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=4 zoom=1.43
+2026-03-14 15:02:01,384 [DEBUG] pdf_merge_gui.ui.controller: Recomputing final preview offsets estimated_total=51544 available_height=899520 scale=1.00000000 page_count=40
+2026-03-14 15:02:01,384 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets stats final_preview_total_height=52024 estimated_height_min=1206 estimated_height_max=1300 logical_height_min=1206 logical_height_max=1300
+2026-03-14 15:02:01,384 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets sample first=[0, 1224, 2448, 3668, 4886] last=[46776, 48088, 49400, 50712, 52024] offset_count=41
+2026-03-14 15:02:01,384 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.025540 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=1297
+2026-03-14 15:02:01,384 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window recomputed top=1297 bottom=2513 start_idx=0 end_idx=4
+2026-03-14 15:02:01,384 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update starting start_idx=0 end_idx=4 images_by_index=5
+2026-03-14 15:02:01,397 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52154 x_pos=219 y_pos=0 scrollregion=0 0 1400 52154
+2026-03-14 15:02:01,406 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:01,516 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:01,516 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview post-widget metrics scrollregion=0 0 1400 52060 preview_content_reqheight=52060 preview_canvas_height=1216 top_spacer=0 bottom_spacer=45920 visible_rendered_height=6044
+2026-03-14 15:02:01,516 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update finished start_idx=0 end_idx=4 images_by_index=5 widget_count=6
+2026-03-14 15:02:01,516 [DEBUG] pdf_merge_gui.ui.controller: Rendered virtual preview indices=[0, 1, 2, 3, 4] top_spacer=0 bottom_spacer=45920
+2026-03-14 15:02:01,516 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview before anchor moveto anchor=0.025540 yview=(0.032577794852093736, 0.05593545908567038)
+2026-03-14 15:02:01,516 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview after anchor moveto anchor=0.025540 yview=(0.025547445255474453, 0.04890510948905109)
+2026-03-14 15:02:01,516 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:01,518 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:01,524 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.02787168651555897' raw_last='0.051229350749135615' parsed_first=0.027872 clamped_anchor=0.027872 anchor_clamped=False
+2026-03-14 15:02:01,631 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0279 pages=40
+2026-03-14 15:02:01,631 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.027872 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=1416
+2026-03-14 15:02:01,631 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=1416 bottom=2632 start_idx=0 end_idx=4
+2026-03-14 15:02:01,631 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:01,631 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:01,791 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:01,793 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.030195927775643488' raw_last='0.05355359200922013' parsed_first=0.030196 clamped_anchor=0.030196 anchor_clamped=False
+2026-03-14 15:02:01,904 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0302 pages=40
+2026-03-14 15:02:01,905 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.030196 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=1534
+2026-03-14 15:02:01,905 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=1534 bottom=2750 start_idx=0 end_idx=4
+2026-03-14 15:02:01,905 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:01,905 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:01,908 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.030195927775643488' raw_last='0.05355359200922013' parsed_first=0.030196 clamped_anchor=0.030196 anchor_clamped=False
+2026-03-14 15:02:01,926 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:01,927 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.032520169035728005' raw_last='0.05587783326930465' parsed_first=0.032520 clamped_anchor=0.032520 anchor_clamped=False
+2026-03-14 15:02:02,034 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0325 pages=40
+2026-03-14 15:02:02,035 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.032520 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=1652
+2026-03-14 15:02:02,035 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=1652 bottom=2868 start_idx=0 end_idx=4
+2026-03-14 15:02:02,035 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:02,035 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:02,038 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.032520169035728005' raw_last='0.05587783326930465' parsed_first=0.032520 clamped_anchor=0.032520 anchor_clamped=False
+2026-03-14 15:02:02,043 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:02,046 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.034844410295812527' raw_last='0.058202074529389164' parsed_first=0.034844 clamped_anchor=0.034844 anchor_clamped=False
+2026-03-14 15:02:02,150 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0348 pages=40
+2026-03-14 15:02:02,150 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.034844 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=1770
+2026-03-14 15:02:02,150 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=1770 bottom=2986 start_idx=0 end_idx=4
+2026-03-14 15:02:02,150 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:02,150 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:02,153 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.034844410295812527' raw_last='0.058202074529389164' parsed_first=0.034844 clamped_anchor=0.034844 anchor_clamped=False
+2026-03-14 15:02:02,189 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0348 pages=40
+2026-03-14 15:02:02,189 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.034844 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=1770
+2026-03-14 15:02:02,190 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=1770 bottom=2986 start_idx=0 end_idx=4
+2026-03-14 15:02:02,190 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:02,190 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:02,491 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:02,495 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.03716865155589704' raw_last='0.060526315789473685' parsed_first=0.037169 clamped_anchor=0.037169 anchor_clamped=False
+2026-03-14 15:02:02,612 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0372 pages=40
+2026-03-14 15:02:02,612 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.037169 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=1888
+2026-03-14 15:02:02,612 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=1888 bottom=3104 start_idx=0 end_idx=4
+2026-03-14 15:02:02,612 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:02,612 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:02,617 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.03716865155589704' raw_last='0.060526315789473685' parsed_first=0.037169 clamped_anchor=0.037169 anchor_clamped=False
+2026-03-14 15:02:02,628 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:02,630 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.03949289281598156' raw_last='0.0628505570495582' parsed_first=0.039493 clamped_anchor=0.039493 anchor_clamped=False
+2026-03-14 15:02:02,733 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0395 pages=40
+2026-03-14 15:02:02,733 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.039493 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=2006
+2026-03-14 15:02:02,733 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2006 bottom=3222 start_idx=0 end_idx=4
+2026-03-14 15:02:02,733 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:02,733 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:02,736 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.03949289281598156' raw_last='0.0628505570495582' parsed_first=0.039493 clamped_anchor=0.039493 anchor_clamped=False
+2026-03-14 15:02:02,762 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0395 pages=40
+2026-03-14 15:02:02,762 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.039493 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=2006
+2026-03-14 15:02:02,762 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2006 bottom=3222 start_idx=0 end_idx=4
+2026-03-14 15:02:02,762 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:02,762 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:03,097 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:03,100 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.041817134076066076' raw_last='0.06517479830964272' parsed_first=0.041817 clamped_anchor=0.041817 anchor_clamped=False
+2026-03-14 15:02:03,209 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0418 pages=40
+2026-03-14 15:02:03,209 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.041817 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=2124
+2026-03-14 15:02:03,209 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2124 bottom=3340 start_idx=0 end_idx=4
+2026-03-14 15:02:03,209 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:03,209 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:03,214 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.041817134076066076' raw_last='0.06517479830964272' parsed_first=0.041817 clamped_anchor=0.041817 anchor_clamped=False
+2026-03-14 15:02:03,316 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0418 pages=40
+2026-03-14 15:02:03,316 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.041817 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=2124
+2026-03-14 15:02:03,316 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2124 bottom=3340 start_idx=0 end_idx=4
+2026-03-14 15:02:03,316 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:03,316 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:03,323 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.041817134076066076' raw_last='0.06517479830964272' parsed_first=0.041817 clamped_anchor=0.041817 anchor_clamped=False
+2026-03-14 15:02:03,328 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:03,331 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.0441413753361506' raw_last='0.06749903956972723' parsed_first=0.044141 clamped_anchor=0.044141 anchor_clamped=False
+2026-03-14 15:02:03,429 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0441 pages=40
+2026-03-14 15:02:03,429 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.044141 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=2242
+2026-03-14 15:02:03,429 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2242 bottom=3458 start_idx=0 end_idx=4
+2026-03-14 15:02:03,430 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:03,430 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:03,665 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:03,672 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.04646561659623511' raw_last='0.06982328082981176' parsed_first=0.046466 clamped_anchor=0.046466 anchor_clamped=False
+2026-03-14 15:02:03,782 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0465 pages=40
+2026-03-14 15:02:03,782 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.046466 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=2360
+2026-03-14 15:02:03,782 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2360 bottom=3576 start_idx=0 end_idx=4
+2026-03-14 15:02:03,782 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:03,783 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:03,787 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.04646561659623511' raw_last='0.06982328082981176' parsed_first=0.046466 clamped_anchor=0.046466 anchor_clamped=False
+2026-03-14 15:02:03,895 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0465 pages=40
+2026-03-14 15:02:03,895 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.046466 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=2360
+2026-03-14 15:02:03,895 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2360 bottom=3576 start_idx=0 end_idx=4
+2026-03-14 15:02:03,895 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:03,895 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:03,901 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.04646561659623511' raw_last='0.06982328082981176' parsed_first=0.046466 clamped_anchor=0.046466 anchor_clamped=False
+2026-03-14 15:02:03,934 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0465 pages=40
+2026-03-14 15:02:03,935 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.046466 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=2360
+2026-03-14 15:02:03,935 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2360 bottom=3576 start_idx=0 end_idx=4
+2026-03-14 15:02:03,935 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4] last_rendered_indices=[0, 1, 2, 3, 4] render_signature=((0, 1, 2, 3, 4), 0, 45920, 1400, 1216)
+2026-03-14 15:02:03,935 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:03,961 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:03,963 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.04878985785631963' raw_last='0.07214752208989628' parsed_first=0.048790 clamped_anchor=0.048790 anchor_clamped=False
+2026-03-14 15:02:04,084 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0488 pages=40
+2026-03-14 15:02:04,084 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.048790 viewport_height=1216 final_preview_total_height=52024 max_start=50808 virtual_top=2478
+2026-03-14 15:02:04,084 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2478 bottom=3694 start_idx=0 end_idx=5
+2026-03-14 15:02:04,084 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=0 zoom=1.50
+2026-03-14 15:02:04,084 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=0 zoom=1.53
+2026-03-14 15:02:04,085 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=1 zoom=1.50
+2026-03-14 15:02:04,085 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=1 zoom=1.53
+2026-03-14 15:02:04,085 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.50
+2026-03-14 15:02:04,085 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.39
+2026-03-14 15:02:04,085 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=3 zoom=1.50
+2026-03-14 15:02:04,085 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=3 zoom=1.43
+2026-03-14 15:02:04,085 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=4 zoom=1.50
+2026-03-14 15:02:04,085 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=4 zoom=1.43
+2026-03-14 15:02:04,085 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=5 zoom=1.50
+2026-03-14 15:02:04,100 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=5 zoom=1.39
+2026-03-14 15:02:04,114 [DEBUG] pdf_merge_gui.ui.controller: Recomputing final preview offsets estimated_total=51452 available_height=899520 scale=1.00000000 page_count=40
+2026-03-14 15:02:04,114 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets stats final_preview_total_height=51932 estimated_height_min=1206 estimated_height_max=1300 logical_height_min=1206 logical_height_max=1300
+2026-03-14 15:02:04,114 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets sample first=[0, 1224, 2448, 3668, 4886] last=[46684, 47996, 49308, 50620, 51932] offset_count=41
+2026-03-14 15:02:04,114 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.048790 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=2474
+2026-03-14 15:02:04,114 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window recomputed top=2474 bottom=3690 start_idx=0 end_idx=5
+2026-03-14 15:02:04,114 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update starting start_idx=0 end_idx=5 images_by_index=6
+2026-03-14 15:02:04,127 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=52060 x_pos=219 y_pos=0 scrollregion=0 0 1400 52060
+2026-03-14 15:02:04,129 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:04,249 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:04,249 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview post-widget metrics scrollregion=0 0 1400 51968 preview_content_reqheight=51968 preview_canvas_height=1216 top_spacer=0 bottom_spacer=44608 visible_rendered_height=7252
+2026-03-14 15:02:04,249 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update finished start_idx=0 end_idx=5 images_by_index=6 widget_count=7
+2026-03-14 15:02:04,250 [DEBUG] pdf_merge_gui.ui.controller: Rendered virtual preview indices=[0, 1, 2, 3, 4, 5] top_spacer=0 bottom_spacer=44608
+2026-03-14 15:02:04,250 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview before anchor moveto anchor=0.048790 yview=(0.05120458743842365, 0.07460360221674876)
+2026-03-14 15:02:04,250 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview after anchor moveto anchor=0.048790 yview=(0.04879926108374384, 0.07219827586206896)
+2026-03-14 15:02:04,250 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:04,253 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:04,255 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.04879926108374384' raw_last='0.07219827586206896' parsed_first=0.048799 clamped_anchor=0.048799 anchor_clamped=False
+2026-03-14 15:02:04,354 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0488 pages=40
+2026-03-14 15:02:04,354 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.048799 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=2474
+2026-03-14 15:02:04,354 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2474 bottom=3690 start_idx=0 end_idx=5
+2026-03-14 15:02:04,354 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:04,355 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:04,360 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:04,371 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.05580357142857143' raw_last='0.07920258620689655' parsed_first=0.055804 clamped_anchor=0.055804 anchor_clamped=False
+2026-03-14 15:02:04,469 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0558 pages=40
+2026-03-14 15:02:04,470 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.055804 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=2830
+2026-03-14 15:02:04,470 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2830 bottom=4046 start_idx=0 end_idx=5
+2026-03-14 15:02:04,470 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:04,470 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:04,476 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.05580357142857143' raw_last='0.07920258620689655' parsed_first=0.055804 clamped_anchor=0.055804 anchor_clamped=False
+2026-03-14 15:02:04,581 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0558 pages=40
+2026-03-14 15:02:04,581 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.055804 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=2830
+2026-03-14 15:02:04,581 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2830 bottom=4046 start_idx=0 end_idx=5
+2026-03-14 15:02:04,581 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:04,582 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:04,717 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:04,721 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.058131927339901475' raw_last='0.0815309421182266' parsed_first=0.058132 clamped_anchor=0.058132 anchor_clamped=False
+2026-03-14 15:02:04,830 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0581 pages=40
+2026-03-14 15:02:04,831 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.058132 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=2948
+2026-03-14 15:02:04,831 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2948 bottom=4164 start_idx=0 end_idx=5
+2026-03-14 15:02:04,831 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:04,831 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:04,835 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.058131927339901475' raw_last='0.0815309421182266' parsed_first=0.058132 clamped_anchor=0.058132 anchor_clamped=False
+2026-03-14 15:02:04,931 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0581 pages=40
+2026-03-14 15:02:04,931 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.058132 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=2948
+2026-03-14 15:02:04,931 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2948 bottom=4164 start_idx=0 end_idx=5
+2026-03-14 15:02:04,931 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:04,931 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:04,939 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.058131927339901475' raw_last='0.0815309421182266' parsed_first=0.058132 clamped_anchor=0.058132 anchor_clamped=False
+2026-03-14 15:02:04,972 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0581 pages=40
+2026-03-14 15:02:04,972 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.058132 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=2948
+2026-03-14 15:02:04,972 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=2948 bottom=4164 start_idx=0 end_idx=5
+2026-03-14 15:02:04,972 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:04,972 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:05,303 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:05,307 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.060460283251231525' raw_last='0.08385929802955665' parsed_first=0.060460 clamped_anchor=0.060460 anchor_clamped=False
+2026-03-14 15:02:05,418 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0605 pages=40
+2026-03-14 15:02:05,418 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.060460 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3066
+2026-03-14 15:02:05,418 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3066 bottom=4282 start_idx=0 end_idx=5
+2026-03-14 15:02:05,418 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:05,418 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:05,423 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.060460283251231525' raw_last='0.08385929802955665' parsed_first=0.060460 clamped_anchor=0.060460 anchor_clamped=False
+2026-03-14 15:02:05,433 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:05,438 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.06278863916256158' raw_last='0.0861876539408867' parsed_first=0.062789 clamped_anchor=0.062789 anchor_clamped=False
+2026-03-14 15:02:05,541 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0628 pages=40
+2026-03-14 15:02:05,541 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.062789 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3184
+2026-03-14 15:02:05,541 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3184 bottom=4400 start_idx=0 end_idx=5
+2026-03-14 15:02:05,541 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:05,541 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:05,544 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.06278863916256158' raw_last='0.0861876539408867' parsed_first=0.062789 clamped_anchor=0.062789 anchor_clamped=False
+2026-03-14 15:02:05,576 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0628 pages=40
+2026-03-14 15:02:05,576 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.062789 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3184
+2026-03-14 15:02:05,576 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3184 bottom=4400 start_idx=0 end_idx=5
+2026-03-14 15:02:05,577 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:05,577 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:05,768 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:05,770 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.06511699507389163' raw_last='0.08851600985221675' parsed_first=0.065117 clamped_anchor=0.065117 anchor_clamped=False
+2026-03-14 15:02:05,881 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0651 pages=40
+2026-03-14 15:02:05,881 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.065117 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3302
+2026-03-14 15:02:05,881 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3302 bottom=4518 start_idx=0 end_idx=5
+2026-03-14 15:02:05,881 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:05,881 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:05,885 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.06511699507389163' raw_last='0.08851600985221675' parsed_first=0.065117 clamped_anchor=0.065117 anchor_clamped=False
+2026-03-14 15:02:05,981 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0651 pages=40
+2026-03-14 15:02:05,981 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.065117 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3302
+2026-03-14 15:02:05,981 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3302 bottom=4518 start_idx=0 end_idx=5
+2026-03-14 15:02:05,981 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:05,981 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:05,986 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.06511699507389163' raw_last='0.08851600985221675' parsed_first=0.065117 clamped_anchor=0.065117 anchor_clamped=False
+2026-03-14 15:02:06,022 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0651 pages=40
+2026-03-14 15:02:06,023 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.065117 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3302
+2026-03-14 15:02:06,023 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3302 bottom=4518 start_idx=0 end_idx=5
+2026-03-14 15:02:06,023 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:06,023 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:06,265 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:06,269 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.06744535098522167' raw_last='0.09084436576354679' parsed_first=0.067445 clamped_anchor=0.067445 anchor_clamped=False
+2026-03-14 15:02:06,383 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0674 pages=40
+2026-03-14 15:02:06,383 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.067445 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3420
+2026-03-14 15:02:06,383 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3420 bottom=4636 start_idx=0 end_idx=5
+2026-03-14 15:02:06,383 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:06,383 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:06,388 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.06744535098522167' raw_last='0.09084436576354679' parsed_first=0.067445 clamped_anchor=0.067445 anchor_clamped=False
+2026-03-14 15:02:06,485 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0674 pages=40
+2026-03-14 15:02:06,485 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.067445 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3420
+2026-03-14 15:02:06,485 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3420 bottom=4636 start_idx=0 end_idx=5
+2026-03-14 15:02:06,485 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:06,485 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:06,492 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.06744535098522167' raw_last='0.09084436576354679' parsed_first=0.067445 clamped_anchor=0.067445 anchor_clamped=False
+2026-03-14 15:02:06,531 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0674 pages=40
+2026-03-14 15:02:06,532 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.067445 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3420
+2026-03-14 15:02:06,532 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3420 bottom=4636 start_idx=0 end_idx=5
+2026-03-14 15:02:06,532 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:06,532 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:06,811 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:06,815 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.06977370689655173' raw_last='0.09317272167487685' parsed_first=0.069774 clamped_anchor=0.069774 anchor_clamped=False
+2026-03-14 15:02:06,932 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0698 pages=40
+2026-03-14 15:02:06,932 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.069774 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3538
+2026-03-14 15:02:06,932 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3538 bottom=4754 start_idx=0 end_idx=5
+2026-03-14 15:02:06,932 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:06,932 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:06,936 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.06977370689655173' raw_last='0.09317272167487685' parsed_first=0.069774 clamped_anchor=0.069774 anchor_clamped=False
+2026-03-14 15:02:06,959 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:06,963 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.07210206280788177' raw_last='0.09550107758620689' parsed_first=0.072102 clamped_anchor=0.072102 anchor_clamped=False
+2026-03-14 15:02:06,964 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0721 pages=40
+2026-03-14 15:02:06,964 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.072102 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3656
+2026-03-14 15:02:06,964 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3656 bottom=4872 start_idx=0 end_idx=5
+2026-03-14 15:02:06,964 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[0, 1, 2, 3, 4, 5] last_rendered_indices=[0, 1, 2, 3, 4, 5] render_signature=((0, 1, 2, 3, 4, 5), 0, 44608, 1400, 1216)
+2026-03-14 15:02:06,964 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:07,070 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:07,072 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.07677801724137931' raw_last='0.10017703201970443' parsed_first=0.076778 clamped_anchor=0.076778 anchor_clamped=False
+2026-03-14 15:02:07,174 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0768 pages=40
+2026-03-14 15:02:07,174 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.076778 viewport_height=1216 final_preview_total_height=51932 max_start=50716 virtual_top=3893
+2026-03-14 15:02:07,174 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3893 bottom=5109 start_idx=1 end_idx=6
+2026-03-14 15:02:07,174 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=1 zoom=1.50
+2026-03-14 15:02:07,174 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=1 zoom=1.53
+2026-03-14 15:02:07,175 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.50
+2026-03-14 15:02:07,175 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.39
+2026-03-14 15:02:07,175 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=3 zoom=1.50
+2026-03-14 15:02:07,175 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=3 zoom=1.43
+2026-03-14 15:02:07,175 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=4 zoom=1.50
+2026-03-14 15:02:07,175 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=4 zoom=1.43
+2026-03-14 15:02:07,175 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=5 zoom=1.50
+2026-03-14 15:02:07,175 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=5 zoom=1.39
+2026-03-14 15:02:07,175 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=6 zoom=1.50
+2026-03-14 15:02:07,188 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=6 zoom=1.43
+2026-03-14 15:02:07,201 [DEBUG] pdf_merge_gui.ui.controller: Recomputing final preview offsets estimated_total=51358 available_height=899520 scale=1.00000000 page_count=40
+2026-03-14 15:02:07,201 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets stats final_preview_total_height=51838 estimated_height_min=1206 estimated_height_max=1300 logical_height_min=1206 logical_height_max=1300
+2026-03-14 15:02:07,201 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets sample first=[0, 1224, 2448, 3668, 4886] last=[46590, 47902, 49214, 50526, 51838] offset_count=41
+2026-03-14 15:02:07,201 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.076778 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=3886
+2026-03-14 15:02:07,201 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window recomputed top=3886 bottom=5102 start_idx=1 end_idx=6
+2026-03-14 15:02:07,201 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update starting start_idx=1 end_idx=6 images_by_index=6
+2026-03-14 15:02:07,213 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51968 x_pos=219 y_pos=0 scrollregion=0 0 1400 51968
+2026-03-14 15:02:07,215 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:07,340 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:07,340 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview post-widget metrics scrollregion=0 0 1400 51886 preview_content_reqheight=51886 preview_canvas_height=1216 top_spacer=1224 bottom_spacer=43296 visible_rendered_height=7246
+2026-03-14 15:02:07,340 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update finished start_idx=1 end_idx=6 images_by_index=6 widget_count=8
+2026-03-14 15:02:07,340 [DEBUG] pdf_merge_gui.ui.controller: Rendered virtual preview indices=[1, 2, 3, 4, 5, 6] top_spacer=1224 bottom_spacer=43296
+2026-03-14 15:02:07,340 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview before anchor moveto anchor=0.076778 yview=(0.07923139189762171, 0.10266738619280731)
+2026-03-14 15:02:07,340 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview after anchor moveto anchor=0.076778 yview=(0.07678371815133177, 0.10021971244651737)
+2026-03-14 15:02:07,340 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:07,346 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:07,348 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.07678371815133177' raw_last='0.10021971244651737' parsed_first=0.076784 clamped_anchor=0.076784 anchor_clamped=False
+2026-03-14 15:02:07,450 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0768 pages=40
+2026-03-14 15:02:07,450 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.076784 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=3886
+2026-03-14 15:02:07,450 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3886 bottom=5102 start_idx=1 end_idx=6
+2026-03-14 15:02:07,450 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:07,450 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:07,458 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.07678371815133177' raw_last='0.10021971244651737' parsed_first=0.076784 clamped_anchor=0.076784 anchor_clamped=False
+2026-03-14 15:02:07,563 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0768 pages=40
+2026-03-14 15:02:07,563 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.076784 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=3886
+2026-03-14 15:02:07,563 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3886 bottom=5102 start_idx=1 end_idx=6
+2026-03-14 15:02:07,563 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:07,563 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:07,568 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.07678371815133177' raw_last='0.10021971244651737' parsed_first=0.076784 clamped_anchor=0.076784 anchor_clamped=False
+2026-03-14 15:02:07,597 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0768 pages=40
+2026-03-14 15:02:07,597 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.076784 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=3886
+2026-03-14 15:02:07,597 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=3886 bottom=5102 start_idx=1 end_idx=6
+2026-03-14 15:02:07,597 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:07,597 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:07,903 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:07,908 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.07911575376787573' raw_last='0.10255174806306133' parsed_first=0.079116 clamped_anchor=0.079116 anchor_clamped=False
+2026-03-14 15:02:08,020 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0791 pages=40
+2026-03-14 15:02:08,020 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.079116 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4004
+2026-03-14 15:02:08,020 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4004 bottom=5220 start_idx=1 end_idx=6
+2026-03-14 15:02:08,021 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:08,021 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:08,025 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.07911575376787573' raw_last='0.10255174806306133' parsed_first=0.079116 clamped_anchor=0.079116 anchor_clamped=False
+2026-03-14 15:02:08,046 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:08,048 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.08144778938441968' raw_last='0.10488378367960528' parsed_first=0.081448 clamped_anchor=0.081448 anchor_clamped=False
+2026-03-14 15:02:08,050 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0814 pages=40
+2026-03-14 15:02:08,050 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.081448 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4123
+2026-03-14 15:02:08,050 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4123 bottom=5339 start_idx=1 end_idx=6
+2026-03-14 15:02:08,050 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:08,050 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:08,153 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:08,155 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.08613113363913194' raw_last='0.10956712793431754' parsed_first=0.086131 clamped_anchor=0.086131 anchor_clamped=False
+2026-03-14 15:02:08,256 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0861 pages=40
+2026-03-14 15:02:08,256 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.086131 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4360
+2026-03-14 15:02:08,256 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4360 bottom=5576 start_idx=1 end_idx=6
+2026-03-14 15:02:08,256 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:08,256 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:08,261 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.08613113363913194' raw_last='0.10956712793431754' parsed_first=0.086131 clamped_anchor=0.086131 anchor_clamped=False
+2026-03-14 15:02:08,296 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0861 pages=40
+2026-03-14 15:02:08,296 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.086131 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4360
+2026-03-14 15:02:08,296 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4360 bottom=5576 start_idx=1 end_idx=6
+2026-03-14 15:02:08,296 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:08,296 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:08,570 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:08,575 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.0884631692556759' raw_last='0.1118991635508615' parsed_first=0.088463 clamped_anchor=0.088463 anchor_clamped=False
+2026-03-14 15:02:08,688 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0885 pages=40
+2026-03-14 15:02:08,688 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.088463 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4478
+2026-03-14 15:02:08,688 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4478 bottom=5694 start_idx=1 end_idx=6
+2026-03-14 15:02:08,688 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:08,688 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:08,692 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.0884631692556759' raw_last='0.1118991635508615' parsed_first=0.088463 clamped_anchor=0.088463 anchor_clamped=False
+2026-03-14 15:02:08,725 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0885 pages=40
+2026-03-14 15:02:08,725 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.088463 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4478
+2026-03-14 15:02:08,725 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4478 bottom=5694 start_idx=1 end_idx=6
+2026-03-14 15:02:08,725 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:08,725 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:08,756 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:08,758 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.09079520487221987' raw_last='0.11423119916740547' parsed_first=0.090795 clamped_anchor=0.090795 anchor_clamped=False
+2026-03-14 15:02:08,856 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0908 pages=40
+2026-03-14 15:02:08,856 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.090795 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4596
+2026-03-14 15:02:08,856 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4596 bottom=5812 start_idx=1 end_idx=6
+2026-03-14 15:02:08,856 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:08,856 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:08,861 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.09079520487221987' raw_last='0.11423119916740547' parsed_first=0.090795 clamped_anchor=0.090795 anchor_clamped=False
+2026-03-14 15:02:08,867 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:08,869 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.09312724048876383' raw_last='0.11656323478394942' parsed_first=0.093127 clamped_anchor=0.093127 anchor_clamped=False
+2026-03-14 15:02:08,966 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0931 pages=40
+2026-03-14 15:02:08,966 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.093127 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4714
+2026-03-14 15:02:08,966 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4714 bottom=5930 start_idx=1 end_idx=6
+2026-03-14 15:02:08,966 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:08,966 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:08,971 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.09312724048876383' raw_last='0.11656323478394942' parsed_first=0.093127 clamped_anchor=0.093127 anchor_clamped=False
+2026-03-14 15:02:09,009 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0931 pages=40
+2026-03-14 15:02:09,009 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.093127 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4714
+2026-03-14 15:02:09,009 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4714 bottom=5930 start_idx=1 end_idx=6
+2026-03-14 15:02:09,009 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:09,009 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:09,288 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:09,293 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.09545927610530779' raw_last='0.11889527040049339' parsed_first=0.095459 clamped_anchor=0.095459 anchor_clamped=False
+2026-03-14 15:02:09,399 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0955 pages=40
+2026-03-14 15:02:09,399 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.095459 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4832
+2026-03-14 15:02:09,399 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4832 bottom=6048 start_idx=1 end_idx=6
+2026-03-14 15:02:09,399 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[1, 2, 3, 4, 5, 6] last_rendered_indices=[1, 2, 3, 4, 5, 6] render_signature=((1, 2, 3, 4, 5, 6), 1224, 43296, 1400, 1216)
+2026-03-14 15:02:09,399 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:09,404 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.09545927610530779' raw_last='0.11889527040049339' parsed_first=0.095459 clamped_anchor=0.095459 anchor_clamped=False
+2026-03-14 15:02:09,411 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:09,415 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.09779131172185175' raw_last='0.12122730601703735' parsed_first=0.097791 clamped_anchor=0.097791 anchor_clamped=False
+2026-03-14 15:02:09,518 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0978 pages=40
+2026-03-14 15:02:09,518 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.097791 viewport_height=1216 final_preview_total_height=51838 max_start=50622 virtual_top=4950
+2026-03-14 15:02:09,518 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4950 bottom=6166 start_idx=2 end_idx=7
+2026-03-14 15:02:09,518 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.50
+2026-03-14 15:02:09,519 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=2 zoom=1.39
+2026-03-14 15:02:09,519 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=3 zoom=1.50
+2026-03-14 15:02:09,519 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=3 zoom=1.43
+2026-03-14 15:02:09,519 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=4 zoom=1.50
+2026-03-14 15:02:09,519 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=4 zoom=1.43
+2026-03-14 15:02:09,519 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=5 zoom=1.50
+2026-03-14 15:02:09,520 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=5 zoom=1.39
+2026-03-14 15:02:09,520 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=6 zoom=1.50
+2026-03-14 15:02:09,520 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache hit for C:\Users\DanielHuth\Downloads\Test_File.pdf page=6 zoom=1.43
+2026-03-14 15:02:09,520 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=7 zoom=1.50
+2026-03-14 15:02:09,549 [DEBUG] pdf_merge_gui.services.preview_service: Preview cache miss for C:\Users\DanielHuth\Downloads\Test_File.pdf page=7 zoom=1.43
+2026-03-14 15:02:09,579 [DEBUG] pdf_merge_gui.ui.controller: Recomputing final preview offsets estimated_total=51264 available_height=899520 scale=1.00000000 page_count=40
+2026-03-14 15:02:09,579 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets stats final_preview_total_height=51744 estimated_height_min=1206 estimated_height_max=1300 logical_height_min=1206 logical_height_max=1300
+2026-03-14 15:02:09,579 [DEBUG] pdf_merge_gui.ui.controller: Final preview offsets sample first=[0, 1224, 2448, 3668, 4886] last=[46496, 47808, 49120, 50432, 51744] offset_count=41
+2026-03-14 15:02:09,579 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.097791 viewport_height=1216 final_preview_total_height=51744 max_start=50528 virtual_top=4941
+2026-03-14 15:02:09,579 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window recomputed top=4941 bottom=6157 start_idx=2 end_idx=7
+2026-03-14 15:02:09,579 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update starting start_idx=2 end_idx=7 images_by_index=6
+2026-03-14 15:02:09,594 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=961 content_height=51886 x_pos=219 y_pos=0 scrollregion=0 0 1400 51886
+2026-03-14 15:02:09,597 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=742 content_height=51792 x_pos=329 y_pos=0 scrollregion=0 0 1400 51792
+2026-03-14 15:02:09,687 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=742 content_height=51792 x_pos=329 y_pos=0 scrollregion=0 0 1400 51792
+2026-03-14 15:02:09,775 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=742 content_height=51792 x_pos=329 y_pos=0 scrollregion=0 0 1400 51792
+2026-03-14 15:02:09,776 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview post-widget metrics scrollregion=0 0 1400 51792 preview_content_reqheight=51792 preview_canvas_height=1216 top_spacer=2448 bottom_spacer=41984 visible_rendered_height=7240
+2026-03-14 15:02:09,776 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview canvas update finished start_idx=2 end_idx=7 images_by_index=6 widget_count=8
+2026-03-14 15:02:09,776 [DEBUG] pdf_merge_gui.ui.controller: Rendered virtual preview indices=[2, 3, 4, 5, 6, 7] top_spacer=2448 bottom_spacer=41984
+2026-03-14 15:02:09,776 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview before anchor moveto anchor=0.097791 yview=(0.10266064257028112, 0.126139172072907)
+2026-03-14 15:02:09,776 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview yview after anchor moveto anchor=0.097791 yview=(0.09779502625888169, 0.12127355576150757)
+2026-03-14 15:02:09,776 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:09,780 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=742 content_height=51792 x_pos=329 y_pos=0 scrollregion=0 0 1400 51792
+2026-03-14 15:02:09,782 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.09779502625888169' raw_last='0.12127355576150757' parsed_first=0.097795 clamped_anchor=0.097795 anchor_clamped=False
+2026-03-14 15:02:09,856 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0978 pages=40
+2026-03-14 15:02:09,856 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.097795 viewport_height=1216 final_preview_total_height=51744 max_start=50528 virtual_top=4941
+2026-03-14 15:02:09,856 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4941 bottom=6157 start_idx=2 end_idx=7
+2026-03-14 15:02:09,856 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[2, 3, 4, 5, 6, 7] last_rendered_indices=[2, 3, 4, 5, 6, 7] render_signature=((2, 3, 4, 5, 6, 7), 2448, 41984, 1400, 1216)
+2026-03-14 15:02:09,856 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:09,862 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.09779502625888169' raw_last='0.12127355576150757' parsed_first=0.097795 clamped_anchor=0.097795 anchor_clamped=False
+2026-03-14 15:02:09,950 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.0978 pages=40
+2026-03-14 15:02:09,950 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.097795 viewport_height=1216 final_preview_total_height=51744 max_start=50528 virtual_top=4941
+2026-03-14 15:02:09,950 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=4941 bottom=6157 start_idx=2 end_idx=7
+2026-03-14 15:02:09,950 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[2, 3, 4, 5, 6, 7] last_rendered_indices=[2, 3, 4, 5, 6, 7] render_signature=((2, 3, 4, 5, 6, 7), 2448, 41984, 1400, 1216)
+2026-03-14 15:02:09,950 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:09,973 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=742 content_height=51792 x_pos=329 y_pos=0 scrollregion=0 0 1400 51792
+2026-03-14 15:02:09,975 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.10013129440840285' raw_last='0.12360982391102873' parsed_first=0.100131 clamped_anchor=0.100131 anchor_clamped=False
+2026-03-14 15:02:10,059 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.1001 pages=40
+2026-03-14 15:02:10,059 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.100131 viewport_height=1216 final_preview_total_height=51744 max_start=50528 virtual_top=5059
+2026-03-14 15:02:10,059 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=5059 bottom=6275 start_idx=2 end_idx=7
+2026-03-14 15:02:10,059 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[2, 3, 4, 5, 6, 7] last_rendered_indices=[2, 3, 4, 5, 6, 7] render_signature=((2, 3, 4, 5, 6, 7), 2448, 41984, 1400, 1216)
+2026-03-14 15:02:10,059 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:10,064 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.10013129440840285' raw_last='0.12360982391102873' parsed_first=0.100131 clamped_anchor=0.100131 anchor_clamped=False
+2026-03-14 15:02:10,096 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.1001 pages=40
+2026-03-14 15:02:10,096 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.100131 viewport_height=1216 final_preview_total_height=51744 max_start=50528 virtual_top=5059
+2026-03-14 15:02:10,096 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=5059 bottom=6275 start_idx=2 end_idx=7
+2026-03-14 15:02:10,096 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[2, 3, 4, 5, 6, 7] last_rendered_indices=[2, 3, 4, 5, 6, 7] render_signature=((2, 3, 4, 5, 6, 7), 2448, 41984, 1400, 1216)
+2026-03-14 15:02:10,096 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:10,102 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.10013129440840285' raw_last='0.12360982391102873' parsed_first=0.100131 clamped_anchor=0.100131 anchor_clamped=False
+2026-03-14 15:02:10,134 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.1001 pages=40
+2026-03-14 15:02:10,134 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.100131 viewport_height=1216 final_preview_total_height=51744 max_start=50528 virtual_top=5059
+2026-03-14 15:02:10,135 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=5059 bottom=6275 start_idx=2 end_idx=7
+2026-03-14 15:02:10,135 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[2, 3, 4, 5, 6, 7] last_rendered_indices=[2, 3, 4, 5, 6, 7] render_signature=((2, 3, 4, 5, 6, 7), 2448, 41984, 1400, 1216)
+2026-03-14 15:02:10,135 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:10,165 [DEBUG] pdf_merge_gui.ui.view: Reposition preview content content_width=742 content_height=51792 x_pos=329 y_pos=0 scrollregion=0 0 1400 51792
+2026-03-14 15:02:10,168 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.102467562557924' raw_last='0.12594609206054988' parsed_first=0.102468 clamped_anchor=0.102468 anchor_clamped=False
+2026-03-14 15:02:10,248 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.1025 pages=40
+2026-03-14 15:02:10,248 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.102468 viewport_height=1216 final_preview_total_height=51744 max_start=50528 virtual_top=5177
+2026-03-14 15:02:10,248 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=5177 bottom=6393 start_idx=2 end_idx=7
+2026-03-14 15:02:10,248 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[2, 3, 4, 5, 6, 7] last_rendered_indices=[2, 3, 4, 5, 6, 7] render_signature=((2, 3, 4, 5, 6, 7), 2448, 41984, 1400, 1216)
+2026-03-14 15:02:10,248 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:10,257 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.102467562557924' raw_last='0.12594609206054988' parsed_first=0.102468 clamped_anchor=0.102468 anchor_clamped=False
+2026-03-14 15:02:10,336 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.1025 pages=40
+2026-03-14 15:02:10,336 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.102468 viewport_height=1216 final_preview_total_height=51744 max_start=50528 virtual_top=5177
+2026-03-14 15:02:10,336 [DEBUG] pdf_merge_gui.ui.controller: Virtual preview window top=5177 bottom=6393 start_idx=2 end_idx=7
+2026-03-14 15:02:10,336 [DEBUG] pdf_merge_gui.ui.controller: Skipping virtual render (cache hit, canvas unchanged); requested_indices=[2, 3, 4, 5, 6, 7] last_rendered_indices=[2, 3, 4, 5, 6, 7] render_signature=((2, 3, 4, 5, 6, 7), 2448, 41984, 1400, 1216)
+2026-03-14 15:02:10,336 [DEBUG] pdf_merge_gui.ui.controller: Virtual final preview render complete
+2026-03-14 15:02:10,347 [DEBUG] pdf_merge_gui.ui.controller: Preview canvas yscroll callback raw_first='0.102467562557924' raw_last='0.12594609206054988' parsed_first=0.102468 clamped_anchor=0.102468 anchor_clamped=False
+2026-03-14 15:02:10,372 [DEBUG] pdf_merge_gui.ui.controller: Rendering virtual final preview preserve_anchor=True anchor=0.1025 pages=40
+2026-03-14 15:02:10,372 [DEBUG] pdf_merge_gui.ui.controller: Visible virtual window anchor=0.102468 viewport_height=1216 final_preview_total_height=51744 max_start=50528 virtual_top=5177
+

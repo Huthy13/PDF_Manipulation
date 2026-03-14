@@ -4,6 +4,7 @@ import tkinter as tk
 from bisect import bisect_right
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Optional, Sequence
 
@@ -13,6 +14,7 @@ from ..model import MergeModel
 from ..preview import PreviewDependencyUnavailable, PreviewRenderError
 from ..services.preview_pipeline import PreviewRenderPipeline, RenderRequest, RenderResult
 from ..services.preview_service import PreviewService, PrimaryCacheKey, UiCacheKey
+from ..services.telemetry import get_telemetry
 from .view import PdfMergeView
 
 
@@ -56,6 +58,7 @@ class PdfMergeController:
         )
 
         self.preview_zoom = self.DEFAULT_ZOOM
+        self._telemetry = get_telemetry()
         self._pending_resize_after: Optional[str] = None
         self._pending_final_resize_settle_after: Optional[str] = None
         self._pending_final_scroll_render_after: Optional[str] = None
@@ -85,6 +88,8 @@ class PdfMergeController:
         self._final_preview_row_bound_indices: list[Optional[int]] = []
         self._final_preview_pipeline = PreviewRenderPipeline(on_result=self._on_final_preview_result)
         self._last_preview_mode = self.view.preview_mode.get()
+        self._final_preview_first_visible_start_ms: Optional[float] = None
+        self._final_preview_first_visible_generation: Optional[int] = None
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -744,11 +749,34 @@ class PdfMergeController:
     def _clamp_virtual_anchor_to_bounds(self) -> None:
         self._set_virtual_anchor(self._virtual_top_from_anchor())
 
+    def _telemetry_increment(self, name: str, amount: int = 1) -> None:
+        telemetry = getattr(self, "_telemetry", None)
+        if telemetry is None or amount <= 0:
+            return
+        for _ in range(amount):
+            telemetry.increment(name)
+
+    def _telemetry_observe(self, name: str, value: float) -> None:
+        telemetry = getattr(self, "_telemetry", None)
+        if telemetry is None:
+            return
+        telemetry.observe(name, value)
+
+    def _compose_final_preview_widgets_timed(self, *, allow_fast_path: bool) -> None:
+        started = perf_counter()
+        self._compose_final_preview_widgets(allow_fast_path=allow_fast_path)
+        self._telemetry_observe("final_preview_viewport_frame_ms", (perf_counter() - started) * 1000.0)
+
     def _advance_final_preview_generation(self) -> int:
+        canceled = len(self._final_preview_pending_indices)
+        if canceled:
+            self._telemetry_increment("final_preview_canceled_render_jobs", canceled)
         self._final_preview_generation += 1
         self._final_preview_pipeline.set_active_generation(self._final_preview_generation)
         self._final_preview_pending_indices = set()
         self._final_preview_rendering = False
+        self._final_preview_first_visible_start_ms = perf_counter()
+        self._final_preview_first_visible_generation = self._final_preview_generation
         return self._final_preview_generation
 
     def _request_final_preview_render(self, preserve_anchor: bool, refresh_generation: bool) -> None:
@@ -772,6 +800,7 @@ class PdfMergeController:
         start_idx, end_idx = self._visible_page_range(top, bottom)
         self._final_preview_active_range = (start_idx, end_idx)
         self._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
+        self._telemetry_observe("final_preview_visible_range_size", float(max(0, visible_end - visible_start + 1)))
 
         self._final_preview_syncing_scrollbar = True
         try:
@@ -783,12 +812,18 @@ class PdfMergeController:
             idx for idx in range(start_idx, end_idx + 1) if idx not in self._final_preview_decoded_by_index
         ]
         if not request_indices:
-            self._compose_final_preview_widgets(allow_fast_path=True)
+            self._compose_final_preview_widgets_timed(allow_fast_path=True)
+            if self._final_preview_first_visible_generation == generation and self._final_preview_first_visible_start_ms is not None:
+                elapsed_ms = (perf_counter() - self._final_preview_first_visible_start_ms) * 1000.0
+                self._telemetry_observe("final_preview_time_to_first_visible_page_ms", elapsed_ms)
+                self._final_preview_first_visible_generation = None
+                self._final_preview_first_visible_start_ms = None
             self._trim_preview_caches()
             return
 
         self._final_preview_pending_indices = set(request_indices)
         self._final_preview_rendering = True
+        self._telemetry_observe("final_preview_queue_depth", float(len(self._final_preview_pending_indices)))
 
         for idx in request_indices:
             descriptor = self._final_preview_pages[idx]
@@ -803,7 +838,7 @@ class PdfMergeController:
                 priority=priority,
             )
 
-        self._compose_final_preview_widgets(allow_fast_path=False)
+        self._compose_final_preview_widgets_timed(allow_fast_path=False)
 
     def _clear_final_preview_row_pool(self) -> None:
         self._final_preview_pool_top_spacer = None
@@ -940,6 +975,7 @@ class PdfMergeController:
 
     def _apply_final_preview_result(self, result: RenderResult) -> None:
         if result.request.generation_id != self._final_preview_generation:
+            self._telemetry_increment("final_preview_stale_result_drops")
             return
 
         index = next(
@@ -951,9 +987,21 @@ class PdfMergeController:
             None,
         )
         if index is None:
+            self._telemetry_increment("final_preview_stale_result_drops")
             return
 
         self._final_preview_pending_indices.discard(index)
+
+        active_start, active_end = self._final_preview_active_range
+        if (
+            self._final_preview_first_visible_generation == result.request.generation_id
+            and self._final_preview_first_visible_start_ms is not None
+            and active_start <= index <= active_end
+        ):
+            elapsed_ms = (perf_counter() - self._final_preview_first_visible_start_ms) * 1000.0
+            self._telemetry_observe("final_preview_time_to_first_visible_page_ms", elapsed_ms)
+            self._final_preview_first_visible_generation = None
+            self._final_preview_first_visible_start_ms = None
 
         if result.error is not None:
             if index not in self._final_preview_render_errors:
@@ -981,7 +1029,7 @@ class PdfMergeController:
             descriptor.estimated_height = measured_height
             self._recompute_final_preview_offsets()
 
-        self._compose_final_preview_widgets(allow_fast_path=True)
+        self._compose_final_preview_widgets_timed(allow_fast_path=True)
         if not self._final_preview_pending_indices:
             self._final_preview_rendering = False
 

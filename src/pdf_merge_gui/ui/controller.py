@@ -9,7 +9,7 @@ from time import perf_counter
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Optional, Sequence
 
-from PIL import ImageTk
+from PIL import Image, ImageTk
 
 from ..model import MergeModel
 from ..preview import PreviewDependencyUnavailable, PreviewRenderError
@@ -75,6 +75,11 @@ class PdfMergeController:
         self._pending_preview_scroll_restore: Optional[tuple[float, float]] = None
         self._final_preview_prioritize_focus = True
         self._final_preview_deferred_indices: list[int] = []
+        self._final_preview_rendered_range: Optional[tuple[int, int]] = None
+        self._zoom_interaction_version = 0
+        self._zoom_feedback_base_zoom: Optional[float] = None
+        self._zoom_feedback_base_range: Optional[tuple[int, int]] = None
+        self._zoom_feedback_base_images: list[ImageTk.PhotoImage] = []
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -130,6 +135,10 @@ class PdfMergeController:
             self.master.after_cancel(self._pending_final_idle_render_after)
             self._pending_final_idle_render_after = None
         self._final_preview_deferred_indices = []
+        self._final_preview_rendered_range = None
+        self._zoom_feedback_base_zoom = None
+        self._zoom_feedback_base_range = None
+        self._zoom_feedback_base_images = []
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
@@ -273,6 +282,10 @@ class PdfMergeController:
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
+        self._final_preview_rendered_range = None
+        self._zoom_feedback_base_zoom = None
+        self._zoom_feedback_base_range = None
+        self._zoom_feedback_base_images = []
         self.refresh_list()
 
     def on_reverse_selected(self) -> None:
@@ -476,12 +489,83 @@ class PdfMergeController:
         self._update_preview_preserving_scroll()
 
     def on_ctrl_wheel_zoom(self, wheel_units: int) -> None:
-        next_zoom = self._clamp_zoom(self.preview_zoom + (-wheel_units * self.ZOOM_STEP))
+        previous_zoom = self.preview_zoom
+        next_zoom = self._clamp_zoom(previous_zoom + (-wheel_units * self.ZOOM_STEP))
         if abs(next_zoom - self.preview_zoom) < 0.001:
             return
+        self._zoom_interaction_version += 1
         self.preview_zoom = next_zoom
         self._deactivate_fit_preview()
+        if (
+            self.USE_VIRTUAL_FINAL_PREVIEW
+            and self.view.preview_mode.get() == self.view.PREVIEW_FINAL
+            and self._apply_immediate_zoom_feedback(previous_zoom, next_zoom)
+        ):
+            self._final_preview_prioritize_focus = False
+            self._schedule_final_resize_settled_render(expected_zoom_version=self._zoom_interaction_version)
+            self._last_preview_render_key = None
+            return
         self._update_preview_preserving_scroll()
+
+    def _scale_photo_image(self, image: ImageTk.PhotoImage, scale_factor: float) -> ImageTk.PhotoImage:
+        pil_image = ImageTk.getimage(image)
+        new_size = (
+            max(1, int(round(image.width() * scale_factor))),
+            max(1, int(round(image.height() * scale_factor))),
+        )
+        if new_size == (image.width(), image.height()):
+            return image
+        return ImageTk.PhotoImage(pil_image.resize(new_size, Image.Resampling.LANCZOS))
+
+    def _apply_immediate_zoom_feedback(self, previous_zoom: float, next_zoom: float) -> bool:
+        if not self._preview_image_refs:
+            return False
+        rendered_range = self._final_preview_rendered_range
+        if rendered_range is None:
+            return False
+
+        if self._zoom_feedback_base_zoom is None or self._zoom_feedback_base_range != rendered_range:
+            self._zoom_feedback_base_zoom = previous_zoom
+            self._zoom_feedback_base_range = rendered_range
+            self._zoom_feedback_base_images = list(self._preview_image_refs)
+
+        base_zoom = self._zoom_feedback_base_zoom
+        if base_zoom is None or base_zoom <= 0:
+            return False
+        scale_factor = next_zoom / base_zoom
+        scaled_images = [self._scale_photo_image(image, scale_factor) for image in self._zoom_feedback_base_images]
+
+        rendered_start_idx, rendered_end_idx = rendered_range
+        top_spacer = self._final_preview_offsets[rendered_start_idx]
+        bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[rendered_end_idx + 1], 0)
+
+        def build() -> list[tk.Widget]:
+            widgets: list[tk.Widget] = []
+            scaled_top = int(round(top_spacer * scale_factor))
+            if scaled_top > 0:
+                spacer_top = ttk.Frame(self.view.preview_content, height=scaled_top)
+                spacer_top.grid_propagate(False)
+                widgets.append(spacer_top)
+            for image in scaled_images:
+                preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
+                preview.image = image
+                widgets.append(preview)
+            scaled_bottom = int(round(bottom_spacer * scale_factor))
+            if scaled_bottom > 0:
+                spacer_bottom = ttk.Frame(self.view.preview_content, height=scaled_bottom)
+                spacer_bottom.grid_propagate(False)
+                widgets.append(spacer_bottom)
+            return widgets
+
+        self._preview_image_refs = scaled_images
+        self._show_preview_widgets(build, reset_scroll=False, preserve_scroll=True)
+        self._final_preview_syncing_scrollbar = True
+        try:
+            self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
+        finally:
+            self._final_preview_syncing_scrollbar = False
+        self._update_zoom_label(effective_zoom=self.preview_zoom)
+        return True
 
     def _deactivate_fit_preview(self) -> None:
         if self.view.fit_preview.get():
@@ -511,16 +595,18 @@ class PdfMergeController:
         start_idx, end_idx = self._visible_page_range(top, bottom)
         self._final_preview_visible_indices = set(range(start_idx, end_idx + 1)) if end_idx >= start_idx else set()
 
-    def _schedule_final_resize_settled_render(self) -> None:
+    def _schedule_final_resize_settled_render(self, expected_zoom_version: Optional[int] = None) -> None:
         if self._pending_final_resize_settle_after is not None:
             self.master.after_cancel(self._pending_final_resize_settle_after)
         self._pending_final_resize_settle_after = self.master.after(
             self.FINAL_RESIZE_SETTLE_MS,
-            self._on_final_resize_settled,
+            lambda: self._on_final_resize_settled(expected_zoom_version=expected_zoom_version),
         )
 
-    def _on_final_resize_settled(self) -> None:
+    def _on_final_resize_settled(self, expected_zoom_version: Optional[int] = None) -> None:
         self._pending_final_resize_settle_after = None
+        if expected_zoom_version is not None and expected_zoom_version != self._zoom_interaction_version:
+            return
         if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
             return
         if not self.USE_VIRTUAL_FINAL_PREVIEW:
@@ -528,10 +614,17 @@ class PdfMergeController:
                 self.update_preview()
             return
         if self._final_preview_rendering:
-            self._schedule_final_resize_settled_render()
+            self._schedule_final_resize_settled_render(expected_zoom_version=expected_zoom_version)
             return
         self._final_preview_prioritize_focus = True
-        self._render_virtual_final_preview(preserve_anchor=True)
+        if expected_zoom_version is None:
+            self._render_virtual_final_preview(preserve_anchor=True)
+            return
+        self._render_virtual_final_preview(
+            preserve_anchor=True,
+            expected_zoom_version=expected_zoom_version,
+            finalize_zoom=True,
+        )
 
     def _on_resize_debounced(self) -> None:
         self._pending_resize_after = None
@@ -780,8 +873,12 @@ class PdfMergeController:
         self,
         preserve_anchor: bool,
         preferred_indices: Optional[Sequence[int]] = None,
+        expected_zoom_version: Optional[int] = None,
+        finalize_zoom: bool = False,
     ) -> None:
         if self._final_preview_rendering:
+            return
+        if expected_zoom_version is not None and expected_zoom_version != self._zoom_interaction_version:
             return
         self._final_preview_rendering = True
         try:
@@ -844,6 +941,8 @@ class PdfMergeController:
                     descriptor.page_index,
                     quality_tier=quality_tier,
                 )
+                if expected_zoom_version is not None and expected_zoom_version != self._zoom_interaction_version:
+                    return
                 if rendered is None:
                     return
                 images_by_index[idx] = rendered
@@ -865,6 +964,7 @@ class PdfMergeController:
                 for idx in range(rendered_start_idx, rendered_end_idx + 1)
                 if idx in images_by_index
             ]
+            self._final_preview_rendered_range = (rendered_start_idx, rendered_end_idx)
             self._final_preview_visible_indices = set(range(rendered_start_idx, rendered_end_idx + 1))
 
             top_spacer = self._final_preview_offsets[rendered_start_idx]
@@ -912,6 +1012,10 @@ class PdfMergeController:
                 hard_cap,
                 len(self._final_preview_deferred_indices),
             )
+            if finalize_zoom:
+                self._zoom_feedback_base_zoom = None
+                self._zoom_feedback_base_range = None
+                self._zoom_feedback_base_images = []
         finally:
             self._final_preview_rendering = False
 
@@ -927,6 +1031,10 @@ class PdfMergeController:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
             self._final_preview_deferred_indices = []
+            self._final_preview_rendered_range = None
+            self._zoom_feedback_base_zoom = None
+            self._zoom_feedback_base_range = None
+            self._zoom_feedback_base_images = []
             if self._pending_final_idle_render_after is not None:
                 self.master.after_cancel(self._pending_final_idle_render_after)
                 self._pending_final_idle_render_after = None
@@ -958,6 +1066,10 @@ class PdfMergeController:
         else:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
+            self._final_preview_rendered_range = None
+            self._zoom_feedback_base_zoom = None
+            self._zoom_feedback_base_range = None
+            self._zoom_feedback_base_images = []
             images: list[ImageTk.PhotoImage] = []
             for page in self.model.sequence:
                 rendered = self.render_preview_image(page.source_path, page.page_index)

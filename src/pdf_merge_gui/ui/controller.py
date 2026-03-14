@@ -38,6 +38,7 @@ class PdfMergeController:
     FINAL_RESIZE_DEBOUNCE_MS = 180
     FINAL_RESIZE_SETTLE_MS = 240
     FINAL_SCROLL_RENDER_DEBOUNCE_MS = 24
+    FINAL_SCROLL_UPGRADE_DEBOUNCE_MS = 220
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
 
     def __init__(self, master: tk.Tk) -> None:
@@ -50,6 +51,7 @@ class PdfMergeController:
         self._pending_resize_after: Optional[str] = None
         self._pending_final_resize_settle_after: Optional[str] = None
         self._pending_final_scroll_render_after: Optional[str] = None
+        self._pending_final_scroll_upgrade_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
         self._last_preview_canvas_size: tuple[int, int] = (0, 0)
         self._preview_image_refs: list[ImageTk.PhotoImage] = []
@@ -61,6 +63,7 @@ class PdfMergeController:
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
         self._pending_preview_scroll_restore: Optional[tuple[float, float]] = None
+        self._final_preview_prioritize_focus = True
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -108,6 +111,10 @@ class PdfMergeController:
         if self._pending_final_scroll_render_after is not None:
             self.master.after_cancel(self._pending_final_scroll_render_after)
             self._pending_final_scroll_render_after = None
+        pending_upgrade = getattr(self, "_pending_final_scroll_upgrade_after", None)
+        if pending_upgrade is not None:
+            self.master.after_cancel(pending_upgrade)
+            self._pending_final_scroll_upgrade_after = None
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
@@ -419,9 +426,14 @@ class PdfMergeController:
         height = self.view.preview_canvas.winfo_height() - 8
         return max(width, 1), max(height, 1)
 
-    def _resolve_zoom(self, source_path: str, page_index: int) -> tuple[float, ImageTk.PhotoImage]:
+    def _resolve_zoom(
+        self,
+        source_path: str,
+        page_index: int,
+        quality_tier: str = "focus",
+    ) -> tuple[float, ImageTk.PhotoImage]:
         base_zoom = self.preview_zoom
-        rendered = self.preview_service.render(source_path, page_index, base_zoom)
+        rendered = self.preview_service.render(source_path, page_index, base_zoom, quality_tier=quality_tier)
         if not self.view.fit_preview.get():
             return base_zoom, rendered
 
@@ -432,7 +444,7 @@ class PdfMergeController:
         fit_zoom = self._clamp_zoom(base_zoom * fit_ratio)
         if abs(fit_zoom - base_zoom) < 0.01:
             return base_zoom, rendered
-        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom)
+        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom, quality_tier=quality_tier)
 
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
@@ -503,6 +515,7 @@ class PdfMergeController:
         if self._final_preview_rendering:
             self._schedule_final_resize_settled_render()
             return
+        self._final_preview_prioritize_focus = True
         self._render_virtual_final_preview(preserve_anchor=True)
 
     def _on_resize_debounced(self) -> None:
@@ -540,6 +553,7 @@ class PdfMergeController:
         except ValueError:
             return
         self._final_preview_anchor_fraction = max(0.0, min(1.0, first_fraction))
+        self._schedule_final_preview_quality_upgrade()
         if self._pending_final_scroll_render_after is not None:
             return
         self._pending_final_scroll_render_after = self.master.after(
@@ -557,12 +571,34 @@ class PdfMergeController:
             return
         first, _ = self.view.preview_canvas.yview()
         self._final_preview_anchor_fraction = max(0.0, min(1.0, first))
+        self._schedule_final_preview_quality_upgrade()
         if self._pending_final_scroll_render_after is not None:
             return
         self._pending_final_scroll_render_after = self.master.after(
             self.FINAL_SCROLL_RENDER_DEBOUNCE_MS,
             self._render_final_preview_from_scroll,
         )
+
+    def _schedule_final_preview_quality_upgrade(self) -> None:
+        pending_upgrade = getattr(self, "_pending_final_scroll_upgrade_after", None)
+        if pending_upgrade is not None:
+            self.master.after_cancel(pending_upgrade)
+        self._pending_final_scroll_upgrade_after = self.master.after(
+            self.FINAL_SCROLL_UPGRADE_DEBOUNCE_MS,
+            self._upgrade_final_preview_quality,
+        )
+
+    def _upgrade_final_preview_quality(self) -> None:
+        self._pending_final_scroll_upgrade_after = None
+        if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
+            return
+        if not self.USE_VIRTUAL_FINAL_PREVIEW:
+            return
+        if self._final_preview_rendering:
+            self._schedule_final_preview_quality_upgrade()
+            return
+        self._final_preview_prioritize_focus = True
+        self._render_virtual_final_preview(preserve_anchor=True)
 
     def _render_final_preview_from_scroll(self) -> None:
         self._pending_final_scroll_render_after = None
@@ -572,11 +608,18 @@ class PdfMergeController:
             return
         if self._final_preview_rendering:
             return
+        self._final_preview_prioritize_focus = False
         self._render_virtual_final_preview(preserve_anchor=True)
+        self._schedule_final_preview_quality_upgrade()
 
-    def render_preview_image(self, source_path: str, page_index: int) -> Optional[ImageTk.PhotoImage]:
+    def render_preview_image(
+        self,
+        source_path: str,
+        page_index: int,
+        quality_tier: str = "focus",
+    ) -> Optional[ImageTk.PhotoImage]:
         try:
-            effective_zoom, rendered = self._resolve_zoom(source_path, page_index)
+            effective_zoom, rendered = self._resolve_zoom(source_path, page_index, quality_tier=quality_tier)
             self._update_zoom_label(effective_zoom=effective_zoom)
             return rendered
         except PreviewDependencyUnavailable as exc:
@@ -704,16 +747,28 @@ class PdfMergeController:
                 self._final_preview_syncing_scrollbar = False
                 return
 
+            focus_idx = (start_idx + end_idx) // 2
+            selected_idx = self.selected_index()
+            if selected_idx is not None and start_idx <= selected_idx <= end_idx:
+                focus_idx = selected_idx
+
             images_by_index: dict[int, ImageTk.PhotoImage] = {}
             for idx in range(start_idx, end_idx + 1):
                 descriptor = self._final_preview_pages[idx]
-                rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
+                is_focus = idx == focus_idx
+                quality_tier = "focus" if (self._final_preview_prioritize_focus and is_focus) else "draft"
+                rendered = self.render_preview_image(
+                    descriptor.source_path,
+                    descriptor.page_index,
+                    quality_tier=quality_tier,
+                )
                 if rendered is None:
                     return
                 images_by_index[idx] = rendered
-                measured_height = max(rendered.height(), 1)
-                if measured_height != descriptor.estimated_height:
-                    descriptor.estimated_height = measured_height
+                if is_focus:
+                    measured_height = max(rendered.height(), 1)
+                    if measured_height != descriptor.estimated_height:
+                        descriptor.estimated_height = measured_height
 
             self._recompute_final_preview_offsets()
             top, bottom = self._visible_virtual_window()
@@ -726,7 +781,7 @@ class PdfMergeController:
                 if idx in images_by_index:
                     continue
                 descriptor = self._final_preview_pages[idx]
-                rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
+                rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index, quality_tier="draft")
                 if rendered is None:
                     return
                 images_by_index[idx] = rendered
@@ -796,6 +851,7 @@ class PdfMergeController:
 
         if self.USE_VIRTUAL_FINAL_PREVIEW:
             self._build_final_preview_model()
+            self._final_preview_prioritize_focus = True
             self._render_virtual_final_preview(preserve_anchor=True)
         else:
             self._final_preview_pages = []

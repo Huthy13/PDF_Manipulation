@@ -62,6 +62,10 @@ or
 python -m pdf_merge_gui.app
 ```
 
+## Logging
+
+The GUI now configures Python logging at startup with `DEBUG` level enabled globally, so preview diagnostics (including virtual final preview traces and cache hit/miss messages) are always emitted to stdout/stderr by default.
+
 ## Tests
 
 ```bash

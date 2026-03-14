@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Generic, TypeVar
 
 from pdf_merge_gui.ui.controller import PdfMergeController
+from pdf_merge_gui.ui.controller import FinalPreviewPage
 
 
 T = TypeVar("T")
@@ -145,3 +146,44 @@ def test_final_resize_debounced_handler_guards_render_and_settles() -> None:
     controller._on_final_resize_settled()
 
     assert render_calls == [True]
+
+
+def test_recompute_final_preview_offsets_large_page_count_stays_within_safe_cap() -> None:
+    controller = _build_controller(mode="final")
+    page_count = 20_000
+    controller._final_preview_pages = [
+        FinalPreviewPage(source_path="doc.pdf", page_index=idx, estimated_height=1300)
+        for idx in range(page_count)
+    ]
+
+    controller._recompute_final_preview_offsets()
+
+    offsets = controller._final_preview_offsets
+    assert len(offsets) == page_count + 1
+    assert offsets[0] == 0
+    assert offsets[-1] == controller._final_preview_total_height
+    assert controller._final_preview_total_height <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT
+    assert all(offsets[idx] < offsets[idx + 1] for idx in range(page_count))
+    assert all(page.logical_height >= 1 for page in controller._final_preview_pages)
+
+
+def test_recompute_final_preview_offsets_degrades_when_gap_budget_alone_exceeds_cap() -> None:
+    controller = _build_controller(mode="final")
+    page_count = 90_000
+    controller._final_preview_pages = [
+        FinalPreviewPage(source_path="doc.pdf", page_index=idx, estimated_height=2)
+        for idx in range(page_count)
+    ]
+
+    controller._recompute_final_preview_offsets()
+
+    offsets = controller._final_preview_offsets
+    heights = [page.logical_height for page in controller._final_preview_pages]
+    deltas = [offsets[idx + 1] - offsets[idx] for idx in range(page_count)]
+
+    assert len(offsets) == page_count + 1
+    assert all(delta >= 1 for delta in deltas)
+    assert all(height >= 1 for height in heights)
+    assert all(offsets[idx] < offsets[idx + 1] for idx in range(page_count))
+    assert offsets[-1] == controller._final_preview_total_height
+    assert controller._final_preview_total_height <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT

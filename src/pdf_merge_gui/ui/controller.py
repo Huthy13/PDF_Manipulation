@@ -586,16 +586,90 @@ class PdfMergeController:
             self._final_preview_total_height = 0
             return
 
-        estimated_total = sum(max(page.estimated_height, 1) for page in self._final_preview_pages)
-        available_height = self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT - (len(self._final_preview_pages) * self.FINAL_PREVIEW_PAGE_GAP)
-        scale = 1.0 if estimated_total <= max(available_height, 1) else max(available_height, 1) / estimated_total
+        page_count = len(self._final_preview_pages)
+        between_page_gaps = max(page_count - 1, 0)
+        safe_height = self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT
+
+        effective_gap = self.FINAL_PREVIEW_PAGE_GAP
+        gap_total = between_page_gaps * effective_gap
+        height_budget = safe_height - gap_total
+
+        if height_budget <= 0 and between_page_gaps > 0:
+            max_gap_for_min_height = max((safe_height - page_count) // between_page_gaps, 0)
+            effective_gap = min(effective_gap, max_gap_for_min_height)
+            gap_total = between_page_gaps * effective_gap
+            height_budget = safe_height - gap_total
+
+        estimated_heights = [max(page.estimated_height, 1) for page in self._final_preview_pages]
+        estimated_total = sum(estimated_heights)
+
+        if height_budget <= 0:
+            logical_heights = [1 for _ in self._final_preview_pages]
+        else:
+            scale = height_budget / max(estimated_total, 1)
+            scaled = [height * scale for height in estimated_heights]
+            logical_heights = [max(int(height), 1) for height in scaled]
+
+            target_total = max(height_budget, page_count)
+            current_total = sum(logical_heights)
+            if current_total < target_total:
+                deficit = target_total - current_total
+                by_fraction = sorted(
+                    range(page_count),
+                    key=lambda idx: (scaled[idx] - int(scaled[idx]), estimated_heights[idx]),
+                    reverse=True,
+                )
+                for idx in by_fraction:
+                    if deficit == 0:
+                        break
+                    logical_heights[idx] += 1
+                    deficit -= 1
+            elif current_total > target_total:
+                over = current_total - target_total
+                by_fraction = sorted(
+                    range(page_count),
+                    key=lambda idx: (scaled[idx] - int(scaled[idx]), estimated_heights[idx]),
+                )
+                for idx in by_fraction:
+                    if over == 0:
+                        break
+                    reducible = logical_heights[idx] - 1
+                    if reducible <= 0:
+                        continue
+                    delta = min(reducible, over)
+                    logical_heights[idx] -= delta
+                    over -= delta
 
         offsets = [0]
         running = 0
-        for page in self._final_preview_pages:
-            page.logical_height = max(int(page.estimated_height * scale), 1)
-            running += page.logical_height + self.FINAL_PREVIEW_PAGE_GAP
+        for idx, page in enumerate(self._final_preview_pages):
+            page.logical_height = logical_heights[idx]
+            running += page.logical_height
+            if idx < page_count - 1:
+                running += effective_gap
             offsets.append(running)
+
+        if running > safe_height:
+            over = running - safe_height
+            for page in reversed(self._final_preview_pages):
+                if over == 0:
+                    break
+                reducible = page.logical_height - 1
+                if reducible <= 0:
+                    continue
+                delta = min(reducible, over)
+                page.logical_height -= delta
+                over -= delta
+
+            offsets = [0]
+            running = 0
+            for idx, page in enumerate(self._final_preview_pages):
+                running += page.logical_height
+                if idx < page_count - 1:
+                    running += effective_gap
+                offsets.append(running)
+
+        assert running <= safe_height, "Final preview total height exceeds safe scroll height."
         self._final_preview_offsets = offsets
         self._final_preview_total_height = running
 

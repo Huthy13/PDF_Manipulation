@@ -1,6 +1,13 @@
 {
-  "merged_export_ms": 5.724,
-  "page_load_ms": 11.449,
-  "preview_render_hit_ms": 0.435,
-  "preview_render_miss_ms": 167.909
+  "final_preview": {
+    "avg_frame_update_ms": 0.014,
+    "bottom_page_reached": 1.0,
+    "cache_hit_ratio_oscillation": 0.86,
+    "max_frame_update_ms": 97.434,
+    "time_to_first_visible_page_ms": 0.003
+  },
+  "merged_export_ms": 3.12,
+  "page_load_ms": 5.161,
+  "preview_render_hit_ms": 1.096,
+  "preview_render_miss_ms": 199.563
 }

@@ -71,6 +71,7 @@ class Telemetry:
         self.enabled = enabled
         self._counts: dict[tuple[str, Tags], int] = {}
         self._durations: dict[tuple[str, Tags], TimingAggregation] = {}
+        self._measurements: dict[tuple[str, Tags], TimingAggregation] = {}
 
     def increment(self, name: str, tags: Mapping[str, object] | None = None) -> None:
         if not self.enabled:
@@ -105,9 +106,26 @@ class Telemetry:
             return TimingAggregation().to_dict()
         return aggregation.to_dict()
 
+    def observe(self, name: str, value: float, tags: Mapping[str, object] | None = None) -> None:
+        if not self.enabled:
+            return
+        key = (name, _normalize_tags(tags))
+        aggregation = self._measurements.get(key)
+        if aggregation is None:
+            aggregation = TimingAggregation()
+            self._measurements[key] = aggregation
+        aggregation.add_sample(value)
+
+    def get_measurement(self, name: str, tags: Mapping[str, object] | None = None) -> dict[str, float | int]:
+        aggregation = self._measurements.get((name, _normalize_tags(tags)))
+        if aggregation is None:
+            return TimingAggregation().to_dict()
+        return aggregation.to_dict()
+
     def reset(self) -> None:
         self._counts.clear()
         self._durations.clear()
+        self._measurements.clear()
 
 
 DEFAULT_TELEMETRY = Telemetry(enabled=os.getenv("PDF_MERGE_GUI_TELEMETRY_ENABLED") == "1")

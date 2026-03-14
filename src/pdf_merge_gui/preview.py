@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 from PIL import Image
 
 LOGGER = logging.getLogger(__name__)
-DEBUG_PREVIEW = os.getenv("PDF_MERGE_GUI_DEBUG_PREVIEW") == "1"
 
 
 class PreviewDependencyUnavailable(RuntimeError):
@@ -45,15 +43,14 @@ def render_page(pdf_path: str, page_index: int, zoom: float = 1.5) -> Image.Imag
             page = doc.load_page(page_index)
             matrix = fitz.Matrix(zoom, zoom)
             pixmap = page.get_pixmap(matrix=matrix, alpha=False)
-            if DEBUG_PREVIEW:
-                LOGGER.debug(
-                    "pymupdf pixmap rendered source=%s page_index=%s zoom=%.2f size=%sx%s",
-                    path.name,
-                    page_index,
-                    zoom,
-                    pixmap.width,
-                    pixmap.height,
-                )
+            LOGGER.debug(
+                "pymupdf pixmap rendered source=%s page_index=%s zoom=%.2f size=%sx%s",
+                path.name,
+                page_index,
+                zoom,
+                pixmap.width,
+                pixmap.height,
+            )
             return Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
     except PreviewRenderError:
         raise

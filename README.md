@@ -93,14 +93,9 @@ Artifacts are written under `dist/`.
 
 ## Preview debugging
 
-To enable verbose preview diagnostics (render requests, PIL image sizes, and PhotoImage fallback attempts),
-run with:
+Preview diagnostics are always emitted through the preview-related loggers (render requests, PIL image sizes, and PhotoImage fallback attempts).
 
-```bash
-PDF_MERGE_GUI_DEBUG_PREVIEW=1 python run_gui.py
-```
-
-This is useful for troubleshooting platform-specific preview errors such as Tk/GDI allocation failures.
+This helps troubleshoot platform-specific preview errors such as Tk/GDI allocation failures without requiring extra environment flags.
 
 ## CI backend health workflow
 

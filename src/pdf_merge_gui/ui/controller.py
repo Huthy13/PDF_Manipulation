@@ -4,7 +4,6 @@ import tkinter as tk
 from bisect import bisect_right
 from dataclasses import dataclass
 import logging
-import os
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Optional, Sequence
@@ -45,7 +44,6 @@ class PdfMergeController:
     PHOTOIMAGE_RETRY_STEPS = (1.0, 0.85, 0.7, 0.55, 0.4)
 
     _LOGGER = logging.getLogger(__name__)
-    _DEBUG_PREVIEW = os.getenv("PDF_MERGE_GUI_DEBUG_PREVIEW") == "1"
 
     def __init__(self, master: tk.Tk) -> None:
         self.master = master
@@ -568,27 +566,25 @@ class PdfMergeController:
 
         for attempt, (scale, candidate) in enumerate(attempts, start=1):
             try:
-                if self._DEBUG_PREVIEW:
-                    self._LOGGER.debug(
-                        "PhotoImage attempt=%s scale=%.2f size=%sx%s mode=%s",
-                        attempt,
-                        scale,
-                        candidate.width,
-                        candidate.height,
-                        candidate.mode,
-                    )
+                self._LOGGER.debug(
+                    "PhotoImage attempt=%s scale=%.2f size=%sx%s mode=%s",
+                    attempt,
+                    scale,
+                    candidate.width,
+                    candidate.height,
+                    candidate.mode,
+                )
                 return ImageTk.PhotoImage(candidate)
             except Exception as exc:
                 last_exc = exc
-                if self._DEBUG_PREVIEW:
-                    self._LOGGER.exception(
-                        "PhotoImage creation failed (attempt=%s scale=%.2f size=%sx%s mode=%s)",
-                        attempt,
-                        scale,
-                        candidate.width,
-                        candidate.height,
-                        candidate.mode,
-                    )
+                self._LOGGER.exception(
+                    "PhotoImage creation failed (attempt=%s scale=%.2f size=%sx%s mode=%s)",
+                    attempt,
+                    scale,
+                    candidate.width,
+                    candidate.height,
+                    candidate.mode,
+                )
         assert last_exc is not None
         raise last_exc
 
@@ -827,17 +823,16 @@ class PdfMergeController:
                     try:
                         photo = self._create_photoimage_with_fallback(page_image)
                     except Exception:
-                        if self._DEBUG_PREVIEW:
-                            self._LOGGER.exception(
-                                "Final preview PhotoImage failure page=%s source=%s page_index=%s size=%sx%s mode=%s zoom=%.2f",
-                                idx,
-                                Path(descriptor.source_path).name,
-                                descriptor.page_index,
-                                page_image.width,
-                                page_image.height,
-                                page_image.mode,
-                                self.preview_zoom,
-                            )
+                        self._LOGGER.exception(
+                            "Final preview PhotoImage failure page=%s source=%s page_index=%s size=%sx%s mode=%s zoom=%.2f",
+                            idx,
+                            Path(descriptor.source_path).name,
+                            descriptor.page_index,
+                            page_image.width,
+                            page_image.height,
+                            page_image.mode,
+                            self.preview_zoom,
+                        )
                         fallback = ttk.Label(
                             self.view.preview_content,
                             text=(
@@ -886,8 +881,7 @@ class PdfMergeController:
         if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
             return
         if error is not None:
-            if self._DEBUG_PREVIEW:
-                self._LOGGER.exception("Final preview async render failed index=%s token=%s", index, token, exc_info=error)
+            self._LOGGER.exception("Final preview async render failed index=%s token=%s", index, token, exc_info=error)
             self._final_preview_pending_indices.discard(index)
             if not self._final_preview_pending_indices:
                 self._final_preview_rendering = False

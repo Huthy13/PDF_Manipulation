@@ -583,15 +583,41 @@ class PdfMergeController:
             self._update_zoom_label(effective_zoom=effective_zoom)
             return rendered
         except PreviewDependencyUnavailable as exc:
+            logger.warning(
+                "Preview dependency unavailable for source=%s page=%s zoom=%.2f fit_mode=%s: %s",
+                source_path,
+                page_index,
+                self.preview_zoom,
+                bool(self.view.fit_preview.get()),
+                exc,
+                exc_info=True,
+            )
             self._update_zoom_label()
             self.show_preview_text(f"Preview unavailable\n\n{exc}")
             return None
         except PreviewRenderError as exc:
+            logger.warning(
+                "Preview render failed for source=%s page=%s zoom=%.2f fit_mode=%s: %s",
+                source_path,
+                page_index,
+                self.preview_zoom,
+                bool(self.view.fit_preview.get()),
+                exc,
+                exc_info=True,
+            )
             self._update_zoom_label()
             messagebox.showerror("Preview failed", f"Could not render page preview:\n{exc}")
             self.show_preview_text("Could not render this page.\nThe file may be encrypted or corrupt.")
             return None
         except Exception as exc:
+            logger.exception(
+                "Unexpected preview error for source=%s page=%s zoom=%.2f fit_mode=%s: %s",
+                source_path,
+                page_index,
+                self.preview_zoom,
+                bool(self.view.fit_preview.get()),
+                exc,
+            )
             self._update_zoom_label()
             messagebox.showerror("Preview failed", f"Unexpected preview error:\n{exc}")
             self.show_preview_text("Unexpected error while rendering preview.")

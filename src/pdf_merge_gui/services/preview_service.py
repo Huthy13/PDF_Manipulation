@@ -96,9 +96,11 @@ class PreviewService:
             render_profile=self.render_profile,
         )
 
+        telemetry = get_telemetry()
         with self._cache_lock:
             cached_photo = self.photo_cache.get(key)
         if cached_photo is not None:
+            telemetry.increment("preview_cache_hit")
             return cached_photo
 
         image = self.render_pil(source_path, page_index, zoom)

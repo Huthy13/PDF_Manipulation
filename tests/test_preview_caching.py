@@ -69,6 +69,55 @@ def test_preview_service_photo_cache_reuses_tk_image(monkeypatch, tmp_path) -> N
     assert render_count == 1
 
 
+
+
+def test_preview_service_photo_cache_counts_hit_telemetry(monkeypatch, tmp_path) -> None:
+    source = tmp_path / "sample.pdf"
+    source.write_bytes(b"fake")
+
+    fingerprint = SourceFingerprint(path=str(source.resolve()), mtime_ns=1, size=4)
+    monkeypatch.setattr(
+        "pdf_merge_gui.services.preview_service.build_source_fingerprint",
+        lambda _path: fingerprint,
+    )
+
+    class FakeTelemetry:
+        def __init__(self) -> None:
+            self.counts: dict[str, int] = {}
+
+        def increment(self, key: str) -> None:
+            self.counts[key] = self.counts.get(key, 0) + 1
+
+        class _Timer:
+            def __enter__(self):
+                return None
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+        def time_block(self, _name: str):
+            return self._Timer()
+
+    telemetry = FakeTelemetry()
+    monkeypatch.setattr("pdf_merge_gui.services.preview_service.get_telemetry", lambda: telemetry)
+
+    class FakePhotoImage:
+        def __init__(self, image):
+            self.image = image
+
+    monkeypatch.setattr("pdf_merge_gui.services.preview_service.ImageTk.PhotoImage", FakePhotoImage)
+    monkeypatch.setattr(
+        "pdf_merge_gui.services.preview_service.render_page",
+        lambda _path, _idx, zoom: (fingerprint, Image.new("RGB", (int(10 * zoom), 10))),
+    )
+
+    service = PreviewService(cache_size=8, photo_cache_size=4)
+    service.render(str(source), 0, 1.0)
+    service.render(str(source), 0, 1.0)
+
+    assert telemetry.counts.get("preview_cache_miss") == 1
+    assert telemetry.counts.get("preview_cache_hit") == 1
+
 def test_document_handle_cache_reuses_and_invalidates_on_file_change(monkeypatch, tmp_path) -> None:
     source = tmp_path / "doc.pdf"
     source.write_bytes(b"v1")

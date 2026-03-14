@@ -76,6 +76,7 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller.view = FakeView(mode=mode, width=width, height=height)
     controller._pending_resize_after = None
     controller._pending_final_resize_settle_after = None
+    controller._pending_final_scroll_render_after = None
     controller._last_preview_canvas_size = (0, 0)
     controller._final_preview_anchor_fraction = 0.0
     controller._final_preview_syncing_scrollbar = False
@@ -101,6 +102,10 @@ def test_regression_final_preview_scroll_loop_does_not_reenter_render() -> None:
 
     for _ in range(20):
         controller._on_preview_canvas_yscroll("0.25", "0.60")
+        pending = controller._pending_final_scroll_render_after
+        assert pending is not None
+        callback = controller.master.scheduled[pending]
+        callback()
 
     assert len(render_calls) == 20
     assert controller._final_preview_anchor_fraction == 0.25

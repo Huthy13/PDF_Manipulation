@@ -29,10 +29,11 @@ def test_preview_service_quantizes_zoom_for_cache_key(monkeypatch) -> None:
     calls: list[float] = []
 
     monkeypatch.setattr("pdf_merge_gui.services.preview_service.get_telemetry", lambda: telemetry)
-    monkeypatch.setattr(
-        "pdf_merge_gui.services.preview_service.render_page",
-        lambda _source, _index, zoom, quality_tier: calls.append(zoom) or _FakeRendered(100, 100),
-    )
+    def _fake_render_page(_source: str, _index: int, zoom: float, quality_tier: str) -> _FakeRendered:
+        calls.append(zoom)
+        return _FakeRendered(100, 100)
+
+    monkeypatch.setattr("pdf_merge_gui.services.preview_service.render_page", _fake_render_page)
     monkeypatch.setattr("pdf_merge_gui.services.preview_service.ImageTk.PhotoImage", _FakePhotoImage)
 
     service = PreviewService(cache_size=10)

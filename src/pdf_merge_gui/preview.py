@@ -45,3 +45,31 @@ def render_page(pdf_path: str, page_index: int, zoom: float = 1.5) -> Image.Imag
         raise
     except Exception as exc:
         raise PreviewRenderError(str(exc)) from exc
+
+
+def get_page_box_dimensions(pdf_path: str, page_index: int) -> tuple[float, float]:
+    """Read page box dimensions from a PDF without rasterizing the page."""
+
+    try:
+        import fitz
+    except ImportError as exc:
+        raise PreviewDependencyUnavailable(
+            "Image preview backend unavailable. Install 'pymupdf' for page rendering."
+        ) from exc
+
+    path = Path(pdf_path)
+    try:
+        with fitz.open(str(path)) as doc:
+            if page_index < 0 or page_index >= len(doc):
+                raise PreviewRenderError(f"Page index out of range: {page_index}")
+            page = doc.load_page(page_index)
+            box = page.mediabox
+            width = float(abs(box.width))
+            height = float(abs(box.height))
+            if width <= 0 or height <= 0:
+                raise PreviewRenderError(f"Invalid page box dimensions: {width}x{height}")
+            return width, height
+    except PreviewRenderError:
+        raise
+    except Exception as exc:
+        raise PreviewRenderError(str(exc)) from exc

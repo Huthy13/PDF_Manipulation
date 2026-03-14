@@ -220,7 +220,7 @@ class PdfMergeView(ttk.Frame):
             yscrollcommand=self.preview_vscroll.set,
         )
 
-        self.preview_content = ttk.Frame(self.preview_canvas, padding=12)
+        self.preview_content = ttk.Frame(self.preview_canvas, padding=(12, 0, 12, 0))
         self.preview_content.columnconfigure(0, weight=1)
         self.preview_window = self.preview_canvas.create_window(0, 0, anchor="nw", window=self.preview_content)
 
@@ -256,7 +256,7 @@ class PdfMergeView(ttk.Frame):
 
     def add_preview_widget(self, widget: tk.Widget, row: int) -> None:
         self._bind_preview_wheel(widget)
-        widget.grid(row=row, column=0, pady=6)
+        widget.grid(row=row, column=0)
 
     def refresh_preview_layout(self) -> None:
         self.preview_content.update_idletasks()

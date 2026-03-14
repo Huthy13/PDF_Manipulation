@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from pdf_merge_gui.ui.controller import PdfMergeController
+from pdf_merge_gui.ui.controller import FinalPreviewPage, PdfMergeController
 
 
 T = TypeVar("T")
@@ -89,12 +89,18 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._pending_final_resize_settle_after = None
     controller._pending_final_scroll_render_after = None
     controller._last_preview_canvas_size = (0, 0)
-    controller._final_preview_anchor_fraction = 0.0
+    controller._final_preview_anchor_page_index = 0
+    controller._final_preview_anchor_offset_px_within_page = 0
     controller._final_preview_syncing_scrollbar = False
     controller._final_preview_rendering = False
-    controller._final_preview_total_height = 5_000
+    controller._final_preview_total_height = 5_060
+    controller._final_preview_offsets = [0]
     controller._final_preview_visible_indices = set()
-    controller._final_preview_pages = []
+    controller._final_preview_pages = [
+        FinalPreviewPage(source_path="a.pdf", page_index=idx, estimated_height=1000, logical_height=1000)
+        for idx in range(5)
+    ]
+    controller._final_preview_offsets = [0, 1012, 2024, 3036, 4048, 5060]
     controller._final_preview_generation = 0
     controller._final_preview_pending_indices = set()
     controller._final_preview_images_by_index = {}
@@ -113,7 +119,7 @@ def test_regression_final_preview_scroll_loop_debounces_and_cancels_prior_dispat
     for _ in range(20):
         controller._on_preview_canvas_yscroll("0.25", "0.60")
 
-    assert controller._final_preview_anchor_fraction == 0.25
+    assert controller._virtual_top_from_anchor() == int(round(0.25 * controller._max_viewport_start()))
     assert len(controller.master.after_cancel_calls) == 19
     assert controller.view.preview_vscroll.calls.count(("0.25", "0.60")) == 20
 

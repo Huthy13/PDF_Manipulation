@@ -29,7 +29,6 @@ class PdfMergeController:
     MAX_ZOOM = 4.0
     ZOOM_STEP = 0.2
     DEFAULT_ZOOM = 1.5
-    FINAL_PREVIEW_SAFE_SCROLL_HEIGHT = 900_000
     FINAL_PREVIEW_PAGE_GAP = 12
     FINAL_PREVIEW_OVERSCAN_PAGES = 2
     FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT = 1300
@@ -65,7 +64,8 @@ class PdfMergeController:
         self._final_preview_offsets: list[int] = [0]
         self._final_preview_total_height = 0
         self._final_preview_visible_indices: set[int] = set()
-        self._final_preview_anchor_fraction = 0.0
+        self._final_preview_anchor_page_index = 0
+        self._final_preview_anchor_offset_px_within_page = 0
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
         self._final_preview_generation = 0
@@ -553,7 +553,7 @@ class PdfMergeController:
             first_fraction = float(first)
         except ValueError:
             return
-        self._final_preview_anchor_fraction = max(0.0, min(1.0, first_fraction))
+        self._set_virtual_anchor_from_fraction(max(0.0, min(1.0, first_fraction)))
         if self._pending_final_scroll_render_after is not None:
             self.master.after_cancel(self._pending_final_scroll_render_after)
         self._pending_final_scroll_render_after = self.master.after(
@@ -620,6 +620,10 @@ class PdfMergeController:
             (page.source_path, page.page_index): page.estimated_height
             for page in self._final_preview_pages
         }
+        previous_logical_heights = {
+            (page.source_path, page.page_index): page.logical_height
+            for page in self._final_preview_pages
+        }
         self._final_preview_pages = [
             FinalPreviewPage(
                 source_path=source_path,
@@ -627,6 +631,10 @@ class PdfMergeController:
                 estimated_height=previous_heights.get(
                     (source_path, page_index),
                     self.FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT,
+                ),
+                logical_height=previous_logical_heights.get(
+                    (source_path, page_index),
+                    previous_heights.get((source_path, page_index), self.FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT),
                 ),
             )
             for source_path, page_index in sequence
@@ -639,23 +647,19 @@ class PdfMergeController:
             self._final_preview_total_height = 0
             return
 
-        estimated_total = sum(max(page.estimated_height, 1) for page in self._final_preview_pages)
-        available_height = self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT - (len(self._final_preview_pages) * self.FINAL_PREVIEW_PAGE_GAP)
-        scale = 1.0 if estimated_total <= max(available_height, 1) else max(available_height, 1) / estimated_total
-
         offsets = [0]
         running = 0
         for page in self._final_preview_pages:
-            page.logical_height = max(int(page.estimated_height * scale), 1)
+            page.logical_height = max(page.logical_height, page.estimated_height, 1)
             running += page.logical_height + self.FINAL_PREVIEW_PAGE_GAP
             offsets.append(running)
         self._final_preview_offsets = offsets
         self._final_preview_total_height = running
+        self._clamp_virtual_anchor_to_bounds()
 
     def _visible_virtual_window(self) -> tuple[int, int]:
         viewport_height = max(self.view.preview_canvas.winfo_height(), 1)
-        max_start = max(self._final_preview_total_height - viewport_height, 0)
-        virtual_top = int(self._final_preview_anchor_fraction * max_start)
+        virtual_top = self._virtual_top_from_anchor()
         return virtual_top, virtual_top + viewport_height
 
     def _visible_page_range(self, top: int, bottom: int) -> tuple[int, int]:
@@ -675,11 +679,42 @@ class PdfMergeController:
         end = min(bisect_right(self._final_preview_offsets, bottom) - 1, len(self._final_preview_pages) - 1)
         return start, end
 
-    def _set_virtual_anchor(self, virtual_top: int) -> None:
+    def _max_viewport_start(self) -> int:
         viewport_height = max(self.view.preview_canvas.winfo_height(), 1)
-        max_start = max(self._final_preview_total_height - viewport_height, 0)
-        clamped = max(0, min(virtual_top, max_start))
-        self._final_preview_anchor_fraction = 0.0 if max_start == 0 else clamped / max_start
+        return max(self._final_preview_total_height - viewport_height, 0)
+
+    def _fraction_for_virtual_top(self, virtual_top: int) -> float:
+        max_start = self._max_viewport_start()
+        if max_start <= 0:
+            return 0.0
+        return max(0.0, min(1.0, virtual_top / max_start))
+
+    def _virtual_top_from_anchor(self) -> int:
+        if not self._final_preview_pages:
+            return 0
+        page_index = max(0, min(self._final_preview_anchor_page_index, len(self._final_preview_pages) - 1))
+        page_top = self._final_preview_offsets[page_index]
+        page_height = max(self._final_preview_pages[page_index].logical_height, 1)
+        offset = max(0, min(self._final_preview_anchor_offset_px_within_page, page_height - 1))
+        return max(0, min(page_top + offset, self._max_viewport_start()))
+
+    def _set_virtual_anchor(self, virtual_top: int) -> None:
+        if not self._final_preview_pages:
+            self._final_preview_anchor_page_index = 0
+            self._final_preview_anchor_offset_px_within_page = 0
+            return
+        clamped_top = max(0, min(virtual_top, self._max_viewport_start()))
+        anchor_index = max(0, min(bisect_right(self._final_preview_offsets, clamped_top) - 1, len(self._final_preview_pages) - 1))
+        page_top = self._final_preview_offsets[anchor_index]
+        page_height = max(self._final_preview_pages[anchor_index].logical_height, 1)
+        self._final_preview_anchor_page_index = anchor_index
+        self._final_preview_anchor_offset_px_within_page = max(0, min(clamped_top - page_top, page_height - 1))
+
+    def _set_virtual_anchor_from_fraction(self, fraction: float) -> None:
+        self._set_virtual_anchor(int(round(max(0.0, min(1.0, fraction)) * self._max_viewport_start())))
+
+    def _clamp_virtual_anchor_to_bounds(self) -> None:
+        self._set_virtual_anchor(self._virtual_top_from_anchor())
 
     def _advance_final_preview_generation(self) -> int:
         self._final_preview_generation += 1
@@ -712,7 +747,7 @@ class PdfMergeController:
 
         self._final_preview_syncing_scrollbar = True
         try:
-            self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
+            self.view.preview_canvas.yview_moveto(self._fraction_for_virtual_top(top))
         finally:
             self._final_preview_syncing_scrollbar = False
 
@@ -788,9 +823,10 @@ class PdfMergeController:
 
         self._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
         self._show_preview_widgets(build, reset_scroll=False, preserve_scroll=False)
+        virtual_top = self._virtual_top_from_anchor()
         self._final_preview_syncing_scrollbar = True
         try:
-            self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
+            self.view.preview_canvas.yview_moveto(self._fraction_for_virtual_top(virtual_top))
         finally:
             self._final_preview_syncing_scrollbar = False
         self._trim_preview_caches()

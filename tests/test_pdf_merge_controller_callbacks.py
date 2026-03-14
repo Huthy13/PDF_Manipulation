@@ -79,6 +79,7 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._pending_final_resize_settle_after = None
     controller._pending_final_scroll_render_after = None
     controller._last_preview_canvas_size = (0, 0)
+    controller.preview_zoom = controller.DEFAULT_ZOOM
     controller._final_preview_anchor_fraction = 0.0
     controller._final_preview_syncing_scrollbar = False
     controller._final_preview_rendering = False
@@ -187,3 +188,46 @@ def test_render_virtual_final_preview_emits_debug_logs(monkeypatch) -> None:
     assert any("Virtual preview window top=" in msg for msg in messages)
     assert any("Rendered virtual preview indices=" in msg for msg in messages)
     assert any("Virtual final preview render complete" in msg for msg in messages)
+
+
+class FakeCaption:
+    def __init__(self) -> None:
+        self.text = ""
+
+    def configure(self, *, text: str) -> None:
+        self.text = text
+
+
+def test_update_preview_final_mode_does_not_commit_key_when_virtual_render_fails(monkeypatch) -> None:
+    controller = _build_controller(mode="final")
+    controller.model = SimpleNamespace(sequence=[SimpleNamespace(source_path="doc.pdf", page_index=0)])
+    controller.view.preview_caption = FakeCaption()
+    controller._last_preview_render_key = ("existing",)
+    controller._build_final_preview_model = lambda: None
+    controller._render_virtual_final_preview = lambda *, preserve_anchor: False
+
+    messages: list[str] = []
+
+    def fake_debug(message, *args):
+        messages.append((message % args) if args else str(message))
+
+    monkeypatch.setattr("pdf_merge_gui.ui.controller.logger.debug", fake_debug)
+
+    controller.update_preview()
+
+    assert controller._last_preview_render_key == ("existing",)
+    assert any("Final preview render was not committed" in msg for msg in messages)
+
+
+def test_update_preview_final_mode_commits_key_when_virtual_render_succeeds() -> None:
+    controller = _build_controller(mode="final")
+    controller.model = SimpleNamespace(sequence=[SimpleNamespace(source_path="doc.pdf", page_index=0)])
+    controller.view.preview_caption = FakeCaption()
+    controller._last_preview_render_key = None
+    controller._build_final_preview_model = lambda: None
+    controller._render_virtual_final_preview = lambda *, preserve_anchor: True
+
+    expected_key = controller._current_preview_key(controller.view.PREVIEW_FINAL)
+    controller.update_preview()
+
+    assert controller._last_preview_render_key == expected_key

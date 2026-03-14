@@ -110,6 +110,21 @@ class PreviewService:
         self._ui_cache_put(key, photo, decoded_image)
         return photo
 
+    def render(
+        self,
+        source_path: str,
+        page_index: int,
+        zoom: float,
+        *,
+        widget_scale_context: tuple[float] = (1.0,),
+    ) -> ImageTk.PhotoImage:
+        """Backward-compatible render API used by perf scripts and legacy callers.
+
+        Returns a Tk image while keeping decode caching and UI caching separated.
+        """
+        _, decoded = self.get_decoded_image(source_path, page_index, zoom)
+        return self.get_ui_image(decoded, widget_scale_context)
+
     def trim_to_budget(
         self,
         *,

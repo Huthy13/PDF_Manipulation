@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional
 
 from .tooltip import ToolTip
+
+
+logger = logging.getLogger(__name__)
 
 
 class PdfMergeView(ttk.Frame):
@@ -271,6 +275,14 @@ class PdfMergeView(ttk.Frame):
         region_width = max(content_width + (2 * x_pos), canvas_width)
         region_height = max(content_height + (2 * y_pos), canvas_height)
         self.preview_canvas.configure(scrollregion=(0, 0, region_width, region_height))
+        logger.debug(
+            "Reposition preview content content_width=%s content_height=%s x_pos=%s y_pos=%s scrollregion=%s",
+            content_width,
+            content_height,
+            x_pos,
+            y_pos,
+            self.preview_canvas.cget("scrollregion"),
+        )
 
     def on_preview_content_configure(self, _event: tk.Event) -> None:
         canvas_width = max(self.preview_canvas.winfo_width(), 1)

@@ -865,6 +865,20 @@ class PdfMergeController:
                 len(images_by_index),
             )
             widget_count = self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
+            visible_rendered_height = sum(
+                image.height()
+                for idx, image in images_by_index.items()
+                if start_idx <= idx <= end_idx
+            )
+            logger.debug(
+                "Virtual preview post-widget metrics scrollregion=%s preview_content_reqheight=%s preview_canvas_height=%s top_spacer=%s bottom_spacer=%s visible_rendered_height=%s",
+                self.view.preview_canvas.cget("scrollregion"),
+                self.view.preview_content.winfo_reqheight(),
+                self.view.preview_canvas.winfo_height(),
+                top_spacer,
+                bottom_spacer,
+                visible_rendered_height,
+            )
             logger.debug(
                 "Virtual preview canvas update finished start_idx=%s end_idx=%s images_by_index=%s widget_count=%s",
                 start_idx,
@@ -876,7 +890,18 @@ class PdfMergeController:
             logger.debug("Rendered virtual preview indices=%s top_spacer=%s bottom_spacer=%s", list(range(start_idx, end_idx + 1)), top_spacer, bottom_spacer)
             self._final_preview_syncing_scrollbar = True
             try:
+                yview_before = self.view.preview_canvas.yview()
+                logger.debug(
+                    "Virtual preview yview before anchor moveto anchor=%.6f yview=%s",
+                    self._final_preview_anchor_fraction,
+                    yview_before,
+                )
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
+                logger.debug(
+                    "Virtual preview yview after anchor moveto anchor=%.6f yview=%s",
+                    self._final_preview_anchor_fraction,
+                    self.view.preview_canvas.yview(),
+                )
             finally:
                 self._final_preview_syncing_scrollbar = False
             return True

@@ -865,6 +865,27 @@ class PdfMergeController:
                 len(images_by_index),
             )
             widget_count = self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
+            visible_rendered_height = sum(
+                image.height()
+                for idx, image in images_by_index.items()
+                if start_idx <= idx <= end_idx
+            )
+            preview_canvas_cget = getattr(self.view.preview_canvas, "cget", None)
+            scrollregion = preview_canvas_cget("scrollregion") if callable(preview_canvas_cget) else "<unavailable>"
+            preview_content = getattr(self.view, "preview_content", None)
+            preview_content_reqheight_fn = getattr(preview_content, "winfo_reqheight", None)
+            preview_content_reqheight = (
+                preview_content_reqheight_fn() if callable(preview_content_reqheight_fn) else "<unavailable>"
+            )
+            logger.debug(
+                "Virtual preview post-widget metrics scrollregion=%s preview_content_reqheight=%s preview_canvas_height=%s top_spacer=%s bottom_spacer=%s visible_rendered_height=%s",
+                scrollregion,
+                preview_content_reqheight,
+                self.view.preview_canvas.winfo_height(),
+                top_spacer,
+                bottom_spacer,
+                visible_rendered_height,
+            )
             logger.debug(
                 "Virtual preview canvas update finished start_idx=%s end_idx=%s images_by_index=%s widget_count=%s",
                 start_idx,
@@ -876,7 +897,20 @@ class PdfMergeController:
             logger.debug("Rendered virtual preview indices=%s top_spacer=%s bottom_spacer=%s", list(range(start_idx, end_idx + 1)), top_spacer, bottom_spacer)
             self._final_preview_syncing_scrollbar = True
             try:
+                preview_canvas_yview = getattr(self.view.preview_canvas, "yview", None)
+                yview_before = preview_canvas_yview() if callable(preview_canvas_yview) else "<unavailable>"
+                logger.debug(
+                    "Virtual preview yview before anchor moveto anchor=%.6f yview=%s",
+                    self._final_preview_anchor_fraction,
+                    yview_before,
+                )
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
+                yview_after = preview_canvas_yview() if callable(preview_canvas_yview) else "<unavailable>"
+                logger.debug(
+                    "Virtual preview yview after anchor moveto anchor=%.6f yview=%s",
+                    self._final_preview_anchor_fraction,
+                    yview_after,
+                )
             finally:
                 self._final_preview_syncing_scrollbar = False
             return True

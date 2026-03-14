@@ -59,6 +59,7 @@ class PdfMergeController:
         self._final_preview_anchor_fraction = 0.0
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
+        self._pending_preview_scroll_restore: Optional[tuple[float, float]] = None
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -326,11 +327,9 @@ class PdfMergeController:
         reset_scroll: bool = True,
         preserve_scroll: bool = False,
     ) -> None:
-        scroll_x = 0.0
-        scroll_y = 0.0
+        scroll_to_restore: Optional[tuple[float, float]] = None
         if preserve_scroll:
-            scroll_x = self.view.preview_canvas.xview()[0]
-            scroll_y = self.view.preview_canvas.yview()[0]
+            scroll_to_restore = self._snapshot_preview_scroll()
 
         self.view.clear_preview_widgets()
         widgets = widget_builder()
@@ -338,11 +337,33 @@ class PdfMergeController:
             self.view.add_preview_widget(widget, row)
         self.view.refresh_preview_layout()
 
-        if preserve_scroll:
-            self.view.preview_canvas.xview_moveto(scroll_x)
-            self.view.preview_canvas.yview_moveto(scroll_y)
+        if self._pending_preview_scroll_restore is not None:
+            scroll_to_restore = self._pending_preview_scroll_restore
+            self._pending_preview_scroll_restore = None
+
+        if scroll_to_restore is not None:
+            self._restore_preview_scroll(*scroll_to_restore)
         elif reset_scroll:
             self.view.reset_preview_scroll()
+
+    def _snapshot_preview_scroll(self) -> tuple[float, float]:
+        return self.view.preview_canvas.xview()[0], self.view.preview_canvas.yview()[0]
+
+    def _clamp_scroll_fraction(self, fraction: float, first: float, last: float) -> float:
+        span = max(last - first, 0.0)
+        max_offset = max(1.0 - span, 0.0)
+        return max(0.0, min(fraction, max_offset))
+
+    def _restore_preview_scroll(self, x: float, y: float) -> None:
+        x_first, x_last = self.view.preview_canvas.xview()
+        y_first, y_last = self.view.preview_canvas.yview()
+        self.view.preview_canvas.xview_moveto(self._clamp_scroll_fraction(x, x_first, x_last))
+        self.view.preview_canvas.yview_moveto(self._clamp_scroll_fraction(y, y_first, y_last))
+
+    def _update_preview_preserving_scroll(self) -> None:
+        self._pending_preview_scroll_restore = self._snapshot_preview_scroll()
+        self.update_preview()
+        self._pending_preview_scroll_restore = None
 
     def show_preview_text(self, text: str) -> None:
         self._preview_image_refs = []
@@ -413,16 +434,16 @@ class PdfMergeController:
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
         self._deactivate_fit_preview()
-        self.update_preview()
+        self._update_preview_preserving_scroll()
 
     def on_zoom_out(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom - self.ZOOM_STEP)
         self._deactivate_fit_preview()
-        self.update_preview()
+        self._update_preview_preserving_scroll()
 
     def on_zoom_reset(self) -> None:
         self.preview_zoom = self.DEFAULT_ZOOM
-        self.update_preview()
+        self._update_preview_preserving_scroll()
 
     def on_ctrl_wheel_zoom(self, wheel_units: int) -> None:
         next_zoom = self._clamp_zoom(self.preview_zoom + (-wheel_units * self.ZOOM_STEP))
@@ -430,14 +451,14 @@ class PdfMergeController:
             return
         self.preview_zoom = next_zoom
         self._deactivate_fit_preview()
-        self.update_preview()
+        self._update_preview_preserving_scroll()
 
     def _deactivate_fit_preview(self) -> None:
         if self.view.fit_preview.get():
             self.view.fit_preview.set(False)
 
     def on_toggle_fit_preview(self) -> None:
-        self.update_preview()
+        self._update_preview_preserving_scroll()
 
     def on_preview_panel_resize(self, _event: tk.Event) -> None:
         if self._pending_resize_after is not None:

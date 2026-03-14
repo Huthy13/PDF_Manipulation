@@ -28,6 +28,15 @@ class LRUCache(Generic[K, V]):
         if len(self._cache) > self.capacity:
             self._cache.popitem(last=False)
 
+    def pop(self, key: K) -> V | None:
+        return self._cache.pop(key, None)
+
+    def keys(self) -> list[K]:
+        return list(self._cache.keys())
+
+    def values(self) -> list[V]:
+        return list(self._cache.values())
+
     def clear(self) -> None:
         self._cache.clear()
 

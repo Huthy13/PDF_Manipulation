@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+from PIL import Image
 from typing import Generic, TypeVar
 
 from pdf_merge_gui.ui.controller import PdfMergeController
@@ -91,6 +93,16 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._final_preview_rendering = False
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
+    controller._final_preview_generation = 0
+    controller._final_preview_pending_indices = set()
+    controller._final_preview_rendered_pil = {}
+    controller._final_preview_pages = [
+        FinalPreviewPage(source_path="doc.pdf", page_index=idx, estimated_height=1300)
+        for idx in range(8)
+    ]
+    controller._final_preview_offsets = list(range(9))
+    controller._preview_image_refs = []
+    controller._last_preview_mode = controller.view.preview_mode.get()
     controller.preview_zoom = controller.DEFAULT_ZOOM
     controller.model = FakeModel()
     return controller
@@ -213,3 +225,45 @@ def test_current_preview_key_uses_sequence_version_instead_of_sequence_signature
     bumped_key = controller._current_preview_key(controller.view.PREVIEW_SINGLE, selected_index=0)
 
     assert bumped_key != second_key
+
+
+def test_final_preview_drops_stale_generation_results() -> None:
+    controller = _build_controller(mode="final")
+    draw_calls: list[tuple[int, int, int]] = []
+
+    controller._final_preview_generation = 2
+    controller._final_preview_visible_indices = {0, 1}
+    controller._final_preview_pending_indices = {0}
+    controller._final_preview_rendering = True
+    controller._draw_final_preview_placeholders = (
+        lambda start, end, *, token, preserve_anchor: draw_calls.append((start, end, token))
+    )
+
+    stale = Image.new("RGB", (100, 140), color="white")
+    controller._on_final_page_render_ready(0, 1, stale, None)
+
+    assert draw_calls == []
+    assert controller._final_preview_pending_indices == {0}
+    assert controller._final_preview_rendering is True
+
+
+def test_final_preview_latest_scroll_wins_when_callbacks_arrive_out_of_order() -> None:
+    controller = _build_controller(mode="final")
+    draw_calls: list[tuple[int, int, int]] = []
+
+    controller._final_preview_visible_indices = {2, 3}
+    controller._final_preview_pending_indices = {2}
+    controller._final_preview_generation = 7
+    controller._draw_final_preview_placeholders = (
+        lambda start, end, *, token, preserve_anchor: draw_calls.append((start, end, token))
+    )
+
+    latest = Image.new("RGB", (110, 180), color="gray")
+    controller._on_final_page_render_ready(2, 7, latest, None)
+
+    stale = Image.new("RGB", (110, 120), color="black")
+    controller._on_final_page_render_ready(3, 6, stale, None)
+
+    assert draw_calls == [(2, 3, 7)]
+    assert controller._final_preview_rendered_pil[2].height == 180
+    assert 3 not in controller._final_preview_rendered_pil

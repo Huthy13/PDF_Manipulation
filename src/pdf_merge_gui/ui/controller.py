@@ -3,6 +3,7 @@ from __future__ import annotations
 import tkinter as tk
 from bisect import bisect_right
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Optional, Sequence
@@ -39,6 +40,10 @@ class PdfMergeController:
     FINAL_SCROLL_RENDER_DEBOUNCE_MS = 24
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
     PHOTOIMAGE_MAX_DIMENSION = 16_384
+    PHOTOIMAGE_MAX_PIXELS = 40_000_000
+    PHOTOIMAGE_RETRY_STEPS = (1.0, 0.85, 0.7, 0.55, 0.4)
+
+    _LOGGER = logging.getLogger(__name__)
 
     def __init__(self, master: tk.Tk) -> None:
         self.master = master
@@ -554,25 +559,58 @@ class PdfMergeController:
             return None
 
     def _create_photoimage_with_fallback(self, image: Image.Image) -> ImageTk.PhotoImage:
-        try:
-            return ImageTk.PhotoImage(image)
-        except Exception as exc:
-            constrained = self._constrain_photoimage_size(image)
-            if constrained.size == image.size:
-                raise exc
-            return ImageTk.PhotoImage(constrained)
+        prepared = image.convert("RGB") if image.mode != "RGB" else image
+        last_exc: Optional[Exception] = None
+        attempts: list[tuple[float, Image.Image]] = [(-1.0, prepared)]
+        attempts.extend((scale, self._constrain_photoimage_size(prepared, scale=scale)) for scale in self.PHOTOIMAGE_RETRY_STEPS)
 
-    def _constrain_photoimage_size(self, image: Image.Image) -> Image.Image:
+        for attempt, (scale, candidate) in enumerate(attempts, start=1):
+            try:
+                self._LOGGER.debug(
+                    "PhotoImage attempt=%s scale=%.2f size=%sx%s mode=%s",
+                    attempt,
+                    scale,
+                    candidate.width,
+                    candidate.height,
+                    candidate.mode,
+                )
+                return ImageTk.PhotoImage(candidate)
+            except Exception as exc:
+                last_exc = exc
+                self._LOGGER.exception(
+                    "PhotoImage creation failed (attempt=%s scale=%.2f size=%sx%s mode=%s)",
+                    attempt,
+                    scale,
+                    candidate.width,
+                    candidate.height,
+                    candidate.mode,
+                )
+        assert last_exc is not None
+        raise last_exc
+
+    def _constrain_photoimage_size(self, image: Image.Image, *, scale: float = 1.0) -> Image.Image:
         max_dim = self.PHOTOIMAGE_MAX_DIMENSION
+        max_pixels = self.PHOTOIMAGE_MAX_PIXELS
         width = max(image.width, 1)
         height = max(image.height, 1)
-        largest = max(width, height)
-        if largest <= max_dim:
+
+        scaled_width = max(1, int(width * scale))
+        scaled_height = max(1, int(height * scale))
+        largest = max(scaled_width, scaled_height)
+        pixels = scaled_width * scaled_height
+        if largest <= max_dim and pixels <= max_pixels:
+            if (scaled_width, scaled_height) == (width, height):
+                return image
+            return image.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+
+        downscale_dim = max_dim / largest if largest > max_dim else 1.0
+        downscale_pixels = (max_pixels / pixels) ** 0.5 if pixels > max_pixels else 1.0
+        final_scale = min(downscale_dim, downscale_pixels)
+        if final_scale >= 1.0:
             return image
-        scale = max_dim / largest
         constrained_size = (
-            max(1, int(width * scale)),
-            max(1, int(height * scale)),
+            max(1, int(scaled_width * final_scale)),
+            max(1, int(scaled_height * final_scale)),
         )
         return image.resize(constrained_size, Image.Resampling.LANCZOS)
 
@@ -780,7 +818,32 @@ class PdfMergeController:
                 widgets.append(spacer_top)
             for idx in range(start_idx, end_idx + 1):
                 if idx in self._final_preview_rendered_pil:
-                    photo = self._create_photoimage_with_fallback(self._final_preview_rendered_pil[idx])
+                    page_image = self._final_preview_rendered_pil[idx]
+                    descriptor = self._final_preview_pages[idx]
+                    try:
+                        photo = self._create_photoimage_with_fallback(page_image)
+                    except Exception:
+                        self._LOGGER.exception(
+                            "Final preview PhotoImage failure page=%s source=%s page_index=%s size=%sx%s mode=%s zoom=%.2f",
+                            idx,
+                            Path(descriptor.source_path).name,
+                            descriptor.page_index,
+                            page_image.width,
+                            page_image.height,
+                            page_image.mode,
+                            self.preview_zoom,
+                        )
+                        fallback = ttk.Label(
+                            self.view.preview_content,
+                            text=(
+                                "Preview unavailable for this page at current zoom.\n"
+                                "Try zooming out or disabling Fit."
+                            ),
+                            anchor="center",
+                            justify="center",
+                        )
+                        widgets.append(fallback)
+                        continue
                     self._preview_image_refs.append(photo)
                     preview = tk.Label(self.view.preview_content, image=photo, bd=0, highlightthickness=0)
                     preview.image = photo
@@ -818,6 +881,7 @@ class PdfMergeController:
         if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
             return
         if error is not None:
+            self._LOGGER.exception("Final preview async render failed index=%s token=%s", index, token, exc_info=error)
             self._final_preview_pending_indices.discard(index)
             if not self._final_preview_pending_indices:
                 self._final_preview_rendering = False

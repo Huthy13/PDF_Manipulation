@@ -296,7 +296,9 @@ def test_constrain_photoimage_size_scales_images_over_dimension_limit() -> None:
     oversized = Image.new("RGB", (24_000, 12_000), color="white")
     constrained = controller._constrain_photoimage_size(oversized)
 
-    assert constrained.size == (controller.PHOTOIMAGE_MAX_DIMENSION, 8192)
+    assert constrained.size == (8944, 4472)
+    assert max(constrained.size) <= controller.PHOTOIMAGE_MAX_DIMENSION
+    assert constrained.width * constrained.height <= controller.PHOTOIMAGE_MAX_PIXELS
 
 
 def test_create_photoimage_with_fallback_retries_with_constrained_image(monkeypatch) -> None:
@@ -314,5 +316,5 @@ def test_create_photoimage_with_fallback_retries_with_constrained_image(monkeypa
 
     result = controller._create_photoimage_with_fallback(Image.new("RGB", (20_000, 10_000), color="white"))
 
-    assert calls == [(20_000, 10_000), (16_384, 8192)]
-    assert result == (16_384, 8192)
+    assert calls == [(20_000, 10_000), (8944, 4472)]
+    assert result == (8944, 4472)

@@ -548,8 +548,18 @@ class PdfMergeController:
         try:
             first_fraction = float(first)
         except ValueError:
+            logger.debug("Preview canvas yscroll callback parse failed raw_first=%r raw_last=%r", first, last)
             return
-        self._final_preview_anchor_fraction = max(0.0, min(1.0, first_fraction))
+        clamped_fraction = max(0.0, min(1.0, first_fraction))
+        self._final_preview_anchor_fraction = clamped_fraction
+        logger.debug(
+            "Preview canvas yscroll callback raw_first=%r raw_last=%r parsed_first=%.6f clamped_anchor=%.6f anchor_clamped=%s",
+            first,
+            last,
+            first_fraction,
+            clamped_fraction,
+            first_fraction != clamped_fraction,
+        )
         if self._pending_final_scroll_render_after is not None:
             return
         self._pending_final_scroll_render_after = self.master.after(
@@ -685,6 +695,14 @@ class PdfMergeController:
         viewport_height = max(self.view.preview_canvas.winfo_height(), 1)
         max_start = max(self._final_preview_total_height - viewport_height, 0)
         virtual_top = int(self._final_preview_anchor_fraction * max_start)
+        logger.debug(
+            "Visible virtual window anchor=%.6f viewport_height=%s final_preview_total_height=%s max_start=%s virtual_top=%s",
+            self._final_preview_anchor_fraction,
+            viewport_height,
+            self._final_preview_total_height,
+            max_start,
+            virtual_top,
+        )
         return virtual_top, virtual_top + viewport_height
 
     def _visible_page_range(self, top: int, bottom: int) -> tuple[int, int]:
@@ -700,8 +718,20 @@ class PdfMergeController:
     def _set_virtual_anchor(self, virtual_top: int) -> None:
         viewport_height = max(self.view.preview_canvas.winfo_height(), 1)
         max_start = max(self._final_preview_total_height - viewport_height, 0)
-        clamped = max(0, min(virtual_top, max_start))
-        self._final_preview_anchor_fraction = 0.0 if max_start == 0 else clamped / max_start
+        requested_virtual_top = virtual_top
+        clamped_virtual_top = max(0, min(requested_virtual_top, max_start))
+        stored_anchor = 0.0 if max_start == 0 else clamped_virtual_top / max_start
+        self._final_preview_anchor_fraction = stored_anchor
+        logger.debug(
+            "Set virtual anchor requested_virtual_top=%s clamped_virtual_top=%s anchor_clamped=%s stored_anchor=%.6f viewport_height=%s final_preview_total_height=%s max_start=%s",
+            requested_virtual_top,
+            clamped_virtual_top,
+            requested_virtual_top != clamped_virtual_top,
+            stored_anchor,
+            viewport_height,
+            self._final_preview_total_height,
+            max_start,
+        )
 
     def _render_virtual_final_preview(self, preserve_anchor: bool) -> bool:
         if self._final_preview_rendering:

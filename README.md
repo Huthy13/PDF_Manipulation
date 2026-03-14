@@ -91,6 +91,17 @@ Artifacts are written under `dist/`.
 - **Encrypted/password-protected PDFs** may fail to load or preview unless already decrypted.
 - Corrupt or partially unreadable PDF files can trigger load/render/export errors.
 
+## Preview debugging
+
+To enable verbose preview diagnostics (render requests, PIL image sizes, and PhotoImage fallback attempts),
+run with:
+
+```bash
+PDF_MERGE_GUI_DEBUG_PREVIEW=1 python run_gui.py
+```
+
+This is useful for troubleshooting platform-specific preview errors such as Tk/GDI allocation failures.
+
 ## CI backend health workflow
 
 The repository includes `.github/workflows/backend-health.yml` with three jobs on every push/PR:

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor
+import logging
+import os
 from threading import Lock
+from pathlib import Path
 from typing import Callable
 
 from PIL import Image
@@ -11,6 +14,8 @@ from ..utils.cache import LRUCache
 from .telemetry import get_telemetry
 
 RenderCallback = Callable[[tuple[str, int, float], Image.Image | None, Exception | None], None]
+LOGGER = logging.getLogger(__name__)
+DEBUG_PREVIEW = os.getenv("PDF_MERGE_GUI_DEBUG_PREVIEW") == "1"
 
 
 class PreviewService:
@@ -33,15 +38,38 @@ class PreviewService:
     def render(self, source_path: str, page_index: int, zoom: float) -> Image.Image:
         telemetry = get_telemetry()
         key = (source_path, page_index, zoom)
+        source_name = Path(source_path).name
         with self._cache_lock:
             cached = self.cache.get(key)
         if cached is not None:
+            if DEBUG_PREVIEW:
+                LOGGER.debug(
+                    "preview cache hit source=%s page_index=%s zoom=%.2f size=%sx%s mode=%s",
+                    source_name,
+                    page_index,
+                    zoom,
+                    cached.width,
+                    cached.height,
+                    cached.mode,
+                )
             telemetry.increment("preview_cache_hit")
             return cached
 
         telemetry.increment("preview_cache_miss")
         with telemetry.time_block("preview_render_miss"):
+            if DEBUG_PREVIEW:
+                LOGGER.debug("preview render start source=%s page_index=%s zoom=%.2f", source_name, page_index, zoom)
             image = render_page(source_path, page_index, zoom=zoom)
+            if DEBUG_PREVIEW:
+                LOGGER.debug(
+                    "preview render done source=%s page_index=%s zoom=%.2f size=%sx%s mode=%s",
+                    source_name,
+                    page_index,
+                    zoom,
+                    image.width,
+                    image.height,
+                    image.mode,
+                )
 
         with self._cache_lock:
             self.cache.put(key, image)
@@ -60,6 +88,13 @@ class PreviewService:
             try:
                 image = self.render(source_path, page_index, zoom)
             except Exception as exc:  # pragma: no cover - exercised via callback handling.
+                if DEBUG_PREVIEW:
+                    LOGGER.exception(
+                        "preview async render failed source=%s page_index=%s zoom=%.2f",
+                        Path(source_path).name,
+                        page_index,
+                        zoom,
+                    )
                 callback(key, None, exc)
                 return
             callback(key, image, None)

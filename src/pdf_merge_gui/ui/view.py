@@ -250,7 +250,14 @@ class PdfMergeView(ttk.Frame):
         for widget in self.preview_content.winfo_children():
             widget.destroy()
 
+
+    def clear_preview_widget_layout(self) -> None:
+        for widget in self.preview_content.winfo_children():
+            widget.grid_forget()
+
     def add_preview_widget(self, widget: tk.Widget, row: int) -> None:
+        if not widget.winfo_exists():
+            return
         self._bind_preview_wheel(widget)
         widget.grid(row=row, column=0, pady=6)
 

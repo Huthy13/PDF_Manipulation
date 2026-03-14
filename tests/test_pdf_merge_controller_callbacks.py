@@ -40,6 +40,19 @@ class FakeCanvas:
         return self.height
 
 
+
+
+class FakeTelemetry:
+    def __init__(self) -> None:
+        self.counts: dict[str, int] = {}
+        self.observations: dict[str, list[float]] = {}
+
+    def increment(self, name: str) -> None:
+        self.counts[name] = self.counts.get(name, 0) + 1
+
+    def observe(self, name: str, value: float) -> None:
+        self.observations.setdefault(name, []).append(value)
+
 class FakePipeline:
     def __init__(self) -> None:
         self.generations: list[int] = []
@@ -107,6 +120,9 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._final_preview_images_by_index = {}
     controller._final_preview_active_range = (0, -1)
     controller._final_preview_pipeline = FakePipeline()
+    controller._telemetry = FakeTelemetry()
+    controller._final_preview_first_visible_start_ms = None
+    controller._final_preview_first_visible_generation = None
     return controller
 
 
@@ -184,3 +200,31 @@ def test_resolve_zoom_uses_metadata_dimensions_without_rendering() -> None:
     zoom = controller._resolve_zoom("a.pdf", 0)
 
     assert zoom == controller._clamp_zoom(min((1200 - 8) / 600.0, (900 - 8) / 1200.0) * 1.5)
+
+
+def test_advancing_generation_counts_canceled_render_jobs() -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_pending_indices = {1, 2, 3}
+
+    controller._advance_final_preview_generation()
+
+    assert controller._telemetry.counts["final_preview_canceled_render_jobs"] == 3
+
+
+def test_apply_result_for_old_generation_counts_stale_drop() -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_generation = 2
+    result = type("FakeResult", (), {
+        "request": type("FakeRequest", (), {
+            "generation_id": 1,
+            "source_path": "a.pdf",
+            "page_index": 0,
+            "zoom": 1.5,
+        })(),
+        "error": None,
+        "image": None,
+    })()
+
+    controller._apply_final_preview_result(result)
+
+    assert controller._telemetry.counts["final_preview_stale_result_drops"] == 1

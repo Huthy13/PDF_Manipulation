@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Generic, TypeVar
 
 import pdf_merge_gui.ui.controller as controller_module
@@ -86,6 +87,11 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._final_preview_rendering = False
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
+    controller._pending_preview_scroll_restore = None
+    controller._preview_render_generation = 0
+    controller._preview_render_poll_after = None
+    controller._preview_render_futures = []
+    controller.preview_executor = SimpleNamespace(shutdown=lambda: None)
     controller.USE_VIRTUAL_FINAL_PREVIEW = True
     return controller
 
@@ -188,3 +194,49 @@ def test_virtual_preview_overscan_returns_to_base_after_idle(monkeypatch) -> Non
 
     now += (controller.FINAL_PREVIEW_OVERSCAN_IDLE_RESET_MS / 1000) + 0.01
     assert controller._current_overscan_pages() == controller.FINAL_PREVIEW_OVERSCAN_PAGES
+
+
+def test_virtual_preview_render_submits_visible_and_neighbor_jobs() -> None:
+    controller = _build_controller(mode="final")
+    controller.preview_zoom = 1.5
+    controller._final_preview_pages = [
+        controller_module.FinalPreviewPage(source_path=f"doc-{idx}.pdf", page_index=idx, estimated_height=900)
+        for idx in range(10)
+    ]
+    controller._visible_virtual_window = lambda: (0, 1000)
+    controller._visible_page_range = lambda top, bottom: (3, 4)
+    submitted: list[tuple[int, int, str]] = []
+
+    controller._submit_preview_job = lambda token, page_slot, descriptor, zoom: submitted.append(
+        (token, page_slot, descriptor.source_path)
+    )
+    poll_calls: list[int] = []
+    controller._schedule_preview_render_poll = lambda delay_ms=12: poll_calls.append(delay_ms)
+
+    controller._render_virtual_final_preview(preserve_anchor=True)
+
+    assert poll_calls == [12]
+    submitted_slots = [page_slot for _, page_slot, _ in submitted]
+    assert submitted_slots == [3, 4, 2, 5, 1, 6]
+
+
+def test_apply_render_results_discards_stale_generation() -> None:
+    controller = _build_controller(mode="final")
+    controller._preview_render_generation = 5
+    controller._final_preview_visible_indices = {0}
+
+    built: list[str] = []
+    controller._show_preview_widgets = lambda *args, **kwargs: built.append("updated")
+
+    stale_result = controller_module.PreviewRenderResult(
+        token=4,
+        page_slot=0,
+        source_path="x.pdf",
+        page_index=0,
+        zoom=1.0,
+        image=controller_module.Image.new("RGB", (20, 30), color=(255, 255, 255)),
+    )
+
+    controller._apply_render_results([stale_result])
+
+    assert built == []

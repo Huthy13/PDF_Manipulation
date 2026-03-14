@@ -24,7 +24,7 @@ class FinalPreviewPage:
 
 
 class PdfMergeController:
-    USE_VIRTUAL_FINAL_PREVIEW = False
+    USE_VIRTUAL_FINAL_PREVIEW = True
     MIN_ZOOM = 0.4
     MAX_ZOOM = 4.0
     ZOOM_STEP = 0.2
@@ -92,6 +92,7 @@ class PdfMergeController:
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
         self.view.preview_panel.bind("<Configure>", self.on_preview_panel_resize)
         if self.USE_VIRTUAL_FINAL_PREVIEW:
+            self.view.preview_vscroll.configure(command=self._on_final_preview_scrollbar)
             self.view.preview_canvas.configure(yscrollcommand=self._on_preview_canvas_yscroll)
 
         self.refresh_list()
@@ -538,6 +539,23 @@ class PdfMergeController:
         except ValueError:
             return
         self._final_preview_anchor_fraction = max(0.0, min(1.0, first_fraction))
+        if self._pending_final_scroll_render_after is not None:
+            return
+        self._pending_final_scroll_render_after = self.master.after(
+            self.FINAL_SCROLL_RENDER_DEBOUNCE_MS,
+            self._render_final_preview_from_scroll,
+        )
+
+    def _on_final_preview_scrollbar(self, *args: str) -> None:
+        self.view.preview_canvas.yview(*args)
+        if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
+            return
+        if not self.USE_VIRTUAL_FINAL_PREVIEW:
+            return
+        if self._final_preview_rendering:
+            return
+        first, _ = self.view.preview_canvas.yview()
+        self._final_preview_anchor_fraction = max(0.0, min(1.0, first))
         if self._pending_final_scroll_render_after is not None:
             return
         self._pending_final_scroll_render_after = self.master.after(

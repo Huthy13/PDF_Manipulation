@@ -7,12 +7,12 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Optional, Sequence
 
-from PIL import ImageTk
+from PIL import Image, ImageTk
 
 from ..model import MergeModel
 from ..preview import PreviewDependencyUnavailable, PreviewRenderError
 from ..services.preview_pipeline import PreviewRenderPipeline, RenderRequest, RenderResult
-from ..services.preview_service import PreviewService
+from ..services.preview_service import PreviewService, PrimaryCacheKey, UiCacheKey
 from .view import PdfMergeView
 
 
@@ -43,7 +43,16 @@ class PdfMergeController:
         self.master = master
         self.view = PdfMergeView(master)
         self.model = MergeModel()
-        self.preview_service = PreviewService(cache_size=120)
+        self.preview_service = PreviewService(
+            cache_size=120,
+            max_cache_bytes=300 * 1024 * 1024,
+            offscreen_cache_size=36,
+            offscreen_cache_bytes=90 * 1024 * 1024,
+            ui_cache_size=72,
+            ui_cache_bytes=220 * 1024 * 1024,
+            ui_offscreen_cache_size=20,
+            ui_offscreen_cache_bytes=64 * 1024 * 1024,
+        )
 
         self.preview_zoom = self.DEFAULT_ZOOM
         self._pending_resize_after: Optional[str] = None
@@ -62,9 +71,11 @@ class PdfMergeController:
         self._final_preview_generation = 0
         self._final_preview_active_range: tuple[int, int] = (0, -1)
         self._final_preview_images_by_index: dict[int, ImageTk.PhotoImage] = {}
+        self._final_preview_decoded_by_index: dict[int, tuple[PrimaryCacheKey, Image.Image]] = {}
         self._final_preview_render_errors: set[int] = set()
         self._final_preview_pending_indices: set[int] = set()
         self._final_preview_pipeline = PreviewRenderPipeline(on_result=self._on_final_preview_result)
+        self._last_preview_mode = self.view.preview_mode.get()
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -115,6 +126,8 @@ class PdfMergeController:
         self._final_preview_pipeline.stop()
         self._preview_image_refs = []
         self._final_preview_pages = []
+        self._final_preview_images_by_index = {}
+        self._final_preview_decoded_by_index = {}
         self.model.clear()
         self.master.destroy()
 
@@ -257,6 +270,8 @@ class PdfMergeController:
         self._final_preview_pipeline.stop()
         self._preview_image_refs = []
         self._final_preview_pages = []
+        self._final_preview_images_by_index = {}
+        self._final_preview_decoded_by_index = {}
         self.refresh_list()
 
     def on_reverse_selected(self) -> None:
@@ -405,20 +420,50 @@ class PdfMergeController:
         height = self.view.preview_canvas.winfo_height() - 8
         return max(width, 1), max(height, 1)
 
-    def _resolve_zoom(self, source_path: str, page_index: int) -> tuple[float, ImageTk.PhotoImage]:
+    def _widget_scale_context(self) -> tuple[float]:
+        scaling = float(self.master.tk.call("tk", "scaling"))
+        return (round(scaling, 3),)
+
+    def _visible_decoded_keys(self) -> set[PrimaryCacheKey]:
+        keys: set[PrimaryCacheKey] = set()
+        if self.view.preview_mode.get() == self.view.PREVIEW_FINAL:
+            for idx in self._final_preview_visible_indices:
+                descriptor = self._final_preview_decoded_by_index.get(idx)
+                if descriptor is not None:
+                    keys.add(descriptor[0])
+        return keys
+
+    def _visible_ui_keys(self) -> set[UiCacheKey]:
+        context = self._widget_scale_context()
+        keys: set[UiCacheKey] = set()
+        if self.view.preview_mode.get() == self.view.PREVIEW_FINAL:
+            for idx in self._final_preview_visible_indices:
+                descriptor = self._final_preview_decoded_by_index.get(idx)
+                if descriptor is not None:
+                    keys.add((id(descriptor[1]), context))
+        return keys
+
+    def _trim_preview_caches(self) -> None:
+        self.preview_service.trim_to_budget(
+            visible_decoded_keys=self._visible_decoded_keys(),
+            visible_ui_keys=self._visible_ui_keys(),
+        )
+
+    def _resolve_zoom(self, source_path: str, page_index: int) -> tuple[float, PrimaryCacheKey, Image.Image]:
         base_zoom = self.preview_zoom
-        rendered = self.preview_service.render(source_path, page_index, base_zoom)
+        base_key, rendered = self.preview_service.get_decoded_image(source_path, page_index, base_zoom)
         if not self.view.fit_preview.get():
-            return base_zoom, rendered
+            return base_zoom, base_key, rendered
 
         panel_width, panel_height = self._panel_size()
-        width_ratio = panel_width / max(rendered.width(), 1)
-        height_ratio = panel_height / max(rendered.height(), 1)
+        width_ratio = panel_width / max(rendered.width, 1)
+        height_ratio = panel_height / max(rendered.height, 1)
         fit_ratio = min(width_ratio, height_ratio)
         fit_zoom = self._clamp_zoom(base_zoom * fit_ratio)
         if abs(fit_zoom - base_zoom) < 0.01:
-            return base_zoom, rendered
-        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom)
+            return base_zoom, base_key, rendered
+        fit_key, fit_image = self.preview_service.get_decoded_image(source_path, page_index, fit_zoom)
+        return fit_zoom, fit_key, fit_image
 
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
@@ -524,9 +569,11 @@ class PdfMergeController:
 
     def render_preview_image(self, source_path: str, page_index: int) -> Optional[ImageTk.PhotoImage]:
         try:
-            effective_zoom, rendered = self._resolve_zoom(source_path, page_index)
+            effective_zoom, _decoded_key, rendered = self._resolve_zoom(source_path, page_index)
             self._update_zoom_label(effective_zoom=effective_zoom)
-            return rendered
+            image = self.preview_service.get_ui_image(rendered, self._widget_scale_context())
+            self._trim_preview_caches()
+            return image
         except PreviewDependencyUnavailable as exc:
             self._update_zoom_label()
             self.show_preview_text(f"Preview unavailable\n\n{exc}")
@@ -564,6 +611,10 @@ class PdfMergeController:
         existing = [(page.source_path, page.page_index) for page in self._final_preview_pages]
         if sequence == existing:
             return
+
+        self._final_preview_images_by_index = {}
+        self._final_preview_decoded_by_index = {}
+        self._trim_preview_caches()
 
         previous_heights = {
             (page.source_path, page.page_index): page.estimated_height
@@ -666,10 +717,11 @@ class PdfMergeController:
             self._final_preview_syncing_scrollbar = False
 
         request_indices = [
-            idx for idx in range(start_idx, end_idx + 1) if idx not in self._final_preview_images_by_index
+            idx for idx in range(start_idx, end_idx + 1) if idx not in self._final_preview_decoded_by_index
         ]
         if not request_indices:
             self._compose_final_preview_widgets()
+            self._trim_preview_caches()
             return
 
         self._final_preview_pending_indices = set(request_indices)
@@ -697,12 +749,17 @@ class PdfMergeController:
 
         top_spacer = self._final_preview_offsets[start_idx]
         bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[end_idx + 1], 0)
+        widget_context = self._widget_scale_context()
 
-        images_by_index = {
-            idx: image
-            for idx, image in self._final_preview_images_by_index.items()
-            if start_idx <= idx <= end_idx
-        }
+        images_by_index: dict[int, ImageTk.PhotoImage] = {}
+        for idx in range(start_idx, end_idx + 1):
+            descriptor = self._final_preview_decoded_by_index.get(idx)
+            if descriptor is None:
+                continue
+            _, decoded = descriptor
+            images_by_index[idx] = self.preview_service.get_ui_image(decoded, widget_context)
+
+        self._final_preview_images_by_index = images_by_index
 
         def build() -> list[tk.Widget]:
             widgets: list[tk.Widget] = []
@@ -736,6 +793,7 @@ class PdfMergeController:
             self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
         finally:
             self._final_preview_syncing_scrollbar = False
+        self._trim_preview_caches()
 
     def _on_final_preview_result(self, result: RenderResult) -> None:
         self.master.after(0, lambda: self._apply_final_preview_result(result))
@@ -769,9 +827,15 @@ class PdfMergeController:
         if image is None:
             return
 
-        photo = ImageTk.PhotoImage(image)
-        self._final_preview_images_by_index[index] = photo
-        measured_height = max(photo.height(), 1)
+        key = self.preview_service.decoded_cache_key(
+            result.request.source_path,
+            result.request.page_index,
+            result.request.zoom,
+        )
+        self.preview_service.store_decoded_image(key, image)
+        self._final_preview_decoded_by_index[index] = (key, image)
+
+        measured_height = max(image.height, 1)
         descriptor = self._final_preview_pages[index]
         if measured_height != descriptor.estimated_height:
             descriptor.estimated_height = measured_height
@@ -785,20 +849,31 @@ class PdfMergeController:
         self._request_final_preview_render(preserve_anchor=preserve_anchor, refresh_generation=True)
 
     def update_preview(self) -> None:
+        current_mode = self.view.preview_mode.get()
+        if current_mode != self._last_preview_mode:
+            self._last_preview_mode = current_mode
+            self._final_preview_images_by_index = {}
+            self._final_preview_decoded_by_index = {}
+            self._trim_preview_caches()
+
         if not self.model.sequence:
             self._last_preview_render_key = None
             self.view.preview_caption.configure(text="No pages loaded")
             self._update_zoom_label()
             self._advance_final_preview_generation()
             self._final_preview_images_by_index = {}
+            self._final_preview_decoded_by_index = {}
+            self._trim_preview_caches()
             self.show_preview_text("Open one or more PDFs to begin.")
             return
 
-        if self.view.preview_mode.get() == self.view.PREVIEW_SINGLE:
+        if current_mode == self.view.PREVIEW_SINGLE:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
             self._advance_final_preview_generation()
             self._final_preview_images_by_index = {}
+            self._final_preview_decoded_by_index = {}
+            self._trim_preview_caches()
             idx = self.selected_index()
             if idx is None:
                 idx = 0
@@ -823,5 +898,7 @@ class PdfMergeController:
         self._build_final_preview_model()
         self._final_preview_render_errors = set()
         self._final_preview_images_by_index = {}
+        self._final_preview_decoded_by_index = {}
+        self._trim_preview_caches()
         self._request_final_preview_render(preserve_anchor=True, refresh_generation=True)
         self._last_preview_render_key = preview_key

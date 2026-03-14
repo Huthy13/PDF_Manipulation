@@ -83,6 +83,7 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._final_preview_rendering = False
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
+    controller.USE_VIRTUAL_FINAL_PREVIEW = True
     return controller
 
 

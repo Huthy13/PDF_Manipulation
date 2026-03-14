@@ -24,6 +24,7 @@ class FinalPreviewPage:
 
 
 class PdfMergeController:
+    USE_VIRTUAL_FINAL_PREVIEW = False
     MIN_ZOOM = 0.4
     MAX_ZOOM = 4.0
     ZOOM_STEP = 0.2
@@ -471,6 +472,10 @@ class PdfMergeController:
         self._pending_final_resize_settle_after = None
         if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
             return
+        if not self.USE_VIRTUAL_FINAL_PREVIEW:
+            if self.view.fit_preview.get():
+                self.update_preview()
+            return
         if self._final_preview_rendering:
             self._schedule_final_resize_settled_render()
             return
@@ -479,6 +484,10 @@ class PdfMergeController:
     def _on_resize_debounced(self) -> None:
         self._pending_resize_after = None
         if self.view.preview_mode.get() == self.view.PREVIEW_FINAL:
+            if not self.USE_VIRTUAL_FINAL_PREVIEW:
+                if self.view.fit_preview.get():
+                    self.update_preview()
+                return
             current_size = (self.view.preview_canvas.winfo_width(), self.view.preview_canvas.winfo_height())
             previous_size = self._last_preview_canvas_size
             self._last_preview_canvas_size = current_size
@@ -498,6 +507,8 @@ class PdfMergeController:
         self.view.preview_vscroll.set(first, last)
         if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
             return
+        if not self.USE_VIRTUAL_FINAL_PREVIEW:
+            return
         if self._final_preview_syncing_scrollbar or self._final_preview_rendering:
             return
         try:
@@ -515,6 +526,8 @@ class PdfMergeController:
     def _render_final_preview_from_scroll(self) -> None:
         self._pending_final_scroll_render_after = None
         if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
+            return
+        if not self.USE_VIRTUAL_FINAL_PREVIEW:
             return
         if self._final_preview_rendering:
             return
@@ -734,6 +747,17 @@ class PdfMergeController:
         if preview_key == self._last_preview_render_key:
             return
 
-        self._build_final_preview_model()
-        self._render_virtual_final_preview(preserve_anchor=True)
+        if self.USE_VIRTUAL_FINAL_PREVIEW:
+            self._build_final_preview_model()
+            self._render_virtual_final_preview(preserve_anchor=True)
+        else:
+            self._final_preview_pages = []
+            self._final_preview_visible_indices = set()
+            images: list[ImageTk.PhotoImage] = []
+            for page in self.model.sequence:
+                rendered = self.render_preview_image(page.source_path, page.page_index)
+                if rendered is None:
+                    return
+                images.append(rendered)
+            self.show_preview_images(images, preserve_scroll=False)
         self._last_preview_render_key = preview_key

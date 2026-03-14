@@ -461,7 +461,8 @@ class PdfMergeController:
         quality_tier: str = "focus",
     ) -> tuple[float, ImageTk.PhotoImage]:
         base_zoom = self.preview_zoom
-        rendered = self.preview_service.render(source_path, page_index, base_zoom, quality_tier=quality_tier)
+        mode = "single" if self.view.preview_mode.get() == self.view.PREVIEW_SINGLE else "final"
+        rendered = self.preview_service.render(source_path, page_index, base_zoom, quality_tier=quality_tier, mode=mode)
         if not self.view.fit_preview.get():
             return base_zoom, rendered
 
@@ -472,7 +473,7 @@ class PdfMergeController:
         fit_zoom = self._clamp_zoom(base_zoom * fit_ratio)
         if abs(fit_zoom - base_zoom) < 0.01:
             return base_zoom, rendered
-        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom, quality_tier=quality_tier)
+        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom, quality_tier=quality_tier, mode=mode)
 
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
@@ -753,7 +754,7 @@ class PdfMergeController:
         key: list[object] = [
             mode,
             self._sequence_signature(),
-            round(self.preview_zoom, 2),
+            self.preview_service.quantize_zoom(self.preview_zoom),
             bool(self.view.fit_preview.get()),
         ]
         if self.view.fit_preview.get():

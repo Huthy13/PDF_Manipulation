@@ -32,12 +32,24 @@ class FakeVScroll:
 class FakeCanvas:
     width: int = 1024
     height: int = 768
+    y_first: float = 0.0
+    y_last: float = 1.0
+    yview_calls: list[tuple[str, ...]] | None = None
 
     def winfo_width(self) -> int:
         return self.width
 
     def winfo_height(self) -> int:
         return self.height
+
+    def yview(self, *args: str) -> tuple[float, float]:
+        if self.yview_calls is None:
+            self.yview_calls = []
+        if args:
+            self.yview_calls.append(args)
+            if args[0] == "moveto" and len(args) > 1:
+                self.y_first = float(args[1])
+        return self.y_first, self.y_last
 
 
 class FakeMaster:
@@ -146,3 +158,81 @@ def test_final_resize_debounced_handler_guards_render_and_settles() -> None:
     controller._on_final_resize_settled()
 
     assert render_calls == [True]
+
+
+def test_on_final_preview_scrollbar_schedules_virtual_render() -> None:
+    controller = _build_controller(mode="final")
+
+    controller._on_final_preview_scrollbar("moveto", "0.40")
+
+    assert controller.view.preview_canvas.yview_calls == [("moveto", "0.40")]
+    assert controller._final_preview_anchor_fraction == 0.4
+    assert controller._pending_final_scroll_render_after is not None
+
+
+def test_update_preview_final_mode_uses_virtual_helpers() -> None:
+    controller = _build_controller(mode="final")
+
+    class _Page:
+        source_path = "a.pdf"
+        page_index = 0
+
+    class _Model:
+        sequence = [_Page()]
+
+    class _Caption:
+        def __init__(self) -> None:
+            self.text = ""
+
+        def configure(self, *, text: str) -> None:
+            self.text = text
+
+    controller.model = _Model()
+    controller.view.preview_caption = _Caption()
+    controller._sequence_signature = lambda: (("a.pdf", 0),)
+    controller._current_preview_key = lambda mode, selected_index=None: (mode, "key")
+    controller._last_preview_render_key = None
+
+    calls: list[str] = []
+    controller._build_final_preview_model = lambda: calls.append("build")
+    controller._render_virtual_final_preview = lambda *, preserve_anchor: calls.append(f"render:{preserve_anchor}")
+
+    controller.update_preview()
+
+    assert calls == ["build", "render:True"]
+    assert controller._last_preview_render_key == (controller.view.PREVIEW_FINAL, "key")
+
+
+def test_zoom_in_final_mode_routes_to_virtual_render_path() -> None:
+    controller = _build_controller(mode="final")
+
+    class _Page:
+        source_path = "a.pdf"
+        page_index = 0
+
+    class _Model:
+        sequence = [_Page()]
+
+    class _Caption:
+        def configure(self, *, text: str) -> None:
+            pass
+
+    controller.model = _Model()
+    controller.view.preview_caption = _Caption()
+    controller.preview_zoom = controller.DEFAULT_ZOOM
+    controller._sequence_signature = lambda: (("a.pdf", 0),)
+    controller._current_preview_key = lambda mode, selected_index=None: (mode, "zoomed")
+    controller._last_preview_render_key = None
+    controller._pending_preview_scroll_restore = None
+    controller._snapshot_preview_scroll = lambda: (0.0, 0.2)
+    controller._restore_preview_scroll = lambda x, y: None
+    controller._show_preview_widgets = lambda *args, **kwargs: None
+    controller._update_zoom_label = lambda effective_zoom=None: None
+
+    calls: list[str] = []
+    controller._build_final_preview_model = lambda: calls.append("build")
+    controller._render_virtual_final_preview = lambda *, preserve_anchor: calls.append(f"render:{preserve_anchor}")
+
+    controller.on_zoom_in()
+
+    assert calls == ["build", "render:True"]

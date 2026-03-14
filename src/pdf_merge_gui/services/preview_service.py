@@ -64,19 +64,19 @@ class PreviewService:
     def clear_for_source(self, source_path: str) -> None:
         doomed_decoded = [key for key in self._decoded_cache if key[0] == source_path]
         doomed_decoded_ids: set[int] = set()
-        for key in doomed_decoded:
-            entry = self._decoded_cache.pop(key)
+        for decoded_key in doomed_decoded:
+            entry = self._decoded_cache.pop(decoded_key)
             self._decoded_cache_bytes = max(0, self._decoded_cache_bytes - entry.estimated_bytes)
             doomed_decoded_ids.add(id(entry.image))
 
-        for key in list(self._decoded_ids_by_source_page):
-            if key[0] == source_path:
-                doomed_decoded_ids.add(self._decoded_ids_by_source_page[key])
-                self._decoded_ids_by_source_page.pop(key, None)
+        for source_key in list(self._decoded_ids_by_source_page):
+            if source_key[0] == source_path:
+                doomed_decoded_ids.add(self._decoded_ids_by_source_page[source_key])
+                self._decoded_ids_by_source_page.pop(source_key, None)
 
-        for key in list(self._ui_cache):
-            if self._ui_cache[key].decoded_image_id in doomed_decoded_ids:
-                self._remove_ui_key(key)
+        for ui_key in list(self._ui_cache.keys()):
+            if self._ui_cache[ui_key].decoded_image_id in doomed_decoded_ids:
+                self._remove_ui_key(ui_key)
 
     def zoom_bucket(self, zoom: float) -> float:
         return round(zoom, 2)

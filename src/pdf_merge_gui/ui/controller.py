@@ -33,6 +33,7 @@ class PdfMergeController:
     FINAL_PREVIEW_PAGE_GAP = 12
     FINAL_PREVIEW_OVERSCAN_PAGES = 2
     FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT = 1300
+    FINAL_PREVIEW_LOGICAL_PAGE_HEIGHT = 900
     RESIZE_DEBOUNCE_MS = 120
     FINAL_RESIZE_DEBOUNCE_MS = 180
     FINAL_RESIZE_SETTLE_MS = 240
@@ -639,14 +640,20 @@ class PdfMergeController:
             self._final_preview_total_height = 0
             return
 
-        estimated_total = sum(max(page.estimated_height, 1) for page in self._final_preview_pages)
-        available_height = self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT - (len(self._final_preview_pages) * self.FINAL_PREVIEW_PAGE_GAP)
-        scale = 1.0 if estimated_total <= max(available_height, 1) else max(available_height, 1) / estimated_total
+        page_count = len(self._final_preview_pages)
+        available_height = max(
+            self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT - (page_count * self.FINAL_PREVIEW_PAGE_GAP),
+            page_count,
+        )
+        logical_height = min(
+            self.FINAL_PREVIEW_LOGICAL_PAGE_HEIGHT,
+            max(available_height // page_count, 1),
+        )
 
         offsets = [0]
         running = 0
         for page in self._final_preview_pages:
-            page.logical_height = max(int(page.estimated_height * scale), 1)
+            page.logical_height = logical_height
             running += page.logical_height + self.FINAL_PREVIEW_PAGE_GAP
             offsets.append(running)
         self._final_preview_offsets = offsets

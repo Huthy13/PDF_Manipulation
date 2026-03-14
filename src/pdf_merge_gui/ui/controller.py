@@ -5,6 +5,7 @@ import tkinter as tk
 from bisect import bisect_right
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Optional, Sequence
 
@@ -42,6 +43,9 @@ class PdfMergeController:
     FINAL_RESIZE_SETTLE_MS = 240
     FINAL_SCROLL_RENDER_DEBOUNCE_MS = 24
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
+    FINAL_PREVIEW_SKIP_WARNING_STREAK = 4
+    FINAL_PREVIEW_SKIP_ANCHOR_DELTA_THRESHOLD = 0.015
+    FINAL_PREVIEW_HEIGHT_JUMP_WARNING_THRESHOLD = 12_000
 
     def __init__(self, master: tk.Tk) -> None:
         self.master = master
@@ -66,6 +70,9 @@ class PdfMergeController:
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
         self._pending_preview_scroll_restore: Optional[tuple[float, float]] = None
+        self._final_preview_skip_streak = 0
+        self._final_preview_last_skip_anchor: Optional[float] = None
+        self._final_preview_last_total_height: Optional[int] = None
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -706,9 +713,11 @@ class PdfMergeController:
         self._recompute_final_preview_offsets()
 
     def _recompute_final_preview_offsets(self) -> None:
+        previous_total_height = self._final_preview_total_height
         if not self._final_preview_pages:
             self._final_preview_offsets = [0]
             self._final_preview_total_height = 0
+            self._final_preview_last_total_height = 0
             return
 
         estimated_total = sum(max(page.estimated_height, 1) for page in self._final_preview_pages)
@@ -731,11 +740,26 @@ class PdfMergeController:
             offsets.append(running)
         self._final_preview_offsets = offsets
         self._final_preview_total_height = running
+        if self._final_preview_last_total_height is not None:
+            total_height_delta = abs(self._final_preview_total_height - self._final_preview_last_total_height)
+            if total_height_delta > self.FINAL_PREVIEW_HEIGHT_JUMP_WARNING_THRESHOLD:
+                logger.warning(
+                    "Final preview total height jumped between recomputes previous=%s current=%s delta=%s threshold=%s estimated_total=%s scale=%.8f page_count=%s",
+                    self._final_preview_last_total_height,
+                    self._final_preview_total_height,
+                    total_height_delta,
+                    self.FINAL_PREVIEW_HEIGHT_JUMP_WARNING_THRESHOLD,
+                    estimated_total,
+                    scale,
+                    len(self._final_preview_pages),
+                )
+        self._final_preview_last_total_height = self._final_preview_total_height
 
         logical_heights = [page.logical_height for page in self._final_preview_pages]
         logger.debug(
-            "Final preview offsets stats final_preview_total_height=%s estimated_height_min=%s estimated_height_max=%s logical_height_min=%s logical_height_max=%s",
+            "Final preview offsets stats final_preview_total_height=%s previous_total_height=%s estimated_height_min=%s estimated_height_max=%s logical_height_min=%s logical_height_max=%s",
             self._final_preview_total_height,
+            previous_total_height,
             min(estimated_heights),
             max(estimated_heights),
             min(logical_heights),
@@ -808,12 +832,18 @@ class PdfMergeController:
         if self._final_preview_rendering:
             logger.debug("Skipping virtual final preview render; renderer already active")
             return False
+        render_start = perf_counter()
+        summary_start_idx: Optional[int] = None
+        summary_end_idx: Optional[int] = None
+        render_committed = False
+        skip_reason = "none"
         self._final_preview_rendering = True
         logger.debug("Rendering virtual final preview preserve_anchor=%s anchor=%.4f pages=%s", preserve_anchor, self._final_preview_anchor_fraction, len(self._final_preview_pages))
         try:
             if not self._final_preview_pages:
                 logger.debug("Skipping virtual final preview render; no final preview pages available")
                 self.show_preview_text("Open one or more PDFs to begin.")
+                skip_reason = "no_pages"
                 return False
             if not preserve_anchor:
                 self._set_virtual_anchor(0)
@@ -823,7 +853,10 @@ class PdfMergeController:
             logger.debug("Virtual preview window top=%s bottom=%s start_idx=%s end_idx=%s", top, bottom, start_idx, end_idx)
             if end_idx < start_idx:
                 logger.debug("Skipping virtual preview render; visible page range is empty")
+                skip_reason = "empty_visible_range"
                 return False
+            summary_start_idx = start_idx
+            summary_end_idx = end_idx
 
             requested_indices = set(range(start_idx, end_idx + 1))
             self._final_preview_visible_indices = requested_indices
@@ -852,10 +885,33 @@ class PdfMergeController:
                     sorted(self._final_preview_rendered_indices),
                     render_signature,
                 )
+                anchor_delta = 0.0
+                if self._final_preview_last_skip_anchor is not None:
+                    anchor_delta = abs(self._final_preview_anchor_fraction - self._final_preview_last_skip_anchor)
+                if anchor_delta > self.FINAL_PREVIEW_SKIP_ANCHOR_DELTA_THRESHOLD:
+                    self._final_preview_skip_streak += 1
+                else:
+                    self._final_preview_skip_streak = 1
+                self._final_preview_last_skip_anchor = self._final_preview_anchor_fraction
+                if self._final_preview_skip_streak >= self.FINAL_PREVIEW_SKIP_WARNING_STREAK:
+                    logger.warning(
+                        "Virtual preview repeatedly skipped while anchor changed skip_streak=%s anchor=%.6f anchor_delta=%.6f delta_threshold=%.6f requested_range=%s-%s preserve_anchor=%s",
+                        self._final_preview_skip_streak,
+                        self._final_preview_anchor_fraction,
+                        anchor_delta,
+                        self.FINAL_PREVIEW_SKIP_ANCHOR_DELTA_THRESHOLD,
+                        start_idx,
+                        end_idx,
+                        preserve_anchor,
+                    )
                 self._final_preview_syncing_scrollbar = True
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
                 self._final_preview_syncing_scrollbar = False
+                skip_reason = "cache_hit"
                 return False
+
+            self._final_preview_skip_streak = 0
+            self._final_preview_last_skip_anchor = None
 
             images_by_index: dict[int, ImageTk.PhotoImage] = {}
             for idx in range(start_idx, end_idx + 1):
@@ -972,9 +1028,28 @@ class PdfMergeController:
                 )
             finally:
                 self._final_preview_syncing_scrollbar = False
+            render_committed = True
             return True
         finally:
             self._final_preview_rendering = False
+            summary_mode = self.view.preview_mode.get()
+            summary_range = (
+                f"{summary_start_idx}-{summary_end_idx}"
+                if summary_start_idx is not None and summary_end_idx is not None
+                else "n/a"
+            )
+            logger.info(
+                "Final preview render summary mode=%s range=%s anchor=%.6f zoom=%.2f fit_mode=%s total_height=%s duration_ms=%.2f committed=%s skip_reason=%s",
+                summary_mode,
+                summary_range,
+                self._final_preview_anchor_fraction,
+                self.preview_zoom,
+                self.view.fit_preview.get(),
+                self._final_preview_total_height,
+                (perf_counter() - render_start) * 1000,
+                render_committed,
+                skip_reason,
+            )
             logger.debug("Virtual final preview render complete")
 
     def update_preview(self) -> None:

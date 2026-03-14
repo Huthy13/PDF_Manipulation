@@ -41,6 +41,13 @@ class FakeCanvas:
         return self.height
 
 
+
+
+class FakeModel:
+    def __init__(self) -> None:
+        self.sequence = []
+        self.sequence_version = 0
+
 class FakeMaster:
     def __init__(self) -> None:
         self._next = 0
@@ -84,6 +91,8 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._final_preview_rendering = False
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
+    controller.preview_zoom = controller.DEFAULT_ZOOM
+    controller.model = FakeModel()
     return controller
 
 
@@ -187,3 +196,20 @@ def test_recompute_final_preview_offsets_degrades_when_gap_budget_alone_exceeds_
     assert all(offsets[idx] < offsets[idx + 1] for idx in range(page_count))
     assert offsets[-1] == controller._final_preview_total_height
     assert controller._final_preview_total_height <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT
+
+
+def test_current_preview_key_uses_sequence_version_instead_of_sequence_signature() -> None:
+    controller = _build_controller(mode="single")
+    controller.model.sequence_version = 3
+
+    first_key = controller._current_preview_key(controller.view.PREVIEW_SINGLE, selected_index=0)
+
+    controller.model.sequence = [object(), object(), object()]
+    second_key = controller._current_preview_key(controller.view.PREVIEW_SINGLE, selected_index=0)
+
+    assert first_key == second_key
+
+    controller.model.sequence_version += 1
+    bumped_key = controller._current_preview_key(controller.view.PREVIEW_SINGLE, selected_index=0)
+
+    assert bumped_key != second_key

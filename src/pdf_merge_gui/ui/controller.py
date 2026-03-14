@@ -541,13 +541,10 @@ class PdfMergeController:
             return None
 
 
-    def _sequence_signature(self) -> tuple[tuple[str, int], ...]:
-        return tuple((page.source_path, page.page_index) for page in self.model.sequence)
-
     def _current_preview_key(self, mode: str, selected_index: Optional[int] = None) -> tuple[object, ...]:
         key: list[object] = [
             mode,
-            self._sequence_signature(),
+            self.model.sequence_version,
             round(self.preview_zoom, 2),
             bool(self.view.fit_preview.get()),
         ]

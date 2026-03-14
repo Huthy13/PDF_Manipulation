@@ -91,7 +91,8 @@ class PdfMergeController:
         self.view.page_list.bind("<Control-Down>", self.on_move_down_shortcut)
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
         self.view.preview_panel.bind("<Configure>", self.on_preview_panel_resize)
-        self.view.preview_canvas.configure(yscrollcommand=self._on_preview_canvas_yscroll)
+        if self.USE_VIRTUAL_FINAL_PREVIEW:
+            self.view.preview_canvas.configure(yscrollcommand=self._on_preview_canvas_yscroll)
 
         self.refresh_list()
 

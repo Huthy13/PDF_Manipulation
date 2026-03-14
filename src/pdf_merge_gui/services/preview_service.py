@@ -33,10 +33,16 @@ class PreviewService:
         cache_size: int = 100,
         photo_cache_size: int = 24,
         render_profile: str = "rgb",
+        zoom_bucket_step_percent: int = 5,
+        interaction_zoom_bucket_step_percent: int = 10,
+        preview_max_dpi: int = 216,
     ) -> None:
         self.raster_cache: LRUCache[RasterCacheKey, bytes] = LRUCache(cache_size)
         self.photo_cache: LRUCache[RasterCacheKey, ImageTk.PhotoImage] = LRUCache(photo_cache_size)
         self.render_profile = render_profile
+        self.zoom_bucket_step_percent = max(1, zoom_bucket_step_percent)
+        self.interaction_zoom_bucket_step_percent = max(1, interaction_zoom_bucket_step_percent)
+        self.preview_max_dpi = max(72, preview_max_dpi)
         self._cache_lock = RLock()
 
     def clear(self) -> None:
@@ -59,9 +65,16 @@ class PreviewService:
                 self.raster_cache.pop(key)
                 self.photo_cache.pop(key)
 
-    def render_pil(self, source_path: str, page_index: int, zoom: float) -> Image.Image:
+    def render_pil(
+        self,
+        source_path: str,
+        page_index: int,
+        zoom: float,
+        bucket_step_percent: int | None = None,
+    ) -> Image.Image:
         telemetry = get_telemetry()
-        zoom_bucket = self._zoom_bucket(zoom)
+        effective_zoom = self._effective_preview_zoom(zoom)
+        zoom_bucket = self._zoom_bucket(effective_zoom, bucket_step_percent=bucket_step_percent)
         image_zoom = zoom_bucket / 100.0
 
         fingerprint = build_source_fingerprint(source_path)
@@ -86,8 +99,15 @@ class PreviewService:
             self.raster_cache.put(key, encoded)
         return rendered
 
-    def render(self, source_path: str, page_index: int, zoom: float) -> ImageTk.PhotoImage:
-        zoom_bucket = self._zoom_bucket(zoom)
+    def render(
+        self,
+        source_path: str,
+        page_index: int,
+        zoom: float,
+        bucket_step_percent: int | None = None,
+    ) -> ImageTk.PhotoImage:
+        effective_zoom = self._effective_preview_zoom(zoom)
+        zoom_bucket = self._zoom_bucket(effective_zoom, bucket_step_percent=bucket_step_percent)
         fingerprint = build_source_fingerprint(source_path)
         key = RasterCacheKey(
             source_fingerprint=fingerprint,
@@ -103,15 +123,72 @@ class PreviewService:
             telemetry.increment("preview_cache_hit")
             return cached_photo
 
-        image = self.render_pil(source_path, page_index, zoom)
+        image = self.render_pil(source_path, page_index, effective_zoom, bucket_step_percent=bucket_step_percent)
         photo = ImageTk.PhotoImage(image)
         with self._cache_lock:
             self.photo_cache.put(key, photo)
         return photo
 
-    @staticmethod
-    def _zoom_bucket(zoom: float) -> int:
-        return max(1, int(round(zoom * 100)))
+    def nearest_cached_photo(
+        self,
+        source_path: str,
+        page_index: int,
+        zoom: float,
+        bucket_step_percent: int | None = None,
+    ) -> tuple[float, ImageTk.PhotoImage] | None:
+        """Return nearest cached zoom image if available without triggering raster render."""
+        effective_zoom = self._effective_preview_zoom(zoom)
+        target_bucket = self._zoom_bucket(effective_zoom, bucket_step_percent=bucket_step_percent)
+        fingerprint = build_source_fingerprint(source_path)
+        nearest_key = self._nearest_cached_key(fingerprint, page_index, target_bucket)
+        if nearest_key is None:
+            return None
+
+        telemetry = get_telemetry()
+        with self._cache_lock:
+            cached_photo = self.photo_cache.get(nearest_key)
+            if cached_photo is not None:
+                telemetry.increment("preview_cache_hit")
+                return nearest_key.zoom_bucket / 100.0, cached_photo
+
+            cached_bytes = self.raster_cache.get(nearest_key)
+            if cached_bytes is None:
+                return None
+
+        telemetry.increment("preview_cache_hit")
+        photo = ImageTk.PhotoImage(self._decode_image(cached_bytes))
+        with self._cache_lock:
+            self.photo_cache.put(nearest_key, photo)
+        return nearest_key.zoom_bucket / 100.0, photo
+
+    def _nearest_cached_key(
+        self,
+        fingerprint: SourceFingerprint,
+        page_index: int,
+        target_bucket: int,
+    ) -> RasterCacheKey | None:
+        with self._cache_lock:
+            candidate_keys = [
+                key
+                for key in self.raster_cache.keys()
+                if isinstance(key, RasterCacheKey)
+                and key.source_fingerprint == fingerprint
+                and key.page_index == page_index
+                and key.render_profile == self.render_profile
+            ]
+        if not candidate_keys:
+            return None
+        return min(candidate_keys, key=lambda key: abs(key.zoom_bucket - target_bucket))
+
+    def _effective_preview_zoom(self, zoom: float) -> float:
+        max_zoom = self.preview_max_dpi / 72.0
+        return min(max(zoom, 0.01), max_zoom)
+
+    def _zoom_bucket(self, zoom: float, bucket_step_percent: int | None = None) -> int:
+        step = max(1, bucket_step_percent or self.zoom_bucket_step_percent)
+        raw_bucket = int(round(zoom * 100))
+        quantized = int(round(raw_bucket / step) * step)
+        return max(step, quantized)
 
     @staticmethod
     def _encode_image(image: Image.Image) -> bytes:

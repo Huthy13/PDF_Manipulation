@@ -44,6 +44,7 @@ class PdfMergeController:
     FINAL_RESIZE_SETTLE_MS = 240
     FINAL_SCROLL_RENDER_DEBOUNCE_MS = 24
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
+    WHEEL_ZOOM_SETTLE_MS = 160
 
     def __init__(self, master: tk.Tk) -> None:
         self.master = master
@@ -72,6 +73,7 @@ class PdfMergeController:
         self._preview_render_generation = 0
         self._preview_render_poll_after: Optional[str] = None
         self._preview_render_futures: list[Future[PreviewRenderResult]] = []
+        self._pending_wheel_zoom_settle_after: Optional[str] = None
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -121,6 +123,9 @@ class PdfMergeController:
         if self._preview_render_poll_after is not None:
             self.master.after_cancel(self._preview_render_poll_after)
             self._preview_render_poll_after = None
+        if self._pending_wheel_zoom_settle_after is not None:
+            self.master.after_cancel(self._pending_wheel_zoom_settle_after)
+            self._pending_wheel_zoom_settle_after = None
         self._preview_render_futures = []
         self.preview_executor.shutdown()
         self.preview_service.clear()
@@ -472,7 +477,43 @@ class PdfMergeController:
             return
         self.preview_zoom = next_zoom
         self._deactivate_fit_preview()
+        if self._try_show_cached_wheel_preview():
+            self._schedule_wheel_zoom_settled_refresh()
+            return
         self._update_preview_preserving_scroll()
+        self._schedule_wheel_zoom_settled_refresh()
+
+    def _schedule_wheel_zoom_settled_refresh(self) -> None:
+        if self._pending_wheel_zoom_settle_after is not None:
+            self.master.after_cancel(self._pending_wheel_zoom_settle_after)
+        self._pending_wheel_zoom_settle_after = self.master.after(
+            self.WHEEL_ZOOM_SETTLE_MS,
+            self._on_wheel_zoom_settled,
+        )
+
+    def _on_wheel_zoom_settled(self) -> None:
+        self._pending_wheel_zoom_settle_after = None
+        self._update_preview_preserving_scroll()
+
+    def _try_show_cached_wheel_preview(self) -> bool:
+        if self.view.preview_mode.get() != self.view.PREVIEW_SINGLE:
+            return False
+        idx = self.selected_index()
+        if idx is None or not (0 <= idx < len(self.model.sequence)):
+            return False
+        page = self.model.sequence[idx]
+        nearest = self.preview_service.nearest_cached_photo(
+            page.source_path,
+            page.page_index,
+            self.preview_zoom,
+            bucket_step_percent=self.preview_service.interaction_zoom_bucket_step_percent,
+        )
+        if nearest is None:
+            return False
+        effective_zoom, image = nearest
+        self._update_zoom_label(effective_zoom=effective_zoom)
+        self.show_preview_image(image, reset_scroll=False)
+        return True
 
     def _deactivate_fit_preview(self) -> None:
         if self.view.fit_preview.get():

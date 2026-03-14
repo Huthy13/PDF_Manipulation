@@ -91,6 +91,7 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._preview_render_generation = 0
     controller._preview_render_poll_after = None
     controller._preview_render_futures = []
+    controller._pending_wheel_zoom_settle_after = None
     controller.preview_executor = SimpleNamespace(shutdown=lambda: None)
     controller.USE_VIRTUAL_FINAL_PREVIEW = True
     return controller
@@ -240,3 +241,37 @@ def test_apply_render_results_discards_stale_generation() -> None:
     controller._apply_render_results([stale_result])
 
     assert built == []
+
+
+def test_ctrl_wheel_zoom_uses_cached_preview_then_defers_refine() -> None:
+    controller = _build_controller(mode="single")
+    controller.preview_zoom = 1.5
+    controller.model = SimpleNamespace(sequence=[SimpleNamespace(source_path="a.pdf", page_index=0)])
+    controller.selected_index = lambda: 0
+
+    shown: list[str] = []
+    controller._update_zoom_label = lambda effective_zoom=None: shown.append(f"label:{effective_zoom}")
+    controller.show_preview_image = lambda image, reset_scroll=True: shown.append("image")
+    controller._update_preview_preserving_scroll = lambda: shown.append("refine")
+
+    class FakeService:
+        interaction_zoom_bucket_step_percent = 10
+
+        @staticmethod
+        def nearest_cached_photo(*_args, **_kwargs):
+            return (1.4, object())
+
+    controller.preview_service = FakeService()
+    controller.view.fit_preview = FakeVar(False)
+
+    controller.on_ctrl_wheel_zoom(wheel_units=-1)
+
+    assert "image" in shown
+    assert "refine" not in shown
+    assert controller._pending_wheel_zoom_settle_after is not None
+
+    settle = controller._pending_wheel_zoom_settle_after
+    callback = controller.master.scheduled[settle]
+    callback()
+
+    assert "refine" in shown

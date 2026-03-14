@@ -34,6 +34,55 @@ def test_preview_service_raster_cache_reuses_decoded_bytes(monkeypatch, tmp_path
     assert len(render_calls) == 1
 
 
+def test_preview_service_quantizes_zoom_for_cache_hits(monkeypatch, tmp_path) -> None:
+    source = tmp_path / "sample.pdf"
+    source.write_bytes(b"fake")
+
+    fingerprint = SourceFingerprint(path=str(source.resolve()), mtime_ns=1, size=4)
+    render_calls: list[tuple[str, int, float]] = []
+
+    monkeypatch.setattr(
+        "pdf_merge_gui.services.preview_service.build_source_fingerprint",
+        lambda _path: fingerprint,
+    )
+
+    def fake_render_page(path: str, page_index: int, zoom: float):
+        render_calls.append((path, page_index, zoom))
+        return fingerprint, Image.new("RGB", (40, 50), color=(255, 255, 255))
+
+    monkeypatch.setattr("pdf_merge_gui.services.preview_service.render_page", fake_render_page)
+
+    service = PreviewService(cache_size=8, photo_cache_size=4, zoom_bucket_step_percent=10)
+    service.render_pil(str(source), page_index=0, zoom=1.24)
+    service.render_pil(str(source), page_index=0, zoom=1.23)
+
+    assert len(render_calls) == 1
+
+
+def test_preview_service_caps_preview_dpi(monkeypatch, tmp_path) -> None:
+    source = tmp_path / "sample.pdf"
+    source.write_bytes(b"fake")
+
+    fingerprint = SourceFingerprint(path=str(source.resolve()), mtime_ns=1, size=4)
+    render_calls: list[float] = []
+
+    monkeypatch.setattr(
+        "pdf_merge_gui.services.preview_service.build_source_fingerprint",
+        lambda _path: fingerprint,
+    )
+
+    def fake_render_page(_path: str, _page_index: int, zoom: float):
+        render_calls.append(zoom)
+        return fingerprint, Image.new("RGB", (40, 50), color=(255, 255, 255))
+
+    monkeypatch.setattr("pdf_merge_gui.services.preview_service.render_page", fake_render_page)
+
+    service = PreviewService(cache_size=8, photo_cache_size=4, preview_max_dpi=144)
+    service.render_pil(str(source), page_index=0, zoom=4.0)
+
+    assert render_calls == [2.0]
+
+
 def test_preview_service_photo_cache_reuses_tk_image(monkeypatch, tmp_path) -> None:
     source = tmp_path / "sample.pdf"
     source.write_bytes(b"fake")
@@ -52,7 +101,7 @@ def test_preview_service_photo_cache_reuses_tk_image(monkeypatch, tmp_path) -> N
 
     render_count = 0
 
-    def fake_render_pil(_source_path: str, _page_index: int, _zoom: float):
+    def fake_render_pil(_source_path: str, _page_index: int, _zoom: float, **_kwargs):
         nonlocal render_count
         render_count += 1
         return Image.new("RGB", (30, 30), color=(0, 0, 0))
@@ -65,6 +114,36 @@ def test_preview_service_photo_cache_reuses_tk_image(monkeypatch, tmp_path) -> N
 
     assert first is second
     assert render_count == 1
+
+
+def test_preview_service_returns_nearest_cached_photo(monkeypatch, tmp_path) -> None:
+    source = tmp_path / "sample.pdf"
+    source.write_bytes(b"fake")
+
+    fingerprint = SourceFingerprint(path=str(source.resolve()), mtime_ns=1, size=4)
+    monkeypatch.setattr(
+        "pdf_merge_gui.services.preview_service.build_source_fingerprint",
+        lambda _path: fingerprint,
+    )
+
+    class FakePhotoImage:
+        def __init__(self, image):
+            self.image = image
+
+    monkeypatch.setattr("pdf_merge_gui.services.preview_service.ImageTk.PhotoImage", FakePhotoImage)
+    monkeypatch.setattr(
+        "pdf_merge_gui.services.preview_service.render_page",
+        lambda _path, _idx, zoom: (fingerprint, Image.new("RGB", (int(10 * zoom), 10))),
+    )
+
+    service = PreviewService(cache_size=8, photo_cache_size=4)
+    service.render(str(source), 0, 1.0)
+
+    nearest = service.nearest_cached_photo(str(source), 0, 1.08, bucket_step_percent=10)
+    assert nearest is not None
+    nearest_zoom, nearest_photo = nearest
+    assert nearest_zoom == 1.0
+    assert nearest_photo is not None
 
 
 def test_preview_service_photo_cache_counts_hit_telemetry(monkeypatch, tmp_path) -> None:

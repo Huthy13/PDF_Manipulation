@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Generic, TypeVar
 
+from pdf_merge_gui.ui import controller as module_controller
 from pdf_merge_gui.ui.controller import PdfMergeController
 
 
@@ -293,3 +294,71 @@ def test_update_preview_final_mode_commits_key_when_virtual_render_succeeds() ->
     controller.update_preview()
 
     assert controller._last_preview_render_key == expected_key
+
+
+def test_resolve_zoom_uses_metadata_for_single_render_in_fit_mode() -> None:
+    controller = _build_controller(mode="single", width=1200, height=900)
+    controller.view.fit_preview.set(True)
+
+    class FakePreviewService:
+        def __init__(self) -> None:
+            self.calls: list[tuple] = []
+
+        def get_page_dimensions(self, source_path: str, page_index: int):
+            self.calls.append(("dimensions", source_path, page_index))
+            return (600.0, 1200.0)
+
+        def render(self, source_path: str, page_index: int, zoom: float):
+            self.calls.append(("render", source_path, page_index, zoom))
+            return SimpleNamespace(width=lambda: int(600 * zoom), height=lambda: int(1200 * zoom))
+
+    service = FakePreviewService()
+    controller.preview_service = service
+
+    zoom, _rendered = controller._resolve_zoom("doc.pdf", 0)
+
+    assert zoom == 0.74
+    assert service.calls == [
+        ("dimensions", "doc.pdf", 0),
+        ("render", "doc.pdf", 0, 0.74),
+    ]
+
+
+def test_resolve_zoom_logs_and_retries_once_when_metadata_unavailable(monkeypatch) -> None:
+    controller = _build_controller(mode="single", width=1000, height=700)
+    controller.view.fit_preview.set(True)
+
+    class FakePreviewService:
+        def __init__(self) -> None:
+            self.calls: list[tuple] = []
+
+        def get_page_dimensions(self, source_path: str, page_index: int):
+            self.calls.append(("dimensions", source_path, page_index))
+            raise module_controller.PreviewRenderError("metadata missing")
+
+        def render(self, source_path: str, page_index: int, zoom: float):
+            self.calls.append(("render", source_path, page_index, zoom))
+            if len([call for call in self.calls if call[0] == "render"]) == 1:
+                return SimpleNamespace(width=lambda: 500, height=lambda: 500)
+            return SimpleNamespace(width=lambda: 700, height=lambda: 700)
+
+    service = FakePreviewService()
+    controller.preview_service = service
+
+    logs: list[str] = []
+
+    def fake_debug(message, *args):
+        logs.append(message % args if args else str(message))
+
+    monkeypatch.setattr("pdf_merge_gui.ui.controller.logger.debug", fake_debug)
+
+    zoom, _rendered = controller._resolve_zoom("doc.pdf", 0)
+
+    assert zoom == 2.08
+    assert service.calls == [
+        ("dimensions", "doc.pdf", 0),
+        ("render", "doc.pdf", 0, 1.5),
+        ("render", "doc.pdf", 0, 2.08),
+    ]
+    assert any("falling back" in line for line in logs)
+    assert any("fallback retry rendering" in line for line in logs)

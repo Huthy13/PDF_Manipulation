@@ -444,18 +444,47 @@ class PdfMergeController:
 
     def _resolve_zoom(self, source_path: str, page_index: int) -> tuple[float, ImageTk.PhotoImage]:
         base_zoom = self.preview_zoom
-        rendered = self.preview_service.render(source_path, page_index, base_zoom)
-        if not self.view.fit_preview.get():
-            return base_zoom, rendered
+        fit_mode = bool(self.view.fit_preview.get())
+        target_zoom = base_zoom
+        used_fallback = False
 
-        panel_width, panel_height = self._panel_size()
-        width_ratio = panel_width / max(rendered.width(), 1)
-        height_ratio = panel_height / max(rendered.height(), 1)
-        fit_ratio = min(width_ratio, height_ratio)
-        fit_zoom = self._clamp_zoom(base_zoom * fit_ratio)
-        if abs(fit_zoom - base_zoom) < 0.01:
-            return base_zoom, rendered
-        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom)
+        if fit_mode:
+            panel_width, panel_height = self._panel_size()
+            try:
+                page_width, page_height = self.preview_service.get_page_dimensions(source_path, page_index)
+                width_ratio = panel_width / max(page_width, 1.0)
+                height_ratio = panel_height / max(page_height, 1.0)
+                fit_zoom = self._clamp_zoom(min(width_ratio, height_ratio))
+                if abs(fit_zoom - base_zoom) >= 0.01:
+                    target_zoom = fit_zoom
+            except PreviewRenderError as exc:
+                used_fallback = True
+                logger.debug(
+                    "Fit zoom metadata unavailable for source=%s page=%s; falling back to one-pass base render sizing: %s",
+                    source_path,
+                    page_index,
+                    exc,
+                )
+
+        rendered = self.preview_service.render(source_path, page_index, target_zoom)
+
+        if fit_mode and used_fallback:
+            panel_width, panel_height = self._panel_size()
+            width_ratio = panel_width / max(rendered.width(), 1)
+            height_ratio = panel_height / max(rendered.height(), 1)
+            fallback_fit_zoom = self._clamp_zoom(target_zoom * min(width_ratio, height_ratio))
+            if abs(fallback_fit_zoom - target_zoom) >= 0.01:
+                logger.debug(
+                    "Fit zoom fallback retry rendering source=%s page=%s from_zoom=%.2f to_zoom=%.2f",
+                    source_path,
+                    page_index,
+                    target_zoom,
+                    fallback_fit_zoom,
+                )
+                target_zoom = fallback_fit_zoom
+                rendered = self.preview_service.render(source_path, page_index, target_zoom)
+
+        return target_zoom, rendered
 
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)

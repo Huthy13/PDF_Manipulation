@@ -84,6 +84,7 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._final_preview_rendering = False
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
+    controller._final_preview_rendered_indices = set()
     controller.USE_VIRTUAL_FINAL_PREVIEW = True
     return controller
 
@@ -158,6 +159,7 @@ def test_render_virtual_final_preview_emits_debug_logs(monkeypatch) -> None:
     controller._final_preview_pages = [SimpleNamespace(source_path="doc.pdf", page_index=0, estimated_height=1200, logical_height=1)]
     controller._final_preview_offsets = [0, 1300]
     controller._final_preview_visible_indices = set()
+    controller._final_preview_rendered_indices = set()
     controller._preview_image_refs = []
 
     messages: list[str] = []

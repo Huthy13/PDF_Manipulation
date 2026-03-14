@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import tkinter as tk
 from bisect import bisect_right
+from concurrent.futures import Future
 from dataclasses import dataclass
 from pathlib import Path
 from time import monotonic
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Optional, Sequence
 
-from PIL import ImageTk
+from PIL import Image, ImageTk
 
 from ..model import MergeModel
 from ..preview import PreviewDependencyUnavailable, PreviewRenderError
+from ..services.preview_render_executor import PreviewRenderExecutor, PreviewRenderJob, PreviewRenderResult
 from ..services.preview_service import PreviewService
 from .view import PdfMergeView
 
@@ -48,6 +50,7 @@ class PdfMergeController:
         self.view = PdfMergeView(master)
         self.model = MergeModel()
         self.preview_service = PreviewService(cache_size=120)
+        self.preview_executor = PreviewRenderExecutor(self.preview_service)
 
         self.preview_zoom = self.DEFAULT_ZOOM
         self._pending_resize_after: Optional[str] = None
@@ -66,6 +69,9 @@ class PdfMergeController:
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
         self._pending_preview_scroll_restore: Optional[tuple[float, float]] = None
+        self._preview_render_generation = 0
+        self._preview_render_poll_after: Optional[str] = None
+        self._preview_render_futures: list[Future[PreviewRenderResult]] = []
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -112,7 +118,13 @@ class PdfMergeController:
         if self._pending_final_scroll_render_after is not None:
             self.master.after_cancel(self._pending_final_scroll_render_after)
             self._pending_final_scroll_render_after = None
+        if self._preview_render_poll_after is not None:
+            self.master.after_cancel(self._preview_render_poll_after)
+            self._preview_render_poll_after = None
+        self._preview_render_futures = []
+        self.preview_executor.shutdown()
         self.preview_service.clear()
+        self._next_preview_generation()
         self._preview_image_refs = []
         self._final_preview_pages = []
         self.model.clear()
@@ -253,6 +265,8 @@ class PdfMergeController:
     def on_clear_all(self) -> None:
         self.model.clear()
         self.preview_service.clear()
+        self._next_preview_generation()
+        self._next_preview_generation()
         self._preview_image_refs = []
         self._final_preview_pages = []
         self.refresh_list()
@@ -423,20 +437,20 @@ class PdfMergeController:
         height = self.view.preview_canvas.winfo_height() - 8
         return max(width, 1), max(height, 1)
 
-    def _resolve_zoom(self, source_path: str, page_index: int) -> tuple[float, ImageTk.PhotoImage]:
+    def _resolve_zoom(self, source_path: str, page_index: int) -> tuple[float, Image.Image]:
         base_zoom = self.preview_zoom
-        rendered = self.preview_service.render(source_path, page_index, base_zoom)
+        rendered = self.preview_service.render_pil(source_path, page_index, base_zoom)
         if not self.view.fit_preview.get():
             return base_zoom, rendered
 
         panel_width, panel_height = self._panel_size()
-        width_ratio = panel_width / max(rendered.width(), 1)
-        height_ratio = panel_height / max(rendered.height(), 1)
+        width_ratio = panel_width / max(rendered.width, 1)
+        height_ratio = panel_height / max(rendered.height, 1)
         fit_ratio = min(width_ratio, height_ratio)
         fit_zoom = self._clamp_zoom(base_zoom * fit_ratio)
         if abs(fit_zoom - base_zoom) < 0.01:
             return base_zoom, rendered
-        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom)
+        return fit_zoom, self.preview_service.render_pil(source_path, page_index, fit_zoom)
 
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
@@ -579,7 +593,7 @@ class PdfMergeController:
         try:
             effective_zoom, rendered = self._resolve_zoom(source_path, page_index)
             self._update_zoom_label(effective_zoom=effective_zoom)
-            return rendered
+            return ImageTk.PhotoImage(rendered)
         except PreviewDependencyUnavailable as exc:
             self._update_zoom_label()
             self.show_preview_text(f"Preview unavailable\n\n{exc}")
@@ -594,6 +608,119 @@ class PdfMergeController:
             messagebox.showerror("Preview failed", f"Unexpected preview error:\n{exc}")
             self.show_preview_text("Unexpected error while rendering preview.")
             return None
+
+
+
+    def _next_preview_generation(self) -> int:
+        self._preview_render_generation += 1
+        return self._preview_render_generation
+
+    def _schedule_preview_render_poll(self, delay_ms: int = 12) -> None:
+        if self._preview_render_poll_after is not None:
+            return
+        self._preview_render_poll_after = self.master.after(delay_ms, self._drain_preview_render_jobs)
+
+    def _drain_preview_render_jobs(self) -> None:
+        self._preview_render_poll_after = None
+        pending: list[Future[PreviewRenderResult]] = []
+        completed: list[PreviewRenderResult] = []
+        for future in self._preview_render_futures:
+            if not future.done():
+                pending.append(future)
+                continue
+            if future.cancelled():
+                continue
+            try:
+                completed.append(future.result())
+            except Exception:
+                continue
+        self._preview_render_futures = pending
+        if completed:
+            self._apply_render_results(completed)
+        if self._preview_render_futures:
+            self._schedule_preview_render_poll()
+
+    def _apply_render_results(self, results: list[PreviewRenderResult]) -> None:
+        if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
+            return
+        active_token = self._preview_render_generation
+        token_results = [result for result in results if result.token == active_token]
+        if not token_results:
+            return
+        by_slot = {result.page_slot: result for result in token_results}
+        visible_slots = sorted(set(self._final_preview_visible_indices))
+        if not visible_slots:
+            return
+        if not all(slot in by_slot for slot in visible_slots):
+            return
+
+        images_by_index: dict[int, ImageTk.PhotoImage] = {}
+        for slot in visible_slots:
+            result = by_slot[slot]
+            image = ImageTk.PhotoImage(result.image)
+            images_by_index[slot] = image
+            descriptor = self._final_preview_pages[slot]
+            measured_height = max(image.height(), 1)
+            if measured_height != descriptor.estimated_height:
+                descriptor.estimated_height = measured_height
+
+        self._recompute_final_preview_offsets()
+        top, bottom = self._visible_virtual_window()
+        start_idx, end_idx = self._visible_page_range(top, bottom)
+        top_spacer = self._final_preview_offsets[start_idx]
+        bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[end_idx + 1], 0)
+
+        self._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
+
+        def build() -> list[tk.Widget]:
+            widgets: list[tk.Widget] = []
+            if top_spacer:
+                spacer_top = ttk.Frame(self.view.preview_content, height=top_spacer)
+                spacer_top.grid_propagate(False)
+                widgets.append(spacer_top)
+            for idx in range(start_idx, end_idx + 1):
+                image = images_by_index.get(idx)
+                if image is None:
+                    continue
+                preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
+                preview.image = image
+                widgets.append(preview)
+            if bottom_spacer:
+                spacer_bottom = ttk.Frame(self.view.preview_content, height=bottom_spacer)
+                spacer_bottom.grid_propagate(False)
+                widgets.append(spacer_bottom)
+            return widgets
+
+        self._show_preview_widgets(build, reset_scroll=False)
+        self._final_preview_syncing_scrollbar = True
+        try:
+            self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
+        finally:
+            self._final_preview_syncing_scrollbar = False
+
+    def _submit_preview_job(self, token: int, page_slot: int, descriptor: FinalPreviewPage, zoom: float) -> None:
+        job = PreviewRenderJob(
+            token=token,
+            page_slot=page_slot,
+            source_path=descriptor.source_path,
+            page_index=descriptor.page_index,
+            zoom=zoom,
+        )
+        self._preview_render_futures.append(self.preview_executor.submit(job))
+
+    def _prefetch_neighbor_slots(self, token: int, start_idx: int, end_idx: int, zoom: float) -> None:
+        neighbor_radius = 2
+        prefetch_slots: list[int] = []
+        for delta in range(1, neighbor_radius + 1):
+            left = start_idx - delta
+            right = end_idx + delta
+            if left >= 0:
+                prefetch_slots.append(left)
+            if right < len(self._final_preview_pages):
+                prefetch_slots.append(right)
+        for slot in prefetch_slots:
+            descriptor = self._final_preview_pages[slot]
+            self._submit_preview_job(token, slot, descriptor, zoom)
 
 
     def _sequence_signature(self) -> tuple[tuple[str, int], ...]:
@@ -712,66 +839,20 @@ class PdfMergeController:
                 self._final_preview_syncing_scrollbar = False
                 return
 
-            images_by_index: dict[int, ImageTk.PhotoImage] = {}
+            self._final_preview_visible_indices = requested_indices
+            token = self._next_preview_generation()
+            zoom = self.preview_zoom
             for idx in range(start_idx, end_idx + 1):
                 descriptor = self._final_preview_pages[idx]
-                rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
-                if rendered is None:
-                    return
-                images_by_index[idx] = rendered
-                measured_height = max(rendered.height(), 1)
-                if measured_height != descriptor.estimated_height:
-                    descriptor.estimated_height = measured_height
-
-            self._recompute_final_preview_offsets()
-            top, bottom = self._visible_virtual_window()
-            start_idx, end_idx = self._visible_page_range(top, bottom)
-
-            self._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
-            self._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
-
-            for idx in range(start_idx, end_idx + 1):
-                if idx in images_by_index:
-                    continue
-                descriptor = self._final_preview_pages[idx]
-                rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
-                if rendered is None:
-                    return
-                images_by_index[idx] = rendered
-
-            top_spacer = self._final_preview_offsets[start_idx]
-            bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[end_idx + 1], 0)
-
-            def build() -> list[tk.Widget]:
-                widgets: list[tk.Widget] = []
-                if top_spacer:
-                    spacer_top = ttk.Frame(self.view.preview_content, height=top_spacer)
-                    spacer_top.grid_propagate(False)
-                    widgets.append(spacer_top)
-                for idx in range(start_idx, end_idx + 1):
-                    image = images_by_index.get(idx)
-                    if image is None:
-                        continue
-                    preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
-                    preview.image = image
-                    widgets.append(preview)
-                if bottom_spacer:
-                    spacer_bottom = ttk.Frame(self.view.preview_content, height=bottom_spacer)
-                    spacer_bottom.grid_propagate(False)
-                    widgets.append(spacer_bottom)
-                return widgets
-
-            self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
-            self._final_preview_syncing_scrollbar = True
-            try:
-                self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
-            finally:
-                self._final_preview_syncing_scrollbar = False
+                self._submit_preview_job(token, idx, descriptor, zoom)
+            self._prefetch_neighbor_slots(token, start_idx, end_idx, zoom)
+            self._schedule_preview_render_poll()
         finally:
             self._final_preview_rendering = False
 
     def update_preview(self) -> None:
         if not self.model.sequence:
+            self._next_preview_generation()
             self._last_preview_render_key = None
             self.view.preview_caption.configure(text="No pages loaded")
             self._update_zoom_label()
@@ -779,6 +860,7 @@ class PdfMergeController:
             return
 
         if self.view.preview_mode.get() == self.view.PREVIEW_SINGLE:
+            self._next_preview_generation()
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
             idx = self.selected_index()

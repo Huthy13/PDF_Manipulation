@@ -880,13 +880,11 @@ class PdfMergeController:
                 canvas_height,
             )
             has_existing_widgets = bool(self.view.preview_content.winfo_children())
-            layout_consistent = self._virtual_layout_consistent(self._final_preview_total_height)
             if (
                 preserve_anchor
                 and requested_indices == self._final_preview_rendered_indices
                 and render_signature == self._final_preview_render_signature
                 and has_existing_widgets
-                and layout_consistent
             ):
                 logger.debug(
                     "Skipping virtual render (cache hit, canvas unchanged); requested_indices=%s last_rendered_indices=%s render_signature=%s",

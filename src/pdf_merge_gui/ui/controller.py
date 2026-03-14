@@ -334,7 +334,7 @@ class PdfMergeController:
         widget_builder: Callable[[], list[tk.Widget]],
         reset_scroll: bool = True,
         preserve_scroll: bool = False,
-    ) -> None:
+    ) -> int:
         scroll_to_restore: Optional[tuple[float, float]] = None
         if preserve_scroll:
             scroll_to_restore = self._snapshot_preview_scroll()
@@ -353,6 +353,8 @@ class PdfMergeController:
             self._restore_preview_scroll(*scroll_to_restore)
         elif reset_scroll:
             self.view.reset_preview_scroll()
+
+        return len(widgets)
 
     def _snapshot_preview_scroll(self) -> tuple[float, float]:
         return self.view.preview_canvas.xview()[0], self.view.preview_canvas.yview()[0]
@@ -693,7 +695,11 @@ class PdfMergeController:
             requested_indices = set(range(start_idx, end_idx + 1))
             self._final_preview_visible_indices = requested_indices
             if preserve_anchor and requested_indices == self._final_preview_rendered_indices:
-                logger.debug("Skipping virtual render; visible window unchanged indices=%s", sorted(requested_indices))
+                logger.debug(
+                    "Skipping virtual render (cache hit, canvas unchanged); requested_indices=%s last_rendered_indices=%s",
+                    sorted(requested_indices),
+                    sorted(self._final_preview_rendered_indices),
+                )
                 self._final_preview_syncing_scrollbar = True
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
                 self._final_preview_syncing_scrollbar = False
@@ -752,7 +758,20 @@ class PdfMergeController:
                     widgets.append(spacer_bottom)
                 return widgets
 
-            self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
+            logger.debug(
+                "Virtual preview canvas update starting start_idx=%s end_idx=%s images_by_index=%s",
+                start_idx,
+                end_idx,
+                len(images_by_index),
+            )
+            widget_count = self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
+            logger.debug(
+                "Virtual preview canvas update finished start_idx=%s end_idx=%s images_by_index=%s widget_count=%s",
+                start_idx,
+                end_idx,
+                len(images_by_index),
+                widget_count,
+            )
             self._final_preview_rendered_indices = final_requested_indices
             logger.debug("Rendered virtual preview indices=%s top_spacer=%s bottom_spacer=%s", list(range(start_idx, end_idx + 1)), top_spacer, bottom_spacer)
             self._final_preview_syncing_scrollbar = True
@@ -768,6 +787,7 @@ class PdfMergeController:
     def update_preview(self) -> None:
         if not self.model.sequence:
             self._last_preview_render_key = None
+            logger.debug("Preview render key reset to None (no pages loaded)")
             self.view.preview_caption.configure(text="No pages loaded")
             self._update_zoom_label()
             self.show_preview_text("Open one or more PDFs to begin.")
@@ -785,17 +805,20 @@ class PdfMergeController:
             self.view.preview_caption.configure(text=f"Single Page ({idx + 1}/{len(self.model.sequence)})")
             preview_key = self._current_preview_key(self.view.PREVIEW_SINGLE, selected_index=idx)
             if preview_key == self._last_preview_render_key:
+                logger.debug("Skipping single preview update (cache hit); preview_key=%s", preview_key)
                 return
 
             rendered = self.render_preview_image(page.source_path, page.page_index)
             if rendered is not None:
                 self.show_preview_image(rendered)
                 self._last_preview_render_key = preview_key
+                logger.debug("Preview render key updated after single preview canvas update; preview_key=%s", preview_key)
             return
 
         self.view.preview_caption.configure(text=f"Final Output ({len(self.model.sequence)} pages)")
         preview_key = self._current_preview_key(self.view.PREVIEW_FINAL)
         if preview_key == self._last_preview_render_key:
+            logger.debug("Skipping final preview update (cache hit); preview_key=%s", preview_key)
             return
 
         if self.USE_VIRTUAL_FINAL_PREVIEW:
@@ -816,3 +839,4 @@ class PdfMergeController:
                 images.append(rendered)
             self.show_preview_images(images, preserve_scroll=False)
         self._last_preview_render_key = preview_key
+        logger.debug("Preview render key updated after final preview canvas update; preview_key=%s", preview_key)

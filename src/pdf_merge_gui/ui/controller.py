@@ -407,8 +407,8 @@ class PdfMergeController:
             return base_zoom, rendered
 
         panel_width, panel_height = self._panel_size()
-        width_ratio = panel_width / max(rendered.width(), 1)
-        height_ratio = panel_height / max(rendered.height(), 1)
+        width_ratio = panel_width / max(rendered.width, 1)
+        height_ratio = panel_height / max(rendered.height, 1)
         fit_ratio = min(width_ratio, height_ratio)
         fit_zoom = self._clamp_zoom(base_zoom * fit_ratio)
         if abs(fit_zoom - base_zoom) < 0.01:

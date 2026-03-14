@@ -20,6 +20,8 @@ from .view import PdfMergeView
 class FinalPreviewPage:
     source_path: str
     page_index: int
+    intrinsic_width: float
+    intrinsic_height: float
     estimated_height: int
     logical_height: int = 1
 
@@ -59,6 +61,8 @@ class PdfMergeController:
         self._pending_final_scroll_render_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
         self._last_preview_canvas_size: tuple[int, int] = (0, 0)
+        self._last_fit_panel_size: Optional[tuple[int, int]] = None
+        self._final_preview_zoom: float = self.preview_zoom
         self._preview_image_refs: list[ImageTk.PhotoImage] = []
         self._final_preview_pages: list[FinalPreviewPage] = []
         self._final_preview_offsets: list[int] = [0]
@@ -449,21 +453,19 @@ class PdfMergeController:
             visible_ui_keys=self._visible_ui_keys(),
         )
 
-    def _resolve_zoom(self, source_path: str, page_index: int) -> tuple[float, PrimaryCacheKey, Image.Image]:
+    def _resolve_zoom(self, source_path: str, page_index: int) -> float:
         base_zoom = self.preview_zoom
-        base_key, rendered = self.preview_service.get_decoded_image(source_path, page_index, base_zoom)
         if not self.view.fit_preview.get():
-            return base_zoom, base_key, rendered
+            self._last_fit_panel_size = None
+            return base_zoom
 
         panel_width, panel_height = self._panel_size()
-        width_ratio = panel_width / max(rendered.width, 1)
-        height_ratio = panel_height / max(rendered.height, 1)
+        intrinsic_width, intrinsic_height = self.preview_service.get_page_dimensions(source_path, page_index)
+        width_ratio = panel_width / max(intrinsic_width, 1.0)
+        height_ratio = panel_height / max(intrinsic_height, 1.0)
         fit_ratio = min(width_ratio, height_ratio)
-        fit_zoom = self._clamp_zoom(base_zoom * fit_ratio)
-        if abs(fit_zoom - base_zoom) < 0.01:
-            return base_zoom, base_key, rendered
-        fit_key, fit_image = self.preview_service.get_decoded_image(source_path, page_index, fit_zoom)
-        return fit_zoom, fit_key, fit_image
+        self._last_fit_panel_size = (panel_width, panel_height)
+        return self._clamp_zoom(base_zoom * fit_ratio)
 
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
@@ -492,6 +494,7 @@ class PdfMergeController:
             self.view.fit_preview.set(False)
 
     def on_toggle_fit_preview(self) -> None:
+        self._last_fit_panel_size = None
         self.update_preview()
 
     def on_preview_panel_resize(self, _event: tk.Event) -> None:
@@ -539,6 +542,7 @@ class PdfMergeController:
             if self._is_negligible_resize(previous_size, current_size):
                 return
             self._update_final_preview_window_state()
+            self._recompute_final_preview_offsets()
             self._schedule_final_resize_settled_render()
         elif self.view.fit_preview.get():
             self.update_preview()
@@ -569,8 +573,9 @@ class PdfMergeController:
 
     def render_preview_image(self, source_path: str, page_index: int) -> Optional[ImageTk.PhotoImage]:
         try:
-            effective_zoom, _decoded_key, rendered = self._resolve_zoom(source_path, page_index)
+            effective_zoom = self._resolve_zoom(source_path, page_index)
             self._update_zoom_label(effective_zoom=effective_zoom)
+            _decoded_key, rendered = self.preview_service.get_decoded_image(source_path, page_index, effective_zoom)
             image = self.preview_service.get_ui_image(rendered, self._widget_scale_context())
             self._trim_preview_caches()
             return image
@@ -624,21 +629,24 @@ class PdfMergeController:
             (page.source_path, page.page_index): page.logical_height
             for page in self._final_preview_pages
         }
-        self._final_preview_pages = [
-            FinalPreviewPage(
-                source_path=source_path,
-                page_index=page_index,
-                estimated_height=previous_heights.get(
-                    (source_path, page_index),
-                    self.FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT,
-                ),
-                logical_height=previous_logical_heights.get(
-                    (source_path, page_index),
-                    previous_heights.get((source_path, page_index), self.FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT),
-                ),
+        pages: list[FinalPreviewPage] = []
+        for source_path, page_index in sequence:
+            intrinsic_width, intrinsic_height = self.preview_service.get_page_dimensions(source_path, page_index)
+            estimated_height = previous_heights.get(
+                (source_path, page_index),
+                self.FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT,
             )
-            for source_path, page_index in sequence
-        ]
+            pages.append(
+                FinalPreviewPage(
+                    source_path=source_path,
+                    page_index=page_index,
+                    intrinsic_width=intrinsic_width,
+                    intrinsic_height=intrinsic_height,
+                    estimated_height=estimated_height,
+                    logical_height=previous_logical_heights.get((source_path, page_index), estimated_height),
+                )
+            )
+        self._final_preview_pages = pages
         self._recompute_final_preview_offsets()
 
     def _recompute_final_preview_offsets(self) -> None:
@@ -649,8 +657,19 @@ class PdfMergeController:
 
         offsets = [0]
         running = 0
+        panel_width, _panel_height = self._panel_size()
+        target_zoom = self._final_preview_zoom
+        if self.view.fit_preview.get():
+            zoom_candidates = [
+                panel_width / max(page.intrinsic_width, 1.0)
+                for page in self._final_preview_pages
+            ]
+            target_zoom = self._clamp_zoom(min(zoom_candidates) if zoom_candidates else self.preview_zoom)
+        self._final_preview_zoom = target_zoom
+
         for page in self._final_preview_pages:
-            page.logical_height = max(page.logical_height, page.estimated_height, 1)
+            projected_height = int(round(page.intrinsic_height * target_zoom))
+            page.logical_height = max(projected_height, page.estimated_height, 1)
             running += page.logical_height + self.FINAL_PREVIEW_PAGE_GAP
             offsets.append(running)
         self._final_preview_offsets = offsets
@@ -769,7 +788,7 @@ class PdfMergeController:
                 RenderRequest(
                     source_path=descriptor.source_path,
                     page_index=descriptor.page_index,
-                    zoom=self.preview_zoom,
+                    zoom=self._final_preview_zoom,
                     generation_id=generation,
                 ),
                 priority=priority,

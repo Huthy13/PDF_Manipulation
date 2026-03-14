@@ -6,11 +6,14 @@ from typing import Optional
 
 from PIL import Image, ImageTk
 
-from ..preview import render_page
+from ..preview import read_page_dimensions, render_page
 from .telemetry import get_telemetry
 
 PrimaryCacheKey = tuple[str, int, float]
 UiCacheKey = tuple[int, tuple[float]]
+
+
+MetadataCacheKey = tuple[str, int]
 
 
 @dataclass
@@ -53,6 +56,7 @@ class PreviewService:
         self._ui_cache: OrderedDict[UiCacheKey, _UiEntry] = OrderedDict()
         self._ui_cache_bytes = 0
         self._decoded_ids_by_source_page: dict[tuple[str, int, float], int] = {}
+        self._metadata_cache: dict[MetadataCacheKey, tuple[float, float]] = {}
 
     def clear(self) -> None:
         self._decoded_cache.clear()
@@ -60,6 +64,7 @@ class PreviewService:
         self._ui_cache.clear()
         self._ui_cache_bytes = 0
         self._decoded_ids_by_source_page.clear()
+        self._metadata_cache.clear()
 
     def clear_for_source(self, source_path: str) -> None:
         doomed_decoded = [key for key in self._decoded_cache if key[0] == source_path]
@@ -74,6 +79,10 @@ class PreviewService:
                 doomed_decoded_ids.add(self._decoded_ids_by_source_page[source_key])
                 self._decoded_ids_by_source_page.pop(source_key, None)
 
+        for metadata_key in list(self._metadata_cache.keys()):
+            if metadata_key[0] == source_path:
+                self._metadata_cache.pop(metadata_key, None)
+
         for ui_key in list(self._ui_cache.keys()):
             if self._ui_cache[ui_key].decoded_image_id in doomed_decoded_ids:
                 self._remove_ui_key(ui_key)
@@ -83,6 +92,15 @@ class PreviewService:
 
     def decoded_cache_key(self, source_path: str, page_index: int, zoom: float) -> PrimaryCacheKey:
         return (source_path, page_index, self.zoom_bucket(zoom))
+
+    def get_page_dimensions(self, source_path: str, page_index: int) -> tuple[float, float]:
+        key: MetadataCacheKey = (source_path, page_index)
+        cached = self._metadata_cache.get(key)
+        if cached is not None:
+            return cached
+        dimensions = read_page_dimensions(source_path, page_index)
+        self._metadata_cache[key] = dimensions
+        return dimensions
 
     def get_decoded_image(self, source_path: str, page_index: int, zoom: float) -> tuple[PrimaryCacheKey, Image.Image]:
         telemetry = get_telemetry()

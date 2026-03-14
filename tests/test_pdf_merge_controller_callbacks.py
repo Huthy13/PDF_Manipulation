@@ -89,6 +89,7 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._pending_final_resize_settle_after = None
     controller._pending_final_scroll_render_after = None
     controller._last_preview_canvas_size = (0, 0)
+    controller._final_preview_zoom = 1.5
     controller._final_preview_anchor_page_index = 0
     controller._final_preview_anchor_offset_px_within_page = 0
     controller._final_preview_syncing_scrollbar = False
@@ -97,7 +98,7 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._final_preview_offsets = [0]
     controller._final_preview_visible_indices = set()
     controller._final_preview_pages = [
-        FinalPreviewPage(source_path="a.pdf", page_index=idx, estimated_height=1000, logical_height=1000)
+        FinalPreviewPage(source_path="a.pdf", page_index=idx, intrinsic_width=800, intrinsic_height=1000, estimated_height=1000, logical_height=1000)
         for idx in range(5)
     ]
     controller._final_preview_offsets = [0, 1012, 2024, 3036, 4048, 5060]
@@ -162,3 +163,24 @@ def test_final_resize_debounced_handler_schedules_settled_render() -> None:
     controller._on_final_resize_settled()
 
     assert render_calls == [True]
+
+
+def test_resolve_zoom_uses_metadata_dimensions_without_rendering() -> None:
+    controller = _build_controller(mode="single", width=1200, height=900)
+    controller.view.fit_preview.set(True)
+    controller.preview_zoom = 1.5
+
+    class FakePreviewService:
+        def get_page_dimensions(self, source_path: str, page_index: int) -> tuple[float, float]:
+            assert source_path == "a.pdf"
+            assert page_index == 0
+            return (600.0, 1200.0)
+
+        def get_decoded_image(self, source_path: str, page_index: int, zoom: float):
+            raise AssertionError("_resolve_zoom should not decode any image")
+
+    controller.preview_service = FakePreviewService()
+
+    zoom = controller._resolve_zoom("a.pdf", 0)
+
+    assert zoom == controller._clamp_zoom(min((1200 - 8) / 600.0, (900 - 8) / 1200.0) * 1.5)

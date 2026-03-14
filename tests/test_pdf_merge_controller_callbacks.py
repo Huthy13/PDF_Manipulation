@@ -45,7 +45,7 @@ class FakeCanvas:
 
 class FakeModel:
     def __init__(self) -> None:
-        self.sequence = []
+        self.sequence: list[object] = []
         self.sequence_version = 0
 
 class FakeMaster:

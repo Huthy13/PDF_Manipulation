@@ -47,8 +47,6 @@ def measure_page_load(pdf_paths: list[Path], repeats: int = 3) -> float:
 
 
 def measure_preview_cycle(pdf_paths: list[Path], repeats: int = 3) -> tuple[float, float]:
-    from pdf_merge_gui.services import preview_service as preview_module
-
     targets: list[tuple[str, int, float]] = []
     for path in pdf_paths:
         for page_index in range(3):
@@ -58,7 +56,6 @@ def measure_preview_cycle(pdf_paths: list[Path], repeats: int = 3) -> tuple[floa
     hit_samples: list[float] = []
 
     for _ in range(repeats):
-        preview_module.ImageTk.PhotoImage = lambda image: image  # type: ignore[assignment,misc]
         preview = PreviewService(cache_size=128)
 
         miss_start = perf_counter()
@@ -71,6 +68,7 @@ def measure_preview_cycle(pdf_paths: list[Path], repeats: int = 3) -> tuple[floa
             for source_path, page_index, zoom in targets:
                 preview.render(source_path, page_index, zoom)
         hit_samples.append(_ms(hit_start, perf_counter()))
+        preview.shutdown()
 
     return _median(miss_samples), _median(hit_samples)
 

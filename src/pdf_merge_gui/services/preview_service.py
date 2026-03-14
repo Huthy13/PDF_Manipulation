@@ -1,26 +1,40 @@
 from __future__ import annotations
 
-from PIL import ImageTk
+from concurrent.futures import Future, ThreadPoolExecutor
+from threading import Lock
+from typing import Callable
+
+from PIL import Image
 
 from ..preview import render_page
 from ..utils.cache import LRUCache
 from .telemetry import get_telemetry
 
+RenderCallback = Callable[[tuple[str, int, float], Image.Image | None, Exception | None], None]
+
 
 class PreviewService:
-    def __init__(self, cache_size: int = 100) -> None:
-        self.cache: LRUCache[tuple[str, int, float], ImageTk.PhotoImage] = LRUCache(cache_size)
+    def __init__(self, cache_size: int = 100, *, worker_count: int = 1) -> None:
+        self.cache: LRUCache[tuple[str, int, float], Image.Image] = LRUCache(cache_size)
+        self._cache_lock = Lock()
+        self._executor = ThreadPoolExecutor(max_workers=max(worker_count, 1), thread_name_prefix="preview-render")
 
     def clear(self) -> None:
-        self.cache.clear()
+        with self._cache_lock:
+            self.cache.clear()
 
     def clear_for_source(self, source_path: str) -> None:
-        self.cache.remove_matching_prefix(source_path)
+        with self._cache_lock:
+            self.cache.remove_matching_prefix(source_path)
 
-    def render(self, source_path: str, page_index: int, zoom: float) -> ImageTk.PhotoImage:
+    def shutdown(self) -> None:
+        self._executor.shutdown(wait=False, cancel_futures=True)
+
+    def render(self, source_path: str, page_index: int, zoom: float) -> Image.Image:
         telemetry = get_telemetry()
         key = (source_path, page_index, zoom)
-        cached = self.cache.get(key)
+        with self._cache_lock:
+            cached = self.cache.get(key)
         if cached is not None:
             telemetry.increment("preview_cache_hit")
             return cached
@@ -28,6 +42,26 @@ class PreviewService:
         telemetry.increment("preview_cache_miss")
         with telemetry.time_block("preview_render_miss"):
             image = render_page(source_path, page_index, zoom=zoom)
-            photo = ImageTk.PhotoImage(image)
-        self.cache.put(key, photo)
-        return photo
+
+        with self._cache_lock:
+            self.cache.put(key, image)
+        return image
+
+    def render_async(
+        self,
+        source_path: str,
+        page_index: int,
+        zoom: float,
+        callback: RenderCallback,
+    ) -> Future[None]:
+        key = (source_path, page_index, zoom)
+
+        def worker() -> None:
+            try:
+                image = self.render(source_path, page_index, zoom)
+            except Exception as exc:  # pragma: no cover - exercised via callback handling.
+                callback(key, None, exc)
+                return
+            callback(key, image, None)
+
+        return self._executor.submit(worker)

@@ -8,6 +8,7 @@ import sys
 import tempfile
 from pathlib import Path
 from time import perf_counter
+from typing import Mapping, cast
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -99,14 +100,14 @@ def measure_merged_export(pdf_paths: list[Path], repeats: int = 3) -> float:
 
 
 
-def _flatten_metrics(metrics: dict[str, float | dict[str, object]], prefix: str = "") -> dict[str, float]:
+def _flatten_metrics(metrics: Mapping[str, object], prefix: str = "") -> dict[str, float]:
     flat: dict[str, float] = {}
     for key, value in metrics.items():
         joined = f"{prefix}.{key}" if prefix else key
-        if isinstance(value, dict):
+        if isinstance(value, Mapping):
             flat.update(_flatten_metrics(value, joined))
             continue
-        flat[joined] = float(value)
+        flat[joined] = float(cast(float, value))
     return flat
 
 
@@ -205,7 +206,7 @@ def measure_final_preview_navigation(pdf_paths: list[Path], repeats: int = 3) ->
 
     return metrics
 
-def compare_to_baseline(current: dict[str, float | dict[str, object]], baseline: dict[str, float | dict[str, object]], threshold: float) -> list[str]:
+def compare_to_baseline(current: Mapping[str, object], baseline: Mapping[str, object], threshold: float) -> list[str]:
     failures: list[str] = []
     absolute_slack_ms = 150.0
     current_flat = _flatten_metrics(current)
@@ -272,7 +273,7 @@ def main() -> int:
         print(f"Baseline written to {baseline_path}")
         return 0
 
-    baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    baseline = cast(dict[str, object], json.loads(baseline_path.read_text(encoding="utf-8")))
     failures = compare_to_baseline(metrics, baseline, args.threshold)
     if failures:
         print("Performance regression detected:")

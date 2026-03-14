@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import tkinter as tk
 from bisect import bisect_right
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
@@ -42,6 +43,7 @@ class PdfMergeController:
     FINAL_RESIZE_DEBOUNCE_MS = 180
     FINAL_RESIZE_SETTLE_MS = 240
     FINAL_SCROLL_RENDER_DEBOUNCE_MS = 24
+    FINAL_SCROLL_IDLE_DEBOUNCE_MS = 160
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
     FINAL_PREVIEW_SKIP_WARNING_STREAK = 4
     FINAL_PREVIEW_SKIP_ANCHOR_DELTA_THRESHOLD = 0.015
@@ -57,6 +59,7 @@ class PdfMergeController:
         self._pending_resize_after: Optional[str] = None
         self._pending_final_resize_settle_after: Optional[str] = None
         self._pending_final_scroll_render_after: Optional[str] = None
+        self._pending_final_scroll_idle_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
         self._last_preview_canvas_size: tuple[int, int] = (0, 0)
         self._preview_image_refs: list[ImageTk.PhotoImage] = []
@@ -67,12 +70,18 @@ class PdfMergeController:
         self._final_preview_rendered_indices: set[int] = set()
         self._final_preview_render_signature: Optional[tuple[tuple[int, ...], int, int, int, int]] = None
         self._final_preview_anchor_fraction = 0.0
+        self._final_preview_anchor_page_index = 0
+        self._final_preview_anchor_intra_fraction = 0.0
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
         self._pending_preview_scroll_restore: Optional[tuple[float, float]] = None
         self._final_preview_skip_streak = 0
         self._final_preview_last_skip_anchor: Optional[float] = None
         self._final_preview_last_total_height: Optional[int] = None
+        self._final_preview_layout_frozen = False
+        self._final_preview_pending_heights: dict[int, int] = {}
+        self._final_preview_height_recompute_timestamps: deque[float] = deque()
+        self._final_preview_anchor_correction_applied = 0
 
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
@@ -119,6 +128,10 @@ class PdfMergeController:
         if self._pending_final_scroll_render_after is not None:
             self.master.after_cancel(self._pending_final_scroll_render_after)
             self._pending_final_scroll_render_after = None
+        if self._pending_final_scroll_idle_after is not None:
+            self.master.after_cancel(self._pending_final_scroll_idle_after)
+            self._pending_final_scroll_idle_after = None
+        self._final_preview_pending_heights.clear()
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
@@ -266,6 +279,9 @@ class PdfMergeController:
         self._final_preview_visible_indices = set()
         self._final_preview_rendered_indices = set()
         self._final_preview_render_signature = None
+        self._final_preview_pending_heights.clear()
+        self._final_preview_pending_heights.clear()
+        self._final_preview_layout_frozen = False
         self.refresh_list()
 
     def on_reverse_selected(self) -> None:
@@ -407,6 +423,7 @@ class PdfMergeController:
         self._final_preview_visible_indices = set()
         self._final_preview_rendered_indices = set()
         self._final_preview_render_signature = None
+        self._final_preview_pending_heights.clear()
         def build() -> list[tk.Widget]:
             preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
             preview.image = image
@@ -419,6 +436,7 @@ class PdfMergeController:
         self._final_preview_visible_indices = set()
         self._final_preview_rendered_indices = set()
         self._final_preview_render_signature = None
+        self._final_preview_pending_heights.clear()
         def build() -> list[tk.Widget]:
             widgets: list[tk.Widget] = []
             for image in images:
@@ -555,7 +573,7 @@ class PdfMergeController:
         if self._final_preview_rendering:
             self._schedule_final_resize_settled_render()
             return
-        self._render_virtual_final_preview(preserve_anchor=True)
+        self._on_final_scroll_idle()
 
     def _on_resize_debounced(self) -> None:
         self._pending_resize_after = None
@@ -594,19 +612,29 @@ class PdfMergeController:
             return
         clamped_fraction = max(0.0, min(1.0, first_fraction))
         self._final_preview_anchor_fraction = clamped_fraction
+        top, _ = self._visible_virtual_window()
+        self._capture_virtual_anchor(top)
+        self._final_preview_layout_frozen = True
         logger.debug(
-            "Preview canvas yscroll callback raw_first=%r raw_last=%r parsed_first=%.6f clamped_anchor=%.6f anchor_clamped=%s",
+            "Preview canvas yscroll callback raw_first=%r raw_last=%r parsed_first=%.6f clamped_anchor=%.6f anchor_clamped=%s anchor_page=%s anchor_intra=%.4f",
             first,
             last,
             first_fraction,
             clamped_fraction,
             first_fraction != clamped_fraction,
+            self._final_preview_anchor_page_index,
+            self._final_preview_anchor_intra_fraction,
         )
-        if self._pending_final_scroll_render_after is not None:
-            return
-        self._pending_final_scroll_render_after = self.master.after(
-            self.FINAL_SCROLL_RENDER_DEBOUNCE_MS,
-            self._render_final_preview_from_scroll,
+        if self._pending_final_scroll_render_after is None:
+            self._pending_final_scroll_render_after = self.master.after(
+                self.FINAL_SCROLL_RENDER_DEBOUNCE_MS,
+                self._render_final_preview_from_scroll,
+            )
+        if self._pending_final_scroll_idle_after is not None:
+            self.master.after_cancel(self._pending_final_scroll_idle_after)
+        self._pending_final_scroll_idle_after = self.master.after(
+            self.FINAL_SCROLL_IDLE_DEBOUNCE_MS,
+            self._on_final_scroll_idle,
         )
 
     def _render_final_preview_from_scroll(self) -> None:
@@ -617,6 +645,34 @@ class PdfMergeController:
             return
         if self._final_preview_rendering:
             return
+        self._final_preview_layout_frozen = True
+        self._render_virtual_final_preview(preserve_anchor=True)
+
+    def _on_final_scroll_idle(self) -> None:
+        self._pending_final_scroll_idle_after = None
+        self._final_preview_layout_frozen = False
+        if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
+            return
+        if not self.USE_VIRTUAL_FINAL_PREVIEW:
+            return
+        if self._final_preview_rendering:
+            self._schedule_final_resize_settled_render()
+            return
+
+        if self._apply_pending_height_corrections():
+            requested_top = self._resolve_anchor_virtual_top_from_absolute()
+            self._recompute_final_preview_offsets()
+            corrected_top = self._resolve_anchor_virtual_top_from_absolute()
+            if corrected_top != requested_top:
+                self._final_preview_anchor_correction_applied += 1
+                logger.debug(
+                    "Anchor correction applied requested_top=%s corrected_top=%s total_applied=%s",
+                    requested_top,
+                    corrected_top,
+                    self._final_preview_anchor_correction_applied,
+                )
+            self._set_virtual_anchor(corrected_top)
+
         self._render_virtual_final_preview(preserve_anchor=True)
 
     def render_preview_image(self, source_path: str, page_index: int) -> Optional[ImageTk.PhotoImage]:
@@ -714,6 +770,7 @@ class PdfMergeController:
         self._final_preview_visible_indices = set()
         self._final_preview_rendered_indices = set()
         self._final_preview_render_signature = None
+        self._final_preview_pending_heights.clear()
 
         previous_heights = {
             (page.source_path, page.page_index): page.estimated_height
@@ -783,16 +840,18 @@ class PdfMergeController:
                     len(self._final_preview_pages),
                 )
         self._final_preview_last_total_height = self._final_preview_total_height
+        self._record_height_recompute()
 
         logical_heights = [page.logical_height for page in self._final_preview_pages]
         logger.debug(
-            "Final preview offsets stats final_preview_total_height=%s previous_total_height=%s estimated_height_min=%s estimated_height_max=%s logical_height_min=%s logical_height_max=%s",
+            "Final preview offsets stats final_preview_total_height=%s previous_total_height=%s estimated_height_min=%s estimated_height_max=%s logical_height_min=%s logical_height_max=%s recomputes_per_second=%.2f",
             self._final_preview_total_height,
             previous_total_height,
             min(estimated_heights),
             max(estimated_heights),
             min(logical_heights),
             max(logical_heights),
+            self._height_recompute_rate(),
         )
         logger.debug(
             "Final preview offsets sample first=%s last=%s offset_count=%s",
@@ -846,16 +905,63 @@ class PdfMergeController:
         clamped_virtual_top = max(0, min(requested_virtual_top, max_start))
         stored_anchor = 0.0 if max_start == 0 else clamped_virtual_top / max_start
         self._final_preview_anchor_fraction = stored_anchor
+        self._capture_virtual_anchor(clamped_virtual_top)
         logger.debug(
-            "Set virtual anchor requested_virtual_top=%s clamped_virtual_top=%s anchor_clamped=%s stored_anchor=%.6f viewport_height=%s final_preview_total_height=%s max_start=%s",
+            "Set virtual anchor requested_virtual_top=%s clamped_virtual_top=%s anchor_clamped=%s stored_anchor=%.6f anchor_page=%s anchor_intra=%.4f viewport_height=%s final_preview_total_height=%s max_start=%s",
             requested_virtual_top,
             clamped_virtual_top,
             requested_virtual_top != clamped_virtual_top,
             stored_anchor,
+            self._final_preview_anchor_page_index,
+            self._final_preview_anchor_intra_fraction,
             viewport_height,
             self._final_preview_total_height,
             max_start,
         )
+
+    def _capture_virtual_anchor(self, top: int) -> None:
+        if not self._final_preview_pages:
+            self._final_preview_anchor_page_index = 0
+            self._final_preview_anchor_intra_fraction = 0.0
+            return
+        clamped_top = max(0, min(top, max(self._final_preview_total_height - 1, 0)))
+        page_idx = max(0, min(bisect_right(self._final_preview_offsets, clamped_top) - 1, len(self._final_preview_pages) - 1))
+        page_top = self._final_preview_offsets[page_idx]
+        page_height = max(self._final_preview_pages[page_idx].logical_height, 1)
+        intra_fraction = max(0.0, min((clamped_top - page_top) / page_height, 1.0))
+        self._final_preview_anchor_page_index = page_idx
+        self._final_preview_anchor_intra_fraction = intra_fraction
+
+    def _resolve_anchor_virtual_top_from_absolute(self) -> int:
+        if not self._final_preview_pages:
+            return 0
+        page_idx = max(0, min(self._final_preview_anchor_page_index, len(self._final_preview_pages) - 1))
+        page_top = self._final_preview_offsets[page_idx]
+        page_height = max(self._final_preview_pages[page_idx].logical_height, 1)
+        return int(page_top + (self._final_preview_anchor_intra_fraction * page_height))
+
+    def _record_height_recompute(self) -> None:
+        now = perf_counter()
+        self._final_preview_height_recompute_timestamps.append(now)
+        while self._final_preview_height_recompute_timestamps and now - self._final_preview_height_recompute_timestamps[0] > 1.0:
+            self._final_preview_height_recompute_timestamps.popleft()
+
+    def _height_recompute_rate(self) -> float:
+        now = perf_counter()
+        while self._final_preview_height_recompute_timestamps and now - self._final_preview_height_recompute_timestamps[0] > 1.0:
+            self._final_preview_height_recompute_timestamps.popleft()
+        return float(len(self._final_preview_height_recompute_timestamps))
+
+    def _apply_pending_height_corrections(self) -> bool:
+        if not self._final_preview_pending_heights:
+            return False
+        changed = False
+        for idx, measured_height in self._final_preview_pending_heights.items():
+            if 0 <= idx < len(self._final_preview_pages) and measured_height != self._final_preview_pages[idx].estimated_height:
+                self._final_preview_pages[idx].estimated_height = measured_height
+                changed = True
+        self._final_preview_pending_heights.clear()
+        return changed
 
     def _render_virtual_final_preview(self, preserve_anchor: bool) -> bool:
         if self._final_preview_rendering:
@@ -943,6 +1049,7 @@ class PdfMergeController:
             self._final_preview_last_skip_anchor = None
 
             images_by_index: dict[int, ImageTk.PhotoImage] = {}
+            height_updates: dict[int, int] = {}
             for idx in range(start_idx, end_idx + 1):
                 descriptor = self._final_preview_pages[idx]
                 rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
@@ -952,12 +1059,22 @@ class PdfMergeController:
                 images_by_index[idx] = rendered
                 measured_height = max(rendered.height(), 1)
                 if measured_height != descriptor.estimated_height:
-                    descriptor.estimated_height = measured_height
+                    height_updates[idx] = measured_height
 
-            self._recompute_final_preview_offsets()
-            top, bottom = self._visible_virtual_window()
-            start_idx, end_idx = self._visible_page_range(top, bottom)
-            logger.debug("Virtual preview window recomputed top=%s bottom=%s start_idx=%s end_idx=%s", top, bottom, start_idx, end_idx)
+            if height_updates:
+                if self._final_preview_layout_frozen:
+                    self._final_preview_pending_heights.update(height_updates)
+                else:
+                    for idx, measured_height in height_updates.items():
+                        self._final_preview_pages[idx].estimated_height = measured_height
+
+            if not self._final_preview_layout_frozen and height_updates:
+                self._recompute_final_preview_offsets()
+                corrected_top = self._resolve_anchor_virtual_top_from_absolute()
+                self._set_virtual_anchor(corrected_top)
+                top, bottom = self._visible_virtual_window()
+                start_idx, end_idx = self._visible_page_range(top, bottom)
+                logger.debug("Virtual preview window recomputed top=%s bottom=%s start_idx=%s end_idx=%s", top, bottom, start_idx, end_idx)
             final_requested_indices = set(range(start_idx, end_idx + 1))
             self._final_preview_visible_indices = final_requested_indices
 
@@ -1068,16 +1185,22 @@ class PdfMergeController:
                 else "n/a"
             )
             logger.info(
-                "Final preview render summary mode=%s range=%s anchor=%.6f zoom=%.2f fit_mode=%s total_height=%s duration_ms=%.2f committed=%s skip_reason=%s",
+                "Final preview render summary mode=%s range=%s anchor=%.6f anchor_page=%s anchor_intra=%.4f zoom=%.2f fit_mode=%s total_height=%s duration_ms=%.2f committed=%s skip_reason=%s recomputes_per_second=%.2f anchor_corrections=%s pending_height_updates=%s layout_frozen=%s",
                 summary_mode,
                 summary_range,
                 self._final_preview_anchor_fraction,
+                self._final_preview_anchor_page_index,
+                self._final_preview_anchor_intra_fraction,
                 self.preview_zoom,
                 self.view.fit_preview.get(),
                 self._final_preview_total_height,
                 (perf_counter() - render_start) * 1000,
                 render_committed,
                 skip_reason,
+                self._height_recompute_rate(),
+                self._final_preview_anchor_correction_applied,
+                len(self._final_preview_pending_heights),
+                self._final_preview_layout_frozen,
             )
             logger.debug("Virtual final preview render complete")
 
@@ -1095,6 +1218,8 @@ class PdfMergeController:
             self._final_preview_visible_indices = set()
             self._final_preview_rendered_indices = set()
             self._final_preview_render_signature = None
+            self._final_preview_pending_heights.clear()
+            self._final_preview_layout_frozen = False
             idx = self.selected_index()
             if idx is None:
                 idx = 0
@@ -1130,6 +1255,8 @@ class PdfMergeController:
             self._final_preview_visible_indices = set()
             self._final_preview_rendered_indices = set()
             self._final_preview_render_signature = None
+            self._final_preview_pending_heights.clear()
+            self._final_preview_layout_frozen = False
             images: list[ImageTk.PhotoImage] = []
             for page in self.model.sequence:
                 rendered = self.render_preview_image(page.source_path, page.page_index)

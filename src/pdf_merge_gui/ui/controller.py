@@ -607,7 +607,30 @@ class PdfMergeController:
     def _build_final_preview_model(self) -> None:
         sequence = [(page.source_path, page.page_index) for page in self.model.sequence]
         existing = [(page.source_path, page.page_index) for page in self._final_preview_pages]
-        if sequence == existing:
+        unique_sources = {source_path for source_path, _ in sequence}
+        page_indexes = [page_index for _, page_index in sequence]
+        min_page_index = min(page_indexes) if page_indexes else None
+        max_page_index = max(page_indexes) if page_indexes else None
+        logger.debug(
+            "Final preview sequence snapshot sequence_len=%s existing_len=%s first_entries=%s last_entries=%s unique_source_paths=%s min_page_index=%s max_page_index=%s",
+            len(sequence),
+            len(existing),
+            sequence[:3],
+            sequence[-3:] if sequence else [],
+            len(unique_sources),
+            min_page_index,
+            max_page_index,
+        )
+
+        short_circuited = sequence == existing
+        if short_circuited:
+            logger.debug(
+                "Final preview model rebuild skipped final_preview_pages_len=%s reused_heights=%s default_heights=%s short_circuited=%s",
+                len(self._final_preview_pages),
+                0,
+                0,
+                short_circuited,
+            )
             return
 
         self._final_preview_visible_indices = set()
@@ -617,6 +640,8 @@ class PdfMergeController:
             (page.source_path, page.page_index): page.estimated_height
             for page in self._final_preview_pages
         }
+        reused_heights = sum(1 for source_path, page_index in sequence if (source_path, page_index) in previous_heights)
+        default_heights = len(sequence) - reused_heights
         self._final_preview_pages = [
             FinalPreviewPage(
                 source_path=source_path,
@@ -628,6 +653,13 @@ class PdfMergeController:
             )
             for source_path, page_index in sequence
         ]
+        logger.debug(
+            "Final preview model rebuilt final_preview_pages_len=%s reused_heights=%s default_heights=%s short_circuited=%s",
+            len(self._final_preview_pages),
+            reused_heights,
+            default_heights,
+            short_circuited,
+        )
         self._recompute_final_preview_offsets()
 
     def _recompute_final_preview_offsets(self) -> None:

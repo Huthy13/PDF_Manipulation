@@ -60,6 +60,7 @@ class PdfMergeController:
         self._final_preview_offsets: list[int] = [0]
         self._final_preview_total_height = 0
         self._final_preview_visible_indices: set[int] = set()
+        self._final_preview_rendered_indices: set[int] = set()
         self._final_preview_anchor_fraction = 0.0
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
@@ -253,6 +254,8 @@ class PdfMergeController:
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
+        self._final_preview_visible_indices = set()
+        self._final_preview_rendered_indices = set()
         self.refresh_list()
 
     def on_reverse_selected(self) -> None:
@@ -372,6 +375,7 @@ class PdfMergeController:
 
     def show_preview_text(self, text: str) -> None:
         self._preview_image_refs = []
+        self._final_preview_rendered_indices = set()
         def build() -> list[tk.Widget]:
             return [
                 ttk.Label(
@@ -388,6 +392,7 @@ class PdfMergeController:
     def show_preview_image(self, image: ImageTk.PhotoImage, reset_scroll: bool = True) -> None:
         self._preview_image_refs = [image]
         self._final_preview_visible_indices = set()
+        self._final_preview_rendered_indices = set()
         def build() -> list[tk.Widget]:
             preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
             preview.image = image
@@ -398,6 +403,7 @@ class PdfMergeController:
     def show_preview_images(self, images: list[ImageTk.PhotoImage], preserve_scroll: bool = False) -> None:
         self._preview_image_refs = list(images)
         self._final_preview_visible_indices = set()
+        self._final_preview_rendered_indices = set()
         def build() -> list[tk.Widget]:
             widgets: list[tk.Widget] = []
             for image in images:
@@ -602,6 +608,9 @@ class PdfMergeController:
         if sequence == existing:
             return
 
+        self._final_preview_visible_indices = set()
+        self._final_preview_rendered_indices = set()
+
         previous_heights = {
             (page.source_path, page.page_index): page.estimated_height
             for page in self._final_preview_pages
@@ -679,7 +688,8 @@ class PdfMergeController:
                 return
 
             requested_indices = set(range(start_idx, end_idx + 1))
-            if preserve_anchor and requested_indices == self._final_preview_visible_indices:
+            self._final_preview_visible_indices = requested_indices
+            if preserve_anchor and requested_indices == self._final_preview_rendered_indices:
                 logger.debug("Skipping virtual render; visible window unchanged indices=%s", sorted(requested_indices))
                 self._final_preview_syncing_scrollbar = True
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
@@ -701,9 +711,10 @@ class PdfMergeController:
             top, bottom = self._visible_virtual_window()
             start_idx, end_idx = self._visible_page_range(top, bottom)
             logger.debug("Virtual preview window recomputed top=%s bottom=%s start_idx=%s end_idx=%s", top, bottom, start_idx, end_idx)
+            final_requested_indices = set(range(start_idx, end_idx + 1))
+            self._final_preview_visible_indices = final_requested_indices
 
             self._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
-            self._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
 
             for idx in range(start_idx, end_idx + 1):
                 if idx in images_by_index:
@@ -737,6 +748,7 @@ class PdfMergeController:
                 return widgets
 
             self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
+            self._final_preview_rendered_indices = final_requested_indices
             logger.debug("Rendered virtual preview indices=%s top_spacer=%s bottom_spacer=%s", list(range(start_idx, end_idx + 1)), top_spacer, bottom_spacer)
             self._final_preview_syncing_scrollbar = True
             try:
@@ -758,6 +770,7 @@ class PdfMergeController:
         if self.view.preview_mode.get() == self.view.PREVIEW_SINGLE:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
+            self._final_preview_rendered_indices = set()
             idx = self.selected_index()
             if idx is None:
                 idx = 0
@@ -785,6 +798,7 @@ class PdfMergeController:
         else:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
+            self._final_preview_rendered_indices = set()
             images: list[ImageTk.PhotoImage] = []
             for page in self.model.sequence:
                 rendered = self.render_preview_image(page.source_path, page.page_index)

@@ -227,6 +227,27 @@ def test_current_preview_key_uses_sequence_version_instead_of_sequence_signature
     assert bumped_key != second_key
 
 
+def test_resolve_zoom_fit_preview_uses_image_dimension_attributes() -> None:
+    controller = _build_controller(mode="single", width=1000, height=800)
+    controller.view.fit_preview.set(True)
+
+    rendered = Image.new("RGB", (2000, 1000), color="white")
+    calls: list[float] = []
+
+    class FakePreviewService:
+        def render(self, source_path: str, page_index: int, zoom: float) -> Image.Image:
+            calls.append(zoom)
+            return rendered
+
+    controller.preview_service = FakePreviewService()
+
+    fit_zoom, fit_rendered = controller._resolve_zoom("doc.pdf", 0)
+
+    assert fit_rendered is rendered
+    assert fit_zoom < controller.preview_zoom
+    assert len(calls) == 2
+
+
 def test_final_preview_drops_stale_generation_results() -> None:
     controller = _build_controller(mode="final")
     draw_calls: list[tuple[int, int, int]] = []

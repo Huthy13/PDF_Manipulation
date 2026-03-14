@@ -669,15 +669,17 @@ class PdfMergeController:
         clamped = max(0, min(virtual_top, max_start))
         self._final_preview_anchor_fraction = 0.0 if max_start == 0 else clamped / max_start
 
-    def _render_virtual_final_preview(self, preserve_anchor: bool) -> None:
+    def _render_virtual_final_preview(self, preserve_anchor: bool) -> bool:
         if self._final_preview_rendering:
-            return
+            logger.debug("Skipping virtual final preview render; renderer already active")
+            return False
         self._final_preview_rendering = True
         logger.debug("Rendering virtual final preview preserve_anchor=%s anchor=%.4f pages=%s", preserve_anchor, self._final_preview_anchor_fraction, len(self._final_preview_pages))
         try:
             if not self._final_preview_pages:
+                logger.debug("Skipping virtual final preview render; no final preview pages available")
                 self.show_preview_text("Open one or more PDFs to begin.")
-                return
+                return False
             if not preserve_anchor:
                 self._set_virtual_anchor(0)
 
@@ -685,7 +687,8 @@ class PdfMergeController:
             start_idx, end_idx = self._visible_page_range(top, bottom)
             logger.debug("Virtual preview window top=%s bottom=%s start_idx=%s end_idx=%s", top, bottom, start_idx, end_idx)
             if end_idx < start_idx:
-                return
+                logger.debug("Skipping virtual preview render; visible page range is empty")
+                return False
 
             requested_indices = set(range(start_idx, end_idx + 1))
             self._final_preview_visible_indices = requested_indices
@@ -694,14 +697,15 @@ class PdfMergeController:
                 self._final_preview_syncing_scrollbar = True
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
                 self._final_preview_syncing_scrollbar = False
-                return
+                return False
 
             images_by_index: dict[int, ImageTk.PhotoImage] = {}
             for idx in range(start_idx, end_idx + 1):
                 descriptor = self._final_preview_pages[idx]
                 rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
                 if rendered is None:
-                    return
+                    logger.debug("Virtual preview image render returned None for idx=%s source=%s page=%s", idx, descriptor.source_path, descriptor.page_index)
+                    return False
                 images_by_index[idx] = rendered
                 measured_height = max(rendered.height(), 1)
                 if measured_height != descriptor.estimated_height:
@@ -722,7 +726,8 @@ class PdfMergeController:
                 descriptor = self._final_preview_pages[idx]
                 rendered = self.render_preview_image(descriptor.source_path, descriptor.page_index)
                 if rendered is None:
-                    return
+                    logger.debug("Virtual preview image render returned None after recompute for idx=%s source=%s page=%s", idx, descriptor.source_path, descriptor.page_index)
+                    return False
                 images_by_index[idx] = rendered
 
             top_spacer = self._final_preview_offsets[start_idx]
@@ -755,6 +760,7 @@ class PdfMergeController:
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
             finally:
                 self._final_preview_syncing_scrollbar = False
+            return True
         finally:
             self._final_preview_rendering = False
             logger.debug("Virtual final preview render complete")
@@ -794,7 +800,10 @@ class PdfMergeController:
 
         if self.USE_VIRTUAL_FINAL_PREVIEW:
             self._build_final_preview_model()
-            self._render_virtual_final_preview(preserve_anchor=True)
+            rendered = self._render_virtual_final_preview(preserve_anchor=True)
+            if not rendered:
+                logger.debug("Final preview render was not committed; keeping previous preview render key for retry")
+                return
         else:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()

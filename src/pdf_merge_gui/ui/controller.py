@@ -35,6 +35,7 @@ class PdfMergeController:
     RESIZE_DEBOUNCE_MS = 120
     FINAL_RESIZE_DEBOUNCE_MS = 180
     FINAL_RESIZE_SETTLE_MS = 240
+    FINAL_SCROLL_RENDER_DEBOUNCE_MS = 24
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
 
     def __init__(self, master: tk.Tk) -> None:
@@ -46,6 +47,7 @@ class PdfMergeController:
         self.preview_zoom = self.DEFAULT_ZOOM
         self._pending_resize_after: Optional[str] = None
         self._pending_final_resize_settle_after: Optional[str] = None
+        self._pending_final_scroll_render_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
         self._last_preview_canvas_size: tuple[int, int] = (0, 0)
         self._preview_image_refs: list[ImageTk.PhotoImage] = []
@@ -92,6 +94,15 @@ class PdfMergeController:
         self.refresh_list()
 
     def on_close(self) -> None:
+        if self._pending_resize_after is not None:
+            self.master.after_cancel(self._pending_resize_after)
+            self._pending_resize_after = None
+        if self._pending_final_resize_settle_after is not None:
+            self.master.after_cancel(self._pending_final_resize_settle_after)
+            self._pending_final_resize_settle_after = None
+        if self._pending_final_scroll_render_after is not None:
+            self.master.after_cancel(self._pending_final_scroll_render_after)
+            self._pending_final_scroll_render_after = None
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
@@ -494,6 +505,19 @@ class PdfMergeController:
         except ValueError:
             return
         self._final_preview_anchor_fraction = max(0.0, min(1.0, first_fraction))
+        if self._pending_final_scroll_render_after is not None:
+            return
+        self._pending_final_scroll_render_after = self.master.after(
+            self.FINAL_SCROLL_RENDER_DEBOUNCE_MS,
+            self._render_final_preview_from_scroll,
+        )
+
+    def _render_final_preview_from_scroll(self) -> None:
+        self._pending_final_scroll_render_after = None
+        if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
+            return
+        if self._final_preview_rendering:
+            return
         self._render_virtual_final_preview(preserve_anchor=True)
 
     def render_preview_image(self, source_path: str, page_index: int) -> Optional[ImageTk.PhotoImage]:
@@ -598,6 +622,8 @@ class PdfMergeController:
         self._final_preview_anchor_fraction = 0.0 if max_start == 0 else clamped / max_start
 
     def _render_virtual_final_preview(self, preserve_anchor: bool) -> None:
+        if self._final_preview_rendering:
+            return
         self._final_preview_rendering = True
         try:
             if not self._final_preview_pages:
@@ -609,6 +635,13 @@ class PdfMergeController:
             top, bottom = self._visible_virtual_window()
             start_idx, end_idx = self._visible_page_range(top, bottom)
             if end_idx < start_idx:
+                return
+
+            requested_indices = set(range(start_idx, end_idx + 1))
+            if preserve_anchor and requested_indices == self._final_preview_visible_indices:
+                self._final_preview_syncing_scrollbar = True
+                self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
+                self._final_preview_syncing_scrollbar = False
                 return
 
             images_by_index: dict[int, ImageTk.PhotoImage] = {}

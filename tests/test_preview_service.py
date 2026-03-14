@@ -60,3 +60,24 @@ def test_preview_service_tracks_eviction_metrics_by_reason(monkeypatch) -> None:
     service.render("a.pdf", 1, 1.0, mode="final")
 
     assert telemetry.get_count("preview_cache_eviction", tags={"reason": "memory"}) == 1
+
+
+@dataclass
+class _FakePropertyImage:
+    width: int
+    height: int
+
+
+def test_preview_service_accepts_property_dimensions_for_cost(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "pdf_merge_gui.services.preview_service.render_page",
+        lambda _source, _index, zoom, quality_tier: _FakePropertyImage(width=12, height=8),
+    )
+    monkeypatch.setattr("pdf_merge_gui.services.preview_service.ImageTk.PhotoImage", lambda image: image)
+
+    service = PreviewService(cache_size=10, max_pixel_cost=10_000)
+    rendered = service.render("a.pdf", 0, 1.0, mode="single")
+
+    assert rendered.width == 12
+    assert rendered.height == 8
+    assert service.cache.total_cost == 12 * 8 * 4

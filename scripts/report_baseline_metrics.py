@@ -52,6 +52,10 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _count_metric_total(telemetry: Telemetry, name: str) -> int:
+    return sum(count for (metric_name, _tags), count in telemetry._counts.items() if metric_name == name)
+
+
 def collect_metrics(pdf_paths: list[Path]) -> dict[str, dict[str, float | int]]:
     telemetry = Telemetry(enabled=True)
     telemetry_module.DEFAULT_TELEMETRY = telemetry
@@ -84,8 +88,8 @@ def collect_metrics(pdf_paths: list[Path]) -> dict[str, dict[str, float | int]]:
 
     load_timing = telemetry.get_timing("load_pdf_pages")
     export_timing = telemetry.get_timing("write_merged")
-    cache_hit_count = telemetry.get_count("preview_cache_hit")
-    cache_miss_count = telemetry.get_count("preview_cache_miss")
+    cache_hit_count = _count_metric_total(telemetry, "preview_cache_hit")
+    cache_miss_count = _count_metric_total(telemetry, "preview_cache_miss")
     cache_total = cache_hit_count + cache_miss_count
     cache_hit_ratio = cache_hit_count / cache_total if cache_total else 0.0
 

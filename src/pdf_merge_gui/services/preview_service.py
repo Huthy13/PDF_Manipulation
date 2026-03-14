@@ -29,8 +29,18 @@ class PreviewService:
         return round(bucketed, 2)
 
     @staticmethod
-    def _estimate_pixel_cost(image: ImageTk.PhotoImage) -> int:
-        return max(1, image.width() * image.height() * 4)
+    def _dimension_to_int(value: object) -> int:
+        if callable(value):
+            value = value()
+        if isinstance(value, (int, float)):
+            return int(value)
+        raise TypeError(f"unsupported preview image dimension type: {type(value).__name__}")
+
+    @classmethod
+    def _estimate_pixel_cost(cls, image: ImageTk.PhotoImage) -> int:
+        width = cls._dimension_to_int(getattr(image, "width"))
+        height = cls._dimension_to_int(getattr(image, "height"))
+        return max(1, width * height * 4)
 
     def _on_cache_evict(
         self,

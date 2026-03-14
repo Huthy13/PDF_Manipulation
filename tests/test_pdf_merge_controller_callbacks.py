@@ -85,6 +85,7 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._final_preview_last_scroll_sample = None
     controller._final_preview_syncing_scrollbar = False
     controller._final_preview_rendering = False
+    controller._final_preview_offsets = [0]
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
     controller._pending_preview_scroll_restore = None
@@ -204,6 +205,7 @@ def test_virtual_preview_render_submits_visible_and_neighbor_jobs() -> None:
         controller_module.FinalPreviewPage(source_path=f"doc-{idx}.pdf", page_index=idx, estimated_height=900)
         for idx in range(10)
     ]
+    controller._recompute_final_preview_offsets()
     controller._visible_virtual_window = lambda: (0, 1000)
     controller._visible_page_range = lambda top, bottom: (3, 4)
     submitted: list[tuple[int, int, str]] = []
@@ -211,6 +213,7 @@ def test_virtual_preview_render_submits_visible_and_neighbor_jobs() -> None:
     controller._submit_preview_job = lambda token, page_slot, descriptor, zoom: submitted.append(
         (token, page_slot, descriptor.source_path)
     )
+    controller._show_virtual_placeholder_window = lambda start_idx, end_idx: None
     poll_calls: list[int] = []
     controller._schedule_preview_render_poll = lambda delay_ms=12: poll_calls.append(delay_ms)
 
@@ -221,6 +224,27 @@ def test_virtual_preview_render_submits_visible_and_neighbor_jobs() -> None:
     assert submitted_slots == [3, 4, 2, 5, 1, 6]
 
 
+
+
+def test_virtual_preview_render_mounts_placeholder_window_for_visible_range() -> None:
+    controller = _build_controller(mode="final")
+    controller.preview_zoom = 1.5
+    controller._final_preview_pages = [
+        controller_module.FinalPreviewPage(source_path=f"doc-{idx}.pdf", page_index=idx, estimated_height=900)
+        for idx in range(8)
+    ]
+    controller._recompute_final_preview_offsets()
+    controller._visible_virtual_window = lambda: (0, 1000)
+    controller._visible_page_range = lambda top, bottom: (2, 3)
+
+    placeholder_ranges: list[tuple[int, int]] = []
+    controller._show_virtual_placeholder_window = lambda start_idx, end_idx: placeholder_ranges.append((start_idx, end_idx))
+    controller._submit_preview_job = lambda *args, **kwargs: None
+    controller._schedule_preview_render_poll = lambda delay_ms=12: None
+
+    controller._render_virtual_final_preview(preserve_anchor=True)
+
+    assert placeholder_ranges == [(2, 3)]
 def test_apply_render_results_discards_stale_generation() -> None:
     controller = _build_controller(mode="final")
     controller._preview_render_generation = 5

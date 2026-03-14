@@ -763,6 +763,34 @@ class PdfMergeController:
             descriptor = self._final_preview_pages[slot]
             self._submit_preview_job(token, slot, descriptor, zoom)
 
+    def _show_virtual_placeholder_window(self, start_idx: int, end_idx: int) -> None:
+        """Mount only the current virtual window while async renders are in flight."""
+        top_spacer = self._final_preview_offsets[start_idx]
+        bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[end_idx + 1], 0)
+
+        def build() -> list[tk.Widget]:
+            widgets: list[tk.Widget] = []
+            if top_spacer:
+                spacer_top = ttk.Frame(self.view.preview_content, height=top_spacer)
+                spacer_top.grid_propagate(False)
+                widgets.append(spacer_top)
+
+            for idx in range(start_idx, end_idx + 1):
+                placeholder = ttk.Frame(
+                    self.view.preview_content,
+                    height=self._final_preview_pages[idx].logical_height,
+                )
+                placeholder.grid_propagate(False)
+                widgets.append(placeholder)
+
+            if bottom_spacer:
+                spacer_bottom = ttk.Frame(self.view.preview_content, height=bottom_spacer)
+                spacer_bottom.grid_propagate(False)
+                widgets.append(spacer_bottom)
+            return widgets
+
+        self._show_preview_widgets(build, reset_scroll=False)
+
 
     def _sequence_signature(self) -> tuple[tuple[str, int], ...]:
         return tuple((page.source_path, page.page_index) for page in self.model.sequence)
@@ -881,6 +909,8 @@ class PdfMergeController:
                 return
 
             self._final_preview_visible_indices = requested_indices
+            # Keep mounted widgets constrained to the active virtual range.
+            self._show_virtual_placeholder_window(start_idx, end_idx)
             token = self._next_preview_generation()
             zoom = self.preview_zoom
             for idx in range(start_idx, end_idx + 1):

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
+import pdf_merge_gui.ui.controller as controller_module
 from pdf_merge_gui.ui.controller import PdfMergeController
 
 
@@ -79,6 +80,8 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._pending_final_scroll_render_after = None
     controller._last_preview_canvas_size = (0, 0)
     controller._final_preview_anchor_fraction = 0.0
+    controller._final_preview_dynamic_overscan_pages = controller.FINAL_PREVIEW_OVERSCAN_PAGES
+    controller._final_preview_last_scroll_sample = None
     controller._final_preview_syncing_scrollbar = False
     controller._final_preview_rendering = False
     controller._final_preview_total_height = 5_000
@@ -146,3 +149,42 @@ def test_final_resize_debounced_handler_guards_render_and_settles() -> None:
     controller._on_final_resize_settled()
 
     assert render_calls == [True]
+
+
+def test_virtual_preview_overscan_expands_with_scroll_velocity(monkeypatch) -> None:
+    controller = _build_controller(mode="final")
+
+    now = 100.0
+
+    def fake_monotonic() -> float:
+        return now
+
+    monkeypatch.setattr(controller_module, "monotonic", fake_monotonic)
+
+    controller._on_preview_canvas_yscroll("0.10", "0.30")
+    assert controller._current_overscan_pages() == controller.FINAL_PREVIEW_OVERSCAN_PAGES
+
+    now += 0.01
+    controller._on_preview_canvas_yscroll("0.42", "0.58")
+
+    assert controller._current_overscan_pages() > controller.FINAL_PREVIEW_OVERSCAN_PAGES
+    assert controller._current_overscan_pages() <= controller.FINAL_PREVIEW_MAX_OVERSCAN_PAGES
+
+
+def test_virtual_preview_overscan_returns_to_base_after_idle(monkeypatch) -> None:
+    controller = _build_controller(mode="final")
+
+    now = 200.0
+
+    def fake_monotonic() -> float:
+        return now
+
+    monkeypatch.setattr(controller_module, "monotonic", fake_monotonic)
+
+    controller._on_preview_canvas_yscroll("0.15", "0.40")
+    now += 0.01
+    controller._on_preview_canvas_yscroll("0.50", "0.70")
+    assert controller._current_overscan_pages() > controller.FINAL_PREVIEW_OVERSCAN_PAGES
+
+    now += (controller.FINAL_PREVIEW_OVERSCAN_IDLE_RESET_MS / 1000) + 0.01
+    assert controller._current_overscan_pages() == controller.FINAL_PREVIEW_OVERSCAN_PAGES

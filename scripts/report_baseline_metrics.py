@@ -60,9 +60,6 @@ def collect_metrics(pdf_paths: list[Path]) -> dict[str, dict[str, float | int]]:
     for path in pdf_paths:
         model.add_pdf(str(path))
 
-    from pdf_merge_gui.services import preview_service as preview_module
-
-    preview_module.ImageTk.PhotoImage = lambda image: image  # type: ignore[assignment,misc]
     preview = PreviewService(cache_size=128)
     preview_targets: list[tuple[str, int, float]] = []
     for path in pdf_paths:
@@ -74,6 +71,7 @@ def collect_metrics(pdf_paths: list[Path]) -> dict[str, dict[str, float | int]]:
     for _ in range(20):
         for source_path, page_index, zoom in preview_targets:
             preview.render(source_path, page_index, zoom)
+    preview.shutdown()
 
     selected = model.sequence[:20]
     model.sequence.clear()

@@ -591,9 +591,9 @@ class PdfMergeController:
 
     def render_preview_image(self, source_path: str, page_index: int) -> Optional[ImageTk.PhotoImage]:
         try:
-            effective_zoom, rendered = self._resolve_zoom(source_path, page_index)
+            effective_zoom, _rendered = self._resolve_zoom(source_path, page_index)
             self._update_zoom_label(effective_zoom=effective_zoom)
-            return ImageTk.PhotoImage(rendered)
+            return self.preview_service.render(source_path, page_index, effective_zoom)
         except PreviewDependencyUnavailable as exc:
             self._update_zoom_label()
             self.show_preview_text(f"Preview unavailable\n\n{exc}")

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Protocol
 
 from PIL import Image
 
-from .preview_service import PreviewService
+class PreviewRenderable(Protocol):
+    def render_pil(self, source_path: str, page_index: int, zoom: float) -> Image.Image:
+        ...
 
 
 @dataclass(frozen=True)
@@ -29,7 +31,7 @@ class PreviewRenderResult:
 
 
 class PreviewRenderExecutor:
-    def __init__(self, preview_service: PreviewService, max_workers: Optional[int] = None) -> None:
+    def __init__(self, preview_service: PreviewRenderable, max_workers: Optional[int] = None) -> None:
         self._preview_service = preview_service
         self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="preview-render")
 

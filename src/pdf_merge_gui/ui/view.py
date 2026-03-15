@@ -271,11 +271,11 @@ class PdfMergeView(ttk.Frame):
         content_height = max(self.preview_content.winfo_reqheight(), 1)
 
         x_pos = max((canvas_width - content_width) // 2, 0)
-        y_pos = max((canvas_height - content_height) // 2, 0)
+        y_pos = 0
         self.preview_canvas.coords(self.preview_window, x_pos, y_pos)
 
-        region_width = max(content_width + (2 * x_pos), canvas_width)
-        region_height = max(content_height + (2 * y_pos), canvas_height)
+        region_width = max(content_width, canvas_width)
+        region_height = max(content_height, canvas_height)
         self.preview_canvas.configure(scrollregion=(0, 0, region_width, region_height))
 
     def on_preview_content_configure(self, _event: tk.Event) -> None:

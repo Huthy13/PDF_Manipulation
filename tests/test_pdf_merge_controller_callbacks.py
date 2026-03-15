@@ -33,6 +33,7 @@ class FakeVScroll:
 class FakeCanvas:
     width: int = 1024
     height: int = 768
+    scrollregion: str = "0 0 1024 768"
     yview_calls: list[float] | None = None
 
     def winfo_width(self) -> int:
@@ -40,6 +41,12 @@ class FakeCanvas:
 
     def winfo_height(self) -> int:
         return self.height
+
+
+    def cget(self, option: str) -> str:
+        if option == "scrollregion":
+            return self.scrollregion
+        raise KeyError(option)
 
     def yview_moveto(self, fraction: float) -> None:
         if self.yview_calls is None:
@@ -106,6 +113,7 @@ def _build_controller(
     controller._final_preview_rendering = False
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
+    controller._final_preview_render_window = None
     return controller
 
 
@@ -338,3 +346,56 @@ def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heig
 
     assert controller._final_preview_visible_indices
     assert measured["content_height"] <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
+
+
+def test_on_preview_canvas_yscroll_maps_rendered_space_to_logical_anchor_for_clamped_virtualization() -> None:
+    controller = _build_controller(mode="final", height=500)
+    controller._final_preview_total_height = 100_000
+    controller.view.preview_canvas.scrollregion = "0 0 1024 16000"
+    controller._final_preview_render_window = controller_module.FinalPreviewRenderWindow(
+        render_start_idx=30,
+        render_end_idx=45,
+        logical_start_offset=30_000,
+        top_spacer=3_000,
+        bottom_spacer=4_000,
+        rendered_block_height=9_000,
+        content_height=16_000,
+    )
+
+    anchors: list[float] = []
+    for first in ("0.10", "0.20", "0.40", "0.60"):
+        controller._on_preview_canvas_yscroll(first, "0.80")
+        anchors.append(controller._final_preview_anchor_fraction)
+
+    assert anchors == sorted(anchors)
+    assert anchors[-1] - anchors[0] > 0.02
+
+
+def test_on_preview_canvas_yscroll_clamps_logical_anchor_when_rendered_fraction_hits_extremes() -> None:
+    controller = _build_controller(mode="final", height=500)
+    controller._final_preview_total_height = 10_500
+    controller.view.preview_canvas.scrollregion = "0 0 1024 3000"
+
+    controller._final_preview_render_window = controller_module.FinalPreviewRenderWindow(
+        render_start_idx=0,
+        render_end_idx=5,
+        logical_start_offset=100,
+        top_spacer=2_400,
+        bottom_spacer=100,
+        rendered_block_height=500,
+        content_height=3_000,
+    )
+    controller._on_preview_canvas_yscroll("0.0", "0.3")
+    assert controller._final_preview_anchor_fraction == 0.0
+
+    controller._final_preview_render_window = controller_module.FinalPreviewRenderWindow(
+        render_start_idx=0,
+        render_end_idx=5,
+        logical_start_offset=9_900,
+        top_spacer=0,
+        bottom_spacer=100,
+        rendered_block_height=500,
+        content_height=3_000,
+    )
+    controller._on_preview_canvas_yscroll("1.0", "1.0")
+    assert controller._final_preview_anchor_fraction == 1.0

@@ -25,6 +25,17 @@ class FinalPreviewPage:
     logical_height: int = 1
 
 
+@dataclass
+class FinalPreviewRenderWindow:
+    render_start_idx: int
+    render_end_idx: int
+    logical_start_offset: int
+    top_spacer: int
+    bottom_spacer: int
+    rendered_block_height: int
+    content_height: int
+
+
 class PdfMergeController:
     MIN_ZOOM = 0.4
     MAX_ZOOM = 4.0
@@ -60,6 +71,7 @@ class PdfMergeController:
         self._final_preview_total_height = 0
         self._final_preview_visible_indices: set[int] = set()
         self._final_preview_anchor_fraction = 0.0
+        self._final_preview_render_window: Optional[FinalPreviewRenderWindow] = None
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
 
@@ -528,9 +540,35 @@ class PdfMergeController:
             first_fraction = float(first)
         except ValueError:
             return
-        self._final_preview_anchor_fraction = max(0.0, min(1.0, first_fraction))
+        first_fraction = max(0.0, min(1.0, first_fraction))
+        viewport_height = max(self.view.preview_canvas.winfo_height(), 1)
+        scrollregion = self.view.preview_canvas.cget("scrollregion")
+        rendered_content_height = viewport_height
+        if isinstance(scrollregion, str) and scrollregion.strip():
+            parts = scrollregion.split()
+            if len(parts) == 4:
+                try:
+                    y1 = float(parts[1])
+                    y2 = float(parts[3])
+                    rendered_content_height = max(int(y2 - y1), viewport_height)
+                except ValueError:
+                    rendered_content_height = viewport_height
+        rendered_max_start = max(rendered_content_height - viewport_height, 0)
+        rendered_top = first_fraction * rendered_max_start
+
+        mapping = self._final_preview_render_window
+        if mapping is None:
+            self._final_preview_anchor_fraction = first_fraction
+            logical_top = 0.0
+        else:
+            logical_top = mapping.logical_start_offset + (rendered_top - mapping.top_spacer)
+            max_start = max(self._final_preview_total_height - viewport_height, 0)
+            logical_top = max(0.0, min(logical_top, float(max_start)))
+            self._final_preview_anchor_fraction = 0.0 if max_start == 0 else logical_top / max_start
         self._log_preview_debug(
-            f"_on_preview_canvas_yscroll anchor_updated={self._final_preview_anchor_fraction:.6f}"
+            f"_on_preview_canvas_yscroll anchor_updated={self._final_preview_anchor_fraction:.6f} "
+            f"first_fraction={first_fraction:.6f} rendered_top={rendered_top:.2f} "
+            f"rendered_max_start={rendered_max_start} logical_top={logical_top:.2f}"
         )
         if self._pending_final_scroll_render_after is not None:
             return
@@ -729,6 +767,7 @@ class PdfMergeController:
         self._final_preview_rendering = True
         try:
             if not self._final_preview_pages:
+                self._final_preview_render_window = None
                 self.show_preview_text("Open one or more PDFs to begin.")
                 return
             if not preserve_anchor:
@@ -815,10 +854,10 @@ class PdfMergeController:
                     bottom_spacer = spacer_budget - top_spacer
 
             content_height = top_spacer + rendered_block_height + bottom_spacer
+            logical_start_offset = self._final_preview_offsets[start_idx]
             if clamped:
                 logical_top = top
-                visible_logical_top = self._final_preview_offsets[start_idx]
-                logical_offset_in_block = max(logical_top - visible_logical_top, 0)
+                logical_offset_in_block = max(logical_top - logical_start_offset, 0)
                 rendered_max_start = max(content_height - max(self.view.preview_canvas.winfo_height(), 1), 0)
                 rendered_offset_in_block = min(logical_offset_in_block, max(rendered_block_height - 1, 0))
                 rendered_top = min(top_spacer + rendered_offset_in_block, rendered_max_start)
@@ -828,6 +867,16 @@ class PdfMergeController:
                     f"start_idx={start_idx} end_idx={end_idx} rendered_block_height={rendered_block_height} "
                     f"top_spacer={top_spacer} bottom_spacer={bottom_spacer} content_height={content_height}"
                 )
+
+            self._final_preview_render_window = FinalPreviewRenderWindow(
+                render_start_idx=start_idx,
+                render_end_idx=end_idx,
+                logical_start_offset=logical_start_offset,
+                top_spacer=top_spacer,
+                bottom_spacer=bottom_spacer,
+                rendered_block_height=rendered_block_height,
+                content_height=content_height,
+            )
 
             top_chunks = len(self._build_spacer_widgets(top_spacer))
             bottom_chunks = len(self._build_spacer_widgets(bottom_spacer))

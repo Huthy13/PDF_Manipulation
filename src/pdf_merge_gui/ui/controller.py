@@ -591,10 +591,15 @@ class PdfMergeController:
             f"first_fraction={first_fraction:.6f} rendered_top={rendered_top:.2f} "
             f"rendered_max_start={rendered_max_start} logical_top={logical_top:.2f}"
         )
-        anchor_delta_from_last_render = abs(
-            self._final_preview_anchor_fraction - self._final_preview_last_scroll_render_anchor
+        last_scroll_render_anchor = getattr(
+            self,
+            "_final_preview_last_scroll_render_anchor",
+            previous_anchor,
         )
-        if anchor_delta_from_last_render < self.FINAL_SCROLL_RENDER_ANCHOR_EPSILON:
+        anchor_delta_from_last_render = abs(
+            self._final_preview_anchor_fraction - last_scroll_render_anchor
+        )
+        if mapping is not None and anchor_delta_from_last_render < self.FINAL_SCROLL_RENDER_ANCHOR_EPSILON:
             self._log_preview_debug(
                 f"_on_preview_canvas_yscroll skip_scroll_render "
                 f"anchor_delta_from_last_render={anchor_delta_from_last_render:.6f} "
@@ -620,12 +625,13 @@ class PdfMergeController:
 
     def _sync_canvas_scroll_to_fraction(self, fraction: float) -> bool:
         target_fraction = max(0.0, min(1.0, fraction))
-        current_view = self.view.preview_canvas.yview()
-        if not current_view:
-            return False
-        current_fraction = current_view[0]
-        if abs(current_fraction - target_fraction) < self.FINAL_SCROLL_SYNC_EPSILON:
-            return False
+        current_view_getter = getattr(self.view.preview_canvas, "yview", None)
+        if callable(current_view_getter):
+            current_view = current_view_getter()
+            if current_view:
+                current_fraction = current_view[0]
+                if abs(current_fraction - target_fraction) < self.FINAL_SCROLL_SYNC_EPSILON:
+                    return False
         self._final_preview_syncing_scrollbar = True
         try:
             self.view.preview_canvas.yview_moveto(target_fraction)

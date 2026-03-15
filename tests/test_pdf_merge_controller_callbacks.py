@@ -41,12 +41,21 @@ class FakeCanvas:
         return self.height
 
 
+class FakeTk:
+    def __init__(self, windowing_system: str = "x11") -> None:
+        self.windowing_system = windowing_system
+
+    def call(self, *_args: str) -> str:
+        return self.windowing_system
+
+
 class FakeMaster:
-    def __init__(self) -> None:
+    def __init__(self, *, windowing_system: str = "x11") -> None:
         self._next = 0
         self.after_calls: list[tuple[str, int]] = []
         self.after_cancel_calls: list[str] = []
         self.scheduled: dict[str, object] = {}
+        self.tk = FakeTk(windowing_system=windowing_system)
 
     def after(self, delay_ms: int, callback):
         self._next += 1
@@ -72,9 +81,15 @@ class FakeView:
         self.fit_preview = FakeVar(False)
 
 
-def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 768) -> PdfMergeController:
+def _build_controller(
+    *,
+    mode: str = "final",
+    width: int = 1024,
+    height: int = 768,
+    windowing_system: str = "x11",
+) -> PdfMergeController:
     controller = PdfMergeController.__new__(PdfMergeController)
-    controller.master = FakeMaster()
+    controller.master = FakeMaster(windowing_system=windowing_system)
     controller.view = FakeView(mode=mode, width=width, height=height)
     controller._pending_resize_after = None
     controller._pending_final_resize_settle_after = None
@@ -189,3 +204,25 @@ def test_build_spacer_widgets_keeps_single_chunk_below_limit(monkeypatch) -> Non
 
     assert len(spacers) == 1
     assert spacers[0].height == 9_999
+
+
+def test_recompute_final_preview_offsets_applies_win32_safe_scroll_cap(monkeypatch) -> None:
+    controller = _build_controller(mode="final", windowing_system="win32")
+    controller._final_preview_pages = [
+        controller_module.FinalPreviewPage("a.pdf", 0, estimated_height=20_000),
+        controller_module.FinalPreviewPage("a.pdf", 1, estimated_height=20_000),
+    ]
+
+    monkeypatch.setattr(controller_module.sys, "platform", "linux")
+
+    controller._recompute_final_preview_offsets()
+
+    assert controller._final_preview_total_height <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
+
+
+def test_final_preview_safe_scroll_height_uses_default_outside_win32(monkeypatch) -> None:
+    controller = _build_controller(mode="final", windowing_system="x11")
+
+    monkeypatch.setattr(controller_module.sys, "platform", "linux")
+
+    assert controller._final_preview_safe_scroll_height() == controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_DEFAULT

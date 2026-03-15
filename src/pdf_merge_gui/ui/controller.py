@@ -29,7 +29,8 @@ class PdfMergeController:
     MAX_ZOOM = 4.0
     ZOOM_STEP = 0.2
     DEFAULT_ZOOM = 1.5
-    FINAL_PREVIEW_SAFE_SCROLL_HEIGHT = 900_000
+    FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_DEFAULT = 900_000
+    FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32 = 30_000
     FINAL_PREVIEW_PAGE_GAP = 12
     FINAL_PREVIEW_OVERSCAN_PAGES = 2
     FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT = 1300
@@ -588,7 +589,8 @@ class PdfMergeController:
             return
 
         estimated_total = sum(max(page.estimated_height, 1) for page in self._final_preview_pages)
-        available_height = self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT - (len(self._final_preview_pages) * self.FINAL_PREVIEW_PAGE_GAP)
+        safe_scroll_height = self._final_preview_safe_scroll_height()
+        available_height = safe_scroll_height - (len(self._final_preview_pages) * self.FINAL_PREVIEW_PAGE_GAP)
         scale = 1.0 if estimated_total <= max(available_height, 1) else max(available_height, 1) / estimated_total
 
         offsets = [0]
@@ -599,6 +601,17 @@ class PdfMergeController:
             offsets.append(running)
         self._final_preview_offsets = offsets
         self._final_preview_total_height = running
+
+    def _final_preview_safe_scroll_height(self) -> int:
+        if sys.platform == "win32":
+            return self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
+        try:
+            windowing_system = self.master.tk.call("tk", "windowingsystem")
+        except Exception:
+            return self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_DEFAULT
+        if windowing_system == "win32":
+            return self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
+        return self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_DEFAULT
 
     def _visible_virtual_window(self) -> tuple[int, int]:
         viewport_height = max(self.view.preview_canvas.winfo_height(), 1)

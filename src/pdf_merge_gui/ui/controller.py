@@ -13,6 +13,7 @@ from PIL import ImageTk
 from ..model import MergeModel
 from ..preview import PreviewDependencyUnavailable, PreviewRenderError
 from ..services.preview_service import PreviewService
+from .preview_debug_logger import PreviewDebugLogger
 from .view import PdfMergeView
 
 
@@ -61,6 +62,9 @@ class PdfMergeController:
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
 
+        logging_enabled = PreviewDebugLogger.env_override_enabled(default=False)
+        self.preview_debug_logger = PreviewDebugLogger(enabled=logging_enabled)
+
         self.view.open_handler = self.on_open_pdfs
         self.view.move_up_handler = self.on_move_up
         self.view.move_down_handler = self.on_move_down
@@ -77,9 +81,11 @@ class PdfMergeController:
         self.view.zoom_out_handler = self.on_zoom_out
         self.view.zoom_reset_handler = self.on_zoom_reset
         self.view.fit_preview_handler = self.on_toggle_fit_preview
+        self.view.preview_debug_logging_handler = self.on_toggle_preview_debug_logging
         self.view.ctrl_wheel_zoom_handler = self.on_ctrl_wheel_zoom
         self.view.list_drag_drop_handler = self.on_list_drag_drop
         self.view.list_ctrl_range_handler = self.on_list_ctrl_range
+        self.view.preview_debug_logging.set(logging_enabled)
         self.view.bind_handlers()
         self._update_zoom_label()
 
@@ -440,6 +446,17 @@ class PdfMergeController:
     def on_toggle_fit_preview(self) -> None:
         self.update_preview()
 
+    def on_toggle_preview_debug_logging(self) -> None:
+        enabled = bool(self.view.preview_debug_logging.get())
+        self.preview_debug_logger.set_enabled(enabled)
+        self.preview_debug_logger.log(f"preview debug logging enabled={enabled}")
+
+    def _log_preview_debug(self, message: str) -> None:
+        logger = getattr(self, "preview_debug_logger", None)
+        if logger is None:
+            return
+        logger.log(message)
+
     def on_preview_panel_resize(self, _event: tk.Event) -> None:
         if self._pending_resize_after is not None:
             self.master.after_cancel(self._pending_resize_after)
@@ -498,6 +515,10 @@ class PdfMergeController:
 
     def _on_preview_canvas_yscroll(self, first: str, last: str) -> None:
         self.view.preview_vscroll.set(first, last)
+        self._log_preview_debug(
+            f"_on_preview_canvas_yscroll first={first} last={last} anchor_before={self._final_preview_anchor_fraction:.6f} "
+            f"syncing={self._final_preview_syncing_scrollbar} rendering={self._final_preview_rendering}"
+        )
         if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
             return
         if self._final_preview_syncing_scrollbar or self._final_preview_rendering:
@@ -507,6 +528,9 @@ class PdfMergeController:
         except ValueError:
             return
         self._final_preview_anchor_fraction = max(0.0, min(1.0, first_fraction))
+        self._log_preview_debug(
+            f"_on_preview_canvas_yscroll anchor_updated={self._final_preview_anchor_fraction:.6f}"
+        )
         if self._pending_final_scroll_render_after is not None:
             return
         self._pending_final_scroll_render_after = self.master.after(
@@ -601,6 +625,20 @@ class PdfMergeController:
             offsets.append(running)
         self._final_preview_offsets = offsets
         self._final_preview_total_height = running
+        max_spacer = 0
+        if len(offsets) > 1:
+            max_spacer = max(
+                self._final_preview_offsets[0],
+                max(
+                    self._final_preview_offsets[idx + 1] - self._final_preview_offsets[idx]
+                    for idx in range(len(self._final_preview_pages))
+                ),
+            )
+        self._log_preview_debug(
+            f"_recompute_final_preview_offsets estimated_total={estimated_total} scale={scale:.6f} "
+            f"total_height={self._final_preview_total_height} safe_height={safe_scroll_height} "
+            f"max_logical_span={max_spacer}"
+        )
 
     def _final_preview_safe_scroll_height(self) -> int:
         if sys.platform == "win32":
@@ -617,15 +655,26 @@ class PdfMergeController:
         viewport_height = max(self.view.preview_canvas.winfo_height(), 1)
         max_start = max(self._final_preview_total_height - viewport_height, 0)
         virtual_top = int(self._final_preview_anchor_fraction * max_start)
-        return virtual_top, virtual_top + viewport_height
+        window = (virtual_top, virtual_top + viewport_height)
+        self._log_preview_debug(
+            f"_visible_virtual_window anchor={self._final_preview_anchor_fraction:.6f} viewport_height={viewport_height} "
+            f"max_start={max_start} top={window[0]} bottom={window[1]}"
+        )
+        return window
 
     def _visible_page_range(self, top: int, bottom: int) -> tuple[int, int]:
         if not self._final_preview_pages:
+            self._log_preview_debug(
+                f"_visible_page_range top={top} bottom={bottom} pages=0 -> start=0 end=-1"
+            )
             return 0, -1
         start = max(bisect_right(self._final_preview_offsets, top) - 1 - self.FINAL_PREVIEW_OVERSCAN_PAGES, 0)
         end = min(
             bisect_right(self._final_preview_offsets, bottom) - 1 + self.FINAL_PREVIEW_OVERSCAN_PAGES,
             len(self._final_preview_pages) - 1,
+        )
+        self._log_preview_debug(
+            f"_visible_page_range top={top} bottom={bottom} pages={len(self._final_preview_pages)} -> start={start} end={end}"
         )
         return start, end
 
@@ -672,6 +721,10 @@ class PdfMergeController:
                 return
 
             requested_indices = set(range(start_idx, end_idx + 1))
+            self._log_preview_debug(
+                f"_render_virtual_final_preview preserve_anchor={preserve_anchor} start_idx={start_idx} end_idx={end_idx} "
+                f"requested_count={len(requested_indices)} viewport={self.view.preview_canvas.winfo_width()}x{self.view.preview_canvas.winfo_height()}"
+            )
             if preserve_anchor and requested_indices == self._final_preview_visible_indices:
                 self._final_preview_syncing_scrollbar = True
                 self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
@@ -707,6 +760,13 @@ class PdfMergeController:
 
             top_spacer = self._final_preview_offsets[start_idx]
             bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[end_idx + 1], 0)
+            top_chunks = len(self._build_spacer_widgets(top_spacer))
+            bottom_chunks = len(self._build_spacer_widgets(bottom_spacer))
+            self._log_preview_debug(
+                f"_render_virtual_final_preview spacer_stats top={top_spacer} bottom={bottom_spacer} "
+                f"top_chunks={top_chunks} bottom_chunks={bottom_chunks}"
+            )
+
 
             def build() -> list[tk.Widget]:
                 widgets: list[tk.Widget] = []

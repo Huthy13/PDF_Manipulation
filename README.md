@@ -28,10 +28,15 @@ The backend has been split into modular layers to make future feature growth saf
   - `preview_service.py`: preview rendering + bounded LRU cache
 - `src/pdf_merge_gui/adapters/`
   - `pypdf_adapter.py`: PDF read/write adapter and document session reuse
+- `src/pdf_merge_gui/model.py`
+  - `MergeModel`: orchestration façade that owns the `PdfDocumentSession` lifecycle directly
 - `src/pdf_merge_gui/domain/`
   - `models.py`: domain model objects (`PageRef`)
 - `src/pdf_merge_gui/utils/`
   - `cache.py`: reusable LRU cache implementation
+
+Ownership note: PDF merge session lifecycle is owned by `MergeModel` and backed directly by
+`adapters.pypdf_adapter.PdfDocumentSession` (there is no separate document-session service layer).
 
 ## ADR index
 

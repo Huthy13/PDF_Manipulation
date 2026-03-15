@@ -399,3 +399,26 @@ def test_on_preview_canvas_yscroll_clamps_logical_anchor_when_rendered_fraction_
     )
     controller._on_preview_canvas_yscroll("1.0", "1.0")
     assert controller._final_preview_anchor_fraction == 1.0
+
+
+def test_rendered_scroll_fraction_for_anchor_uses_mapping_and_allows_scrolling_up_from_bottom() -> None:
+    controller = _build_controller(mode="final", height=500)
+    controller._final_preview_total_height = 100_500
+    controller._final_preview_render_window = controller_module.FinalPreviewRenderWindow(
+        render_start_idx=80,
+        render_end_idx=99,
+        logical_start_offset=80_000,
+        top_spacer=24_000,
+        bottom_spacer=500,
+        rendered_block_height=5_000,
+        content_height=29_500,
+    )
+
+    controller._final_preview_anchor_fraction = 1.0
+    bottom_fraction = controller._rendered_scroll_fraction_for_anchor()
+    assert bottom_fraction == 1.0
+
+    controller._final_preview_anchor_fraction = 0.75
+    up_fraction = controller._rendered_scroll_fraction_for_anchor()
+    assert 0.0 <= up_fraction < 1.0
+    assert up_fraction < bottom_fraction

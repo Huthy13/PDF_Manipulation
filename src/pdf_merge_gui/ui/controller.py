@@ -526,6 +526,21 @@ class PdfMergeController:
         elif self.view.fit_preview.get():
             self.update_preview()
 
+    def _rendered_scroll_fraction_for_anchor(self) -> float:
+        viewport_height = max(self.view.preview_canvas.winfo_height(), 1)
+        mapping = self._final_preview_render_window
+        if mapping is None:
+            return max(0.0, min(1.0, self._final_preview_anchor_fraction))
+
+        max_start = max(self._final_preview_total_height - viewport_height, 0)
+        logical_top = self._final_preview_anchor_fraction * max_start
+        rendered_top = mapping.top_spacer + (logical_top - mapping.logical_start_offset)
+        rendered_max_start = max(mapping.content_height - viewport_height, 0)
+        rendered_top = max(0.0, min(rendered_top, float(rendered_max_start)))
+        if rendered_max_start == 0:
+            return 0.0
+        return rendered_top / rendered_max_start
+
     def _on_preview_canvas_yscroll(self, first: str, last: str) -> None:
         self.view.preview_vscroll.set(first, last)
         self._log_preview_debug(
@@ -553,10 +568,12 @@ class PdfMergeController:
                     rendered_content_height = max(int(y2 - y1), viewport_height)
                 except ValueError:
                     rendered_content_height = viewport_height
+        mapping = self._final_preview_render_window
+        if mapping is not None:
+            rendered_content_height = max(rendered_content_height, mapping.content_height)
         rendered_max_start = max(rendered_content_height - viewport_height, 0)
         rendered_top = first_fraction * rendered_max_start
 
-        mapping = self._final_preview_render_window
         if mapping is None:
             self._final_preview_anchor_fraction = first_fraction
             logical_top = 0.0
@@ -784,8 +801,9 @@ class PdfMergeController:
                 f"requested_count={len(requested_indices)} viewport={self.view.preview_canvas.winfo_width()}x{self.view.preview_canvas.winfo_height()}"
             )
             if preserve_anchor and requested_indices == self._final_preview_visible_indices:
+                rendered_fraction = self._rendered_scroll_fraction_for_anchor()
                 self._final_preview_syncing_scrollbar = True
-                self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
+                self.view.preview_canvas.yview_moveto(rendered_fraction)
                 self._final_preview_syncing_scrollbar = False
                 return
 
@@ -856,16 +874,10 @@ class PdfMergeController:
             content_height = top_spacer + rendered_block_height + bottom_spacer
             logical_start_offset = self._final_preview_offsets[start_idx]
             if clamped:
-                logical_top = top
-                logical_offset_in_block = max(logical_top - logical_start_offset, 0)
-                rendered_max_start = max(content_height - max(self.view.preview_canvas.winfo_height(), 1), 0)
-                rendered_offset_in_block = min(logical_offset_in_block, max(rendered_block_height - 1, 0))
-                rendered_top = min(top_spacer + rendered_offset_in_block, rendered_max_start)
-                self._final_preview_anchor_fraction = 0.0 if rendered_max_start == 0 else rendered_top / rendered_max_start
                 self._log_preview_debug(
-                    f"_render_virtual_final_preview clamped anchor={self._final_preview_anchor_fraction:.6f} "
-                    f"start_idx={start_idx} end_idx={end_idx} rendered_block_height={rendered_block_height} "
-                    f"top_spacer={top_spacer} bottom_spacer={bottom_spacer} content_height={content_height}"
+                    f"_render_virtual_final_preview clamped start_idx={start_idx} end_idx={end_idx} "
+                    f"rendered_block_height={rendered_block_height} top_spacer={top_spacer} "
+                    f"bottom_spacer={bottom_spacer} content_height={content_height}"
                 )
 
             self._final_preview_render_window = FinalPreviewRenderWindow(
@@ -901,9 +913,10 @@ class PdfMergeController:
                 return widgets
 
             self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
+            rendered_fraction = self._rendered_scroll_fraction_for_anchor()
             self._final_preview_syncing_scrollbar = True
             try:
-                self.view.preview_canvas.yview_moveto(self._final_preview_anchor_fraction)
+                self.view.preview_canvas.yview_moveto(rendered_fraction)
             finally:
                 self._final_preview_syncing_scrollbar = False
         finally:

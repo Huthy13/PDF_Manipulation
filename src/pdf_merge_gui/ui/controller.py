@@ -8,6 +8,7 @@ from typing import Callable, Optional, Sequence
 
 from PIL import ImageTk
 
+from ..domain import PdfLoadError, PdfMergeWriteError, PdfSourceNotFoundError
 from ..model import MergeModel
 from ..preview import PreviewDependencyUnavailable, PreviewRenderError
 from ..services.preview_service import PreviewService
@@ -171,8 +172,20 @@ class PdfMergeController:
         for filepath in filepaths:
             try:
                 self.model.add_pdf(filepath)
-            except Exception as exc:
+            except PdfSourceNotFoundError:
+                messagebox.showerror(
+                    "Could not open PDF",
+                    f"File not found: {Path(filepath).name}",
+                )
+                continue
+            except PdfLoadError as exc:
                 messagebox.showerror("Could not open PDF", f"Failed to load {Path(filepath).name}:\n{exc}")
+                continue
+            except Exception as exc:
+                messagebox.showerror(
+                    "Could not open PDF",
+                    f"Unexpected error loading {Path(filepath).name}:\n{exc}",
+                )
                 continue
             added_any = True
 
@@ -301,8 +314,11 @@ class PdfMergeController:
 
         try:
             self.model.write_merged(output_path)
-        except Exception as exc:
+        except PdfMergeWriteError as exc:
             messagebox.showerror("Merge failed", f"Could not write merged PDF:\n{exc}")
+            return
+        except Exception as exc:
+            messagebox.showerror("Merge failed", f"Unexpected merge failure:\n{exc}")
             return
 
         messagebox.showinfo("Merge complete", f"Merged PDF saved to:\n{output_path}")

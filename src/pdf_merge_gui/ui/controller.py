@@ -51,6 +51,7 @@ class PdfMergeController:
     FINAL_RESIZE_DEBOUNCE_MS = 180
     FINAL_RESIZE_SETTLE_MS = 240
     FINAL_SCROLL_RENDER_DEBOUNCE_MS = 72
+    ZOOM_RENDER_DEBOUNCE_MS = 60
     FINAL_SCROLL_RENDER_ANCHOR_EPSILON = 0.0025
     FINAL_SCROLL_SYNC_EPSILON = 0.001
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
@@ -63,6 +64,7 @@ class PdfMergeController:
 
         self.preview_zoom = self.DEFAULT_ZOOM
         self._pending_resize_after: Optional[str] = None
+        self._pending_zoom_after: Optional[str] = None
         self._pending_final_resize_settle_after: Optional[str] = None
         self._pending_final_scroll_render_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
@@ -121,6 +123,9 @@ class PdfMergeController:
         if self._pending_resize_after is not None:
             self.master.after_cancel(self._pending_resize_after)
             self._pending_resize_after = None
+        if self._pending_zoom_after is not None:
+            self.master.after_cancel(self._pending_zoom_after)
+            self._pending_zoom_after = None
         if self._pending_final_resize_settle_after is not None:
             self.master.after_cancel(self._pending_final_resize_settle_after)
             self._pending_final_resize_settle_after = None
@@ -436,12 +441,14 @@ class PdfMergeController:
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
         self._deactivate_fit_preview()
-        self.update_preview()
+        self._update_zoom_label()
+        self._schedule_zoom_render()
 
     def on_zoom_out(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom - self.ZOOM_STEP)
         self._deactivate_fit_preview()
-        self.update_preview()
+        self._update_zoom_label()
+        self._schedule_zoom_render()
 
     def on_zoom_reset(self) -> None:
         self.preview_zoom = self.DEFAULT_ZOOM
@@ -453,6 +460,19 @@ class PdfMergeController:
             return
         self.preview_zoom = next_zoom
         self._deactivate_fit_preview()
+        self._update_zoom_label()
+        self._schedule_zoom_render()
+
+    def _schedule_zoom_render(self) -> None:
+        if self._pending_zoom_after is not None:
+            self.master.after_cancel(self._pending_zoom_after)
+        self._pending_zoom_after = self.master.after(
+            self.ZOOM_RENDER_DEBOUNCE_MS,
+            self._on_zoom_render_debounced,
+        )
+
+    def _on_zoom_render_debounced(self) -> None:
+        self._pending_zoom_after = None
         self.update_preview()
 
     def _deactivate_fit_preview(self) -> None:

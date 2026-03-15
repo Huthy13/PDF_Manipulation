@@ -50,7 +50,9 @@ class PdfMergeController:
     RESIZE_DEBOUNCE_MS = 120
     FINAL_RESIZE_DEBOUNCE_MS = 180
     FINAL_RESIZE_SETTLE_MS = 240
-    FINAL_SCROLL_RENDER_DEBOUNCE_MS = 24
+    FINAL_SCROLL_RENDER_DEBOUNCE_MS = 72
+    FINAL_SCROLL_RENDER_ANCHOR_EPSILON = 0.0025
+    FINAL_SCROLL_SYNC_EPSILON = 0.001
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
 
     def __init__(self, master: tk.Tk) -> None:
@@ -71,6 +73,7 @@ class PdfMergeController:
         self._final_preview_total_height = 0
         self._final_preview_visible_indices: set[int] = set()
         self._final_preview_anchor_fraction = 0.0
+        self._final_preview_last_scroll_render_anchor = 0.0
         self._final_preview_render_window: Optional[FinalPreviewRenderWindow] = None
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
@@ -574,6 +577,7 @@ class PdfMergeController:
         rendered_max_start = max(rendered_content_height - viewport_height, 0)
         rendered_top = first_fraction * rendered_max_start
 
+        previous_anchor = self._final_preview_anchor_fraction
         if mapping is None:
             self._final_preview_anchor_fraction = first_fraction
             logical_top = 0.0
@@ -587,8 +591,20 @@ class PdfMergeController:
             f"first_fraction={first_fraction:.6f} rendered_top={rendered_top:.2f} "
             f"rendered_max_start={rendered_max_start} logical_top={logical_top:.2f}"
         )
+        anchor_delta_from_last_render = abs(
+            self._final_preview_anchor_fraction - self._final_preview_last_scroll_render_anchor
+        )
+        if anchor_delta_from_last_render < self.FINAL_SCROLL_RENDER_ANCHOR_EPSILON:
+            self._log_preview_debug(
+                f"_on_preview_canvas_yscroll skip_scroll_render "
+                f"anchor_delta_from_last_render={anchor_delta_from_last_render:.6f} "
+                f"threshold={self.FINAL_SCROLL_RENDER_ANCHOR_EPSILON:.6f} "
+                f"previous_anchor={previous_anchor:.6f}"
+            )
+            return
         if self._pending_final_scroll_render_after is not None:
             return
+        self._final_preview_last_scroll_render_anchor = self._final_preview_anchor_fraction
         self._pending_final_scroll_render_after = self.master.after(
             self.FINAL_SCROLL_RENDER_DEBOUNCE_MS,
             self._render_final_preview_from_scroll,
@@ -601,6 +617,21 @@ class PdfMergeController:
         if self._final_preview_rendering:
             return
         self._render_virtual_final_preview(preserve_anchor=True)
+
+    def _sync_canvas_scroll_to_fraction(self, fraction: float) -> bool:
+        target_fraction = max(0.0, min(1.0, fraction))
+        current_view = self.view.preview_canvas.yview()
+        if not current_view:
+            return False
+        current_fraction = current_view[0]
+        if abs(current_fraction - target_fraction) < self.FINAL_SCROLL_SYNC_EPSILON:
+            return False
+        self._final_preview_syncing_scrollbar = True
+        try:
+            self.view.preview_canvas.yview_moveto(target_fraction)
+        finally:
+            self._final_preview_syncing_scrollbar = False
+        return True
 
     def render_preview_image(self, source_path: str, page_index: int) -> Optional[ImageTk.PhotoImage]:
         try:
@@ -802,9 +833,7 @@ class PdfMergeController:
             )
             if preserve_anchor and requested_indices == self._final_preview_visible_indices:
                 rendered_fraction = self._rendered_scroll_fraction_for_anchor()
-                self._final_preview_syncing_scrollbar = True
-                self.view.preview_canvas.yview_moveto(rendered_fraction)
-                self._final_preview_syncing_scrollbar = False
+                self._sync_canvas_scroll_to_fraction(rendered_fraction)
                 return
 
             images_by_index: dict[int, ImageTk.PhotoImage] = {}
@@ -914,11 +943,7 @@ class PdfMergeController:
 
             self._show_preview_widgets(build, reset_scroll=not preserve_anchor)
             rendered_fraction = self._rendered_scroll_fraction_for_anchor()
-            self._final_preview_syncing_scrollbar = True
-            try:
-                self.view.preview_canvas.yview_moveto(rendered_fraction)
-            finally:
-                self._final_preview_syncing_scrollbar = False
+            self._sync_canvas_scroll_to_fraction(rendered_fraction)
         finally:
             self._final_preview_rendering = False
 

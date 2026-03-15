@@ -289,15 +289,20 @@ class PdfMergeView(ttk.Frame):
         self._reposition_preview_content(canvas_width, canvas_height)
 
     def _mousewheel_units(self, event: tk.Event) -> int:
-        delta = getattr(event, "delta", 0) or 0
-        if delta:
-            return int(-delta / 120) or (-1 if delta > 0 else 1)
-
+        # Tk wheel delta scaling differs by OS/input device (mouse notches,
+        # precision trackpads, etc.), so clamp to a small unit range to keep
+        # canvas scrolling predictable and avoid huge jumps from large deltas.
         num = getattr(event, "num", None)
         if num == 4:
             return -1
         if num == 5:
             return 1
+
+        delta = getattr(event, "delta", 0) or 0
+        if delta:
+            direction = -1 if delta > 0 else 1
+            magnitude = max(1, abs(int(delta)) // 120)
+            return direction * min(magnitude, 3)
         return 0
 
     def on_preview_mousewheel(self, event: tk.Event) -> str:

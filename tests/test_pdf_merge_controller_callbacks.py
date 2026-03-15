@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from pdf_merge_gui.ui.controller import PdfMergeController
+from pdf_merge_gui.ui.controller import FinalPreviewPage, PdfMergeController
 
 
 T = TypeVar("T")
@@ -81,6 +81,7 @@ def _build_controller(*, mode: str = "final", width: int = 1024, height: int = 7
     controller._final_preview_anchor_fraction = 0.0
     controller._final_preview_syncing_scrollbar = False
     controller._final_preview_rendering = False
+    controller._final_preview_debug_enabled = False
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
     return controller
@@ -145,3 +146,24 @@ def test_final_resize_debounced_handler_guards_render_and_settles() -> None:
     controller._on_final_resize_settled()
 
     assert render_calls == [True]
+
+
+def test_recompute_final_preview_offsets_uses_unscaled_estimated_heights() -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_pages = [
+        FinalPreviewPage(source_path="a.pdf", page_index=0, estimated_height=1000),
+        FinalPreviewPage(source_path="a.pdf", page_index=1, estimated_height=1500),
+        FinalPreviewPage(source_path="b.pdf", page_index=0, estimated_height=1200),
+    ]
+    controller._final_preview_debug_enabled = False
+
+    controller._recompute_final_preview_offsets()
+
+    expected_total = (1000 + 1500 + 1200) + (3 * controller.FINAL_PREVIEW_PAGE_GAP)
+    assert controller._final_preview_total_height == expected_total
+    assert controller._final_preview_offsets == [
+        0,
+        1000 + controller.FINAL_PREVIEW_PAGE_GAP,
+        1000 + 1500 + (2 * controller.FINAL_PREVIEW_PAGE_GAP),
+        expected_total,
+    ]

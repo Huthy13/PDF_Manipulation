@@ -4,6 +4,7 @@ import tkinter as tk
 from bisect import bisect_right
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable, Optional, Sequence
 
@@ -621,6 +622,26 @@ class PdfMergeController:
         clamped = max(0, min(virtual_top, max_start))
         self._final_preview_anchor_fraction = 0.0 if max_start == 0 else clamped / max_start
 
+    def _spacer_chunk_limit(self) -> int:
+        if sys.platform == "win32":
+            return 10_000
+        return 50_000
+
+    def _build_spacer_widgets(self, total_height: int) -> list[tk.Widget]:
+        if total_height <= 0:
+            return []
+
+        chunk_limit = self._spacer_chunk_limit()
+        remaining = total_height
+        widgets: list[tk.Widget] = []
+        while remaining > 0:
+            chunk_height = min(remaining, chunk_limit)
+            spacer = ttk.Frame(self.view.preview_content, height=chunk_height)
+            spacer.grid_propagate(False)
+            widgets.append(spacer)
+            remaining -= chunk_height
+        return widgets
+
     def _render_virtual_final_preview(self, preserve_anchor: bool) -> None:
         if self._final_preview_rendering:
             return
@@ -676,10 +697,7 @@ class PdfMergeController:
 
             def build() -> list[tk.Widget]:
                 widgets: list[tk.Widget] = []
-                if top_spacer:
-                    spacer_top = ttk.Frame(self.view.preview_content, height=top_spacer)
-                    spacer_top.grid_propagate(False)
-                    widgets.append(spacer_top)
+                widgets.extend(self._build_spacer_widgets(top_spacer))
                 for idx in range(start_idx, end_idx + 1):
                     image = images_by_index.get(idx)
                     if image is None:
@@ -687,10 +705,7 @@ class PdfMergeController:
                     preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
                     preview.image = image
                     widgets.append(preview)
-                if bottom_spacer:
-                    spacer_bottom = ttk.Frame(self.view.preview_content, height=bottom_spacer)
-                    spacer_bottom.grid_propagate(False)
-                    widgets.append(spacer_bottom)
+                widgets.extend(self._build_spacer_widgets(bottom_spacer))
                 return widgets
 
             self._show_preview_widgets(build, reset_scroll=not preserve_anchor)

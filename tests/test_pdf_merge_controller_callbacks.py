@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
+import pdf_merge_gui.ui.controller as controller_module
 from pdf_merge_gui.ui.controller import PdfMergeController
 
 
@@ -67,6 +68,7 @@ class FakeView:
         self.preview_mode = FakeVar(mode)
         self.preview_vscroll = FakeVScroll()
         self.preview_canvas = FakeCanvas(width=width, height=height)
+        self.preview_content = object()
         self.fit_preview = FakeVar(False)
 
 
@@ -145,3 +147,45 @@ def test_final_resize_debounced_handler_guards_render_and_settles() -> None:
     controller._on_final_resize_settled()
 
     assert render_calls == [True]
+
+
+def test_build_spacer_widgets_chunks_large_heights_without_exceeding_cap(monkeypatch) -> None:
+    controller = _build_controller(mode="final")
+
+    class FakeFrame:
+        def __init__(self, _parent, *, height: int) -> None:
+            self.height = height
+            self.propagate: list[bool] = []
+
+        def grid_propagate(self, enabled: bool) -> None:
+            self.propagate.append(enabled)
+
+    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
+    monkeypatch.setattr(PdfMergeController, "_spacer_chunk_limit", lambda _self: 10_000)
+
+    spacers = controller._build_spacer_widgets(27_501)
+
+    assert len(spacers) == 3
+    assert [spacer.height for spacer in spacers] == [10_000, 10_000, 7_501]
+    assert sum(spacer.height for spacer in spacers) == 27_501
+    assert max(spacer.height for spacer in spacers) <= 10_000
+    assert all(spacer.propagate == [False] for spacer in spacers)
+
+
+def test_build_spacer_widgets_keeps_single_chunk_below_limit(monkeypatch) -> None:
+    controller = _build_controller(mode="final")
+
+    class FakeFrame:
+        def __init__(self, _parent, *, height: int) -> None:
+            self.height = height
+
+        def grid_propagate(self, _enabled: bool) -> None:
+            return None
+
+    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
+    monkeypatch.setattr(PdfMergeController, "_spacer_chunk_limit", lambda _self: 10_000)
+
+    spacers = controller._build_spacer_widgets(9_999)
+
+    assert len(spacers) == 1
+    assert spacers[0].height == 9_999

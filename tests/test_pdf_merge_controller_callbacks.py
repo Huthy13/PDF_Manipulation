@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Generic, TypeVar
 
 import pdf_merge_gui.ui.controller as controller_module
+import pdf_merge_gui.ui.final_preview_controller as final_preview_module
 from pdf_merge_gui.ui.controller import PdfMergeController
 
 
@@ -114,6 +115,7 @@ def _build_controller(
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
     controller._final_preview_render_window = None
+    controller.final_preview_controller = final_preview_module.FinalPreviewController(controller)
     return controller
 
 
@@ -125,14 +127,14 @@ def test_regression_final_preview_scroll_loop_does_not_reenter_render() -> None:
         render_calls.append(controller._final_preview_anchor_fraction)
         controller._final_preview_rendering = True
         try:
-            controller._on_preview_canvas_yscroll("0.73", "0.92")
+            controller.final_preview_controller.on_preview_canvas_yscroll("0.73", "0.92")
         finally:
             controller._final_preview_rendering = False
 
-    controller._render_virtual_final_preview = fake_render
+    controller.final_preview_controller.render_virtual_final_preview = fake_render
 
     for _ in range(20):
-        controller._on_preview_canvas_yscroll("0.25", "0.60")
+        controller.final_preview_controller.on_preview_canvas_yscroll("0.25", "0.60")
         pending = controller._pending_final_scroll_render_after
         assert pending is not None
         callback = controller.master.scheduled[pending]
@@ -223,13 +225,13 @@ def test_build_spacer_widgets_keeps_single_chunk_below_limit(monkeypatch) -> Non
 def test_recompute_final_preview_offsets_applies_win32_safe_scroll_cap(monkeypatch) -> None:
     controller = _build_controller(mode="final", windowing_system="win32")
     controller._final_preview_pages = [
-        controller_module.FinalPreviewPage("a.pdf", 0, estimated_height=20_000),
-        controller_module.FinalPreviewPage("a.pdf", 1, estimated_height=20_000),
+        final_preview_module.FinalPreviewPage("a.pdf", 0, estimated_height=20_000),
+        final_preview_module.FinalPreviewPage("a.pdf", 1, estimated_height=20_000),
     ]
 
-    monkeypatch.setattr(controller_module.sys, "platform", "linux")
+    monkeypatch.setattr(final_preview_module.sys, "platform", "linux")
 
-    controller._recompute_final_preview_offsets()
+    controller.final_preview_controller.recompute_final_preview_offsets()
 
     assert controller._final_preview_total_height <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
 
@@ -237,7 +239,7 @@ def test_recompute_final_preview_offsets_applies_win32_safe_scroll_cap(monkeypat
 def test_final_preview_safe_scroll_height_uses_default_outside_win32(monkeypatch) -> None:
     controller = _build_controller(mode="final", windowing_system="x11")
 
-    monkeypatch.setattr(controller_module.sys, "platform", "linux")
+    monkeypatch.setattr(final_preview_module.sys, "platform", "linux")
 
     assert controller._final_preview_safe_scroll_height() == controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_DEFAULT
 
@@ -245,11 +247,11 @@ def test_final_preview_safe_scroll_height_uses_default_outside_win32(monkeypatch
 def test_render_virtual_final_preview_clamps_content_height_to_budget_for_many_pages(monkeypatch) -> None:
     controller = _build_controller(mode="final", height=700, windowing_system="win32")
     controller._final_preview_pages = [
-        controller_module.FinalPreviewPage("big.pdf", idx, estimated_height=2_600)
+        final_preview_module.FinalPreviewPage("big.pdf", idx, estimated_height=2_600)
         for idx in range(120)
     ]
     controller._final_preview_anchor_fraction = 0.65
-    controller._recompute_final_preview_offsets()
+    controller.final_preview_controller.recompute_final_preview_offsets()
 
     class FakeImage:
         def __init__(self, height: int) -> None:
@@ -283,12 +285,12 @@ def test_render_virtual_final_preview_clamps_content_height_to_budget_for_many_p
     def fake_render(_source_path: str, page_index: int) -> FakeImage:
         return FakeImage(2_200 + (page_index % 3) * 200)
 
-    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
-    monkeypatch.setattr(controller_module.tk, "Label", FakeLabel)
+    monkeypatch.setattr(final_preview_module.ttk, "Frame", FakeFrame)
+    monkeypatch.setattr(final_preview_module.tk, "Label", FakeLabel)
     monkeypatch.setattr(controller, "_show_preview_widgets", fake_show)
     monkeypatch.setattr(controller, "render_preview_image", fake_render)
 
-    controller._render_virtual_final_preview(preserve_anchor=True)
+    controller.final_preview_controller.render_virtual_final_preview(preserve_anchor=True)
 
     assert controller._final_preview_visible_indices
     assert measured["content_height"] <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
@@ -298,11 +300,11 @@ def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heig
     controller = _build_controller(mode="final", height=900, windowing_system="win32")
     controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32 = 18_000
     controller._final_preview_pages = [
-        controller_module.FinalPreviewPage("zoomed.pdf", idx, estimated_height=1_600)
+        final_preview_module.FinalPreviewPage("zoomed.pdf", idx, estimated_height=1_600)
         for idx in range(80)
     ]
     controller._final_preview_anchor_fraction = 0.3
-    controller._recompute_final_preview_offsets()
+    controller.final_preview_controller.recompute_final_preview_offsets()
 
     class FakeImage:
         def __init__(self, height: int) -> None:
@@ -337,12 +339,12 @@ def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heig
         zoomed_height = 3_000 if page_index % 7 == 0 else 1_850
         return FakeImage(zoomed_height)
 
-    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
-    monkeypatch.setattr(controller_module.tk, "Label", FakeLabel)
+    monkeypatch.setattr(final_preview_module.ttk, "Frame", FakeFrame)
+    monkeypatch.setattr(final_preview_module.tk, "Label", FakeLabel)
     monkeypatch.setattr(controller, "_show_preview_widgets", fake_show)
     monkeypatch.setattr(controller, "render_preview_image", fake_render)
 
-    controller._render_virtual_final_preview(preserve_anchor=True)
+    controller.final_preview_controller.render_virtual_final_preview(preserve_anchor=True)
 
     assert controller._final_preview_visible_indices
     assert measured["content_height"] <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
@@ -352,7 +354,7 @@ def test_on_preview_canvas_yscroll_maps_rendered_space_to_logical_anchor_for_cla
     controller = _build_controller(mode="final", height=500)
     controller._final_preview_total_height = 100_000
     controller.view.preview_canvas.scrollregion = "0 0 1024 16000"
-    controller._final_preview_render_window = controller_module.FinalPreviewRenderWindow(
+    controller._final_preview_render_window = final_preview_module.FinalPreviewRenderWindow(
         render_start_idx=30,
         render_end_idx=45,
         logical_start_offset=30_000,
@@ -364,7 +366,7 @@ def test_on_preview_canvas_yscroll_maps_rendered_space_to_logical_anchor_for_cla
 
     anchors: list[float] = []
     for first in ("0.10", "0.20", "0.40", "0.60"):
-        controller._on_preview_canvas_yscroll(first, "0.80")
+        controller.final_preview_controller.on_preview_canvas_yscroll(first, "0.80")
         anchors.append(controller._final_preview_anchor_fraction)
 
     assert anchors == sorted(anchors)
@@ -376,7 +378,7 @@ def test_on_preview_canvas_yscroll_clamps_logical_anchor_when_rendered_fraction_
     controller._final_preview_total_height = 10_500
     controller.view.preview_canvas.scrollregion = "0 0 1024 3000"
 
-    controller._final_preview_render_window = controller_module.FinalPreviewRenderWindow(
+    controller._final_preview_render_window = final_preview_module.FinalPreviewRenderWindow(
         render_start_idx=0,
         render_end_idx=5,
         logical_start_offset=100,
@@ -385,10 +387,10 @@ def test_on_preview_canvas_yscroll_clamps_logical_anchor_when_rendered_fraction_
         rendered_block_height=500,
         content_height=3_000,
     )
-    controller._on_preview_canvas_yscroll("0.0", "0.3")
+    controller.final_preview_controller.on_preview_canvas_yscroll("0.0", "0.3")
     assert controller._final_preview_anchor_fraction == 0.0
 
-    controller._final_preview_render_window = controller_module.FinalPreviewRenderWindow(
+    controller._final_preview_render_window = final_preview_module.FinalPreviewRenderWindow(
         render_start_idx=0,
         render_end_idx=5,
         logical_start_offset=9_900,
@@ -397,14 +399,14 @@ def test_on_preview_canvas_yscroll_clamps_logical_anchor_when_rendered_fraction_
         rendered_block_height=500,
         content_height=3_000,
     )
-    controller._on_preview_canvas_yscroll("1.0", "1.0")
+    controller.final_preview_controller.on_preview_canvas_yscroll("1.0", "1.0")
     assert controller._final_preview_anchor_fraction == 1.0
 
 
 def test_rendered_scroll_fraction_for_anchor_uses_mapping_and_allows_scrolling_up_from_bottom() -> None:
     controller = _build_controller(mode="final", height=500)
     controller._final_preview_total_height = 100_500
-    controller._final_preview_render_window = controller_module.FinalPreviewRenderWindow(
+    controller._final_preview_render_window = final_preview_module.FinalPreviewRenderWindow(
         render_start_idx=80,
         render_end_idx=99,
         logical_start_offset=80_000,
@@ -415,10 +417,10 @@ def test_rendered_scroll_fraction_for_anchor_uses_mapping_and_allows_scrolling_u
     )
 
     controller._final_preview_anchor_fraction = 1.0
-    bottom_fraction = controller._rendered_scroll_fraction_for_anchor()
+    bottom_fraction = controller.final_preview_controller._rendered_scroll_fraction_for_anchor()
     assert bottom_fraction == 1.0
 
     controller._final_preview_anchor_fraction = 0.75
-    up_fraction = controller._rendered_scroll_fraction_for_anchor()
+    up_fraction = controller.final_preview_controller._rendered_scroll_fraction_for_anchor()
     assert 0.0 <= up_fraction < 1.0
     assert up_fraction < bottom_fraction

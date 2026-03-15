@@ -5,6 +5,7 @@ import pytest
 
 from pdf_merge_gui.preview import DocumentSessionCache, PreviewRenderError, render_page
 from pdf_merge_gui.services.preview_service import PreviewService
+from pdf_merge_gui.services.telemetry import Telemetry
 
 
 class FakePixmap:
@@ -102,3 +103,39 @@ def test_preview_service_document_cache_configuration():
 
     assert service.cache.capacity == 4
     assert service.document_cache.capacity == 3
+
+
+def test_preview_service_quantizes_zoom_for_cache_and_render(monkeypatch):
+    service = PreviewService(cache_size=4, document_cache_size=3)
+    telemetry = Telemetry(enabled=True)
+    render_calls: list[float] = []
+
+    monkeypatch.setattr('pdf_merge_gui.services.preview_service.get_telemetry', lambda: telemetry)
+
+    class FakePhotoImage:
+        def __init__(self, image):
+            self.image = image
+
+    monkeypatch.setattr('pdf_merge_gui.services.preview_service.ImageTk.PhotoImage', FakePhotoImage)
+
+    def fake_render_page(_source_path, _page_index, zoom, document_cache):
+        assert document_cache is service.document_cache
+        render_calls.append(zoom)
+        return f'rendered:{zoom}'
+
+    monkeypatch.setattr('pdf_merge_gui.services.preview_service.render_page', fake_render_page)
+
+    first = service.render('a.pdf', 0, 1.233)
+    second = service.render('a.pdf', 0, 1.234)
+
+    assert first is second
+    assert render_calls == [1.23]
+    assert telemetry.get_count('preview_cache_miss') == 1
+    assert telemetry.get_count('preview_cache_hit') == 1
+    assert telemetry.get_count('zoom_quantized_miss') == 1
+    assert telemetry.get_count('zoom_quantized_hit') == 1
+
+
+def test_preview_service_quantize_zoom_rounds_to_two_decimals():
+    assert PreviewService._quantize_zoom(1.234) == 1.23
+    assert PreviewService._quantize_zoom(1.236) == 1.24

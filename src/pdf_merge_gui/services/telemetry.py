@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from time import perf_counter
@@ -18,11 +19,24 @@ def _normalize_tags(tags: Mapping[str, object] | None) -> Tags:
 
 @dataclass
 class TimingAggregation:
+    """Aggregates latency timings with bounded memory.
+
+    We keep exact running totals/min/max across all observed samples, but retain only a
+    rolling window of recent samples for percentile estimation. This bounds memory usage
+    while preserving the existing output schema. As a trade-off, ``p50_ms`` and
+    ``p95_ms`` are approximate for long-running processes because they are computed from
+    the most recent window rather than full history.
+    """
+
     count: int = 0
     total_ms: float = 0.0
     min_ms: float = 0.0
     max_ms: float = 0.0
-    samples_ms: list[float] = field(default_factory=list)
+    max_samples: int = 512
+    samples_ms: deque[float] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.samples_ms = deque(maxlen=self.max_samples)
 
     def add_sample(self, duration_ms: float) -> None:
         self.count += 1
@@ -59,7 +73,7 @@ class TimingAggregation:
         }
 
 
-def _percentile(ordered_samples: list[float], quantile: float) -> float:
+def _percentile(ordered_samples: list[float] | deque[float], quantile: float) -> float:
     if not ordered_samples:
         return 0.0
     index = int((len(ordered_samples) - 1) * quantile)

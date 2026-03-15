@@ -38,4 +38,6 @@ The following dependency directions are allowed:
 ## Notes on existing modules
 
 - `src/pdf_merge_gui/model.py` currently acts as a façade for sequence operations and merge output orchestration.
+- `MergeModel` is the explicit owner of PDF merge session lifecycle via direct use of
+  `adapters.pypdf_adapter.PdfDocumentSession`.
 - As implementation evolves, model/service boundaries may be adjusted, but UI must continue to avoid direct dependency on adapter internals.

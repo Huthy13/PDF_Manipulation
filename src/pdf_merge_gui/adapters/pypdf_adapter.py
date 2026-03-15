@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from ..domain import PageRef
+from ..domain import PageRef, PdfLoadError, PdfMergeWriteError, PdfSourceNotFoundError
 from ..services.telemetry import get_telemetry
 
 
@@ -16,7 +16,12 @@ class PdfDocumentSession:
 
         reader = self._readers.get(path)
         if reader is None:
-            reader = PdfReader(path)
+            try:
+                reader = PdfReader(path)
+            except FileNotFoundError as exc:
+                raise PdfSourceNotFoundError(f"PDF source not found: {path}") from exc
+            except Exception as exc:
+                raise PdfLoadError(f"Failed to load PDF: {path}") from exc
             self._readers[path] = reader
         return reader
 
@@ -44,12 +49,15 @@ class PdfDocumentSession:
         telemetry = get_telemetry()
         writer = PdfWriter()
         with telemetry.time_block("write_merged"):
-            for page_ref in sequence:
-                reader = self._get_reader(page_ref.source_path)
-                writer.add_page(reader.pages[page_ref.page_index])
+            try:
+                for page_ref in sequence:
+                    reader = self._get_reader(page_ref.source_path)
+                    writer.add_page(reader.pages[page_ref.page_index])
 
-            with open(output_path, "wb") as file_obj:
-                writer.write(file_obj)
+                with open(output_path, "wb") as file_obj:
+                    writer.write(file_obj)
+            except Exception as exc:
+                raise PdfMergeWriteError(f"Failed to write merged PDF: {output_path}") from exc
 
         for _ in sequence:
             telemetry.increment("write_merged_pages_exported")

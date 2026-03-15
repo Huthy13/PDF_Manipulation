@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional
@@ -46,6 +47,9 @@ class PdfMergeView(ttk.Frame):
         self._list_drag_preview_index: Optional[int] = None
         self._list_drag_click_candidate_iid: Optional[str] = None
         self._drag_ghost: Optional[tk.Label] = None
+        self._wheel_accum_y = 0.0
+        self._wheel_accum_x = 0.0
+        self._wheel_accum_zoom = 0.0
 
         self._build_layout()
 
@@ -288,39 +292,48 @@ class PdfMergeView(ttk.Frame):
         canvas_height = max(event.height, 1)
         self._reposition_preview_content(canvas_width, canvas_height)
 
-    def _mousewheel_units(self, event: tk.Event) -> int:
-        # Tk wheel delta scaling differs by OS/input device (mouse notches,
-        # precision trackpads, etc.), so clamp to a small unit range to keep
-        # canvas scrolling predictable and avoid huge jumps from large deltas.
+    def _consume_wheel_steps(self, event: tk.Event, accumulator_attr: str) -> int:
+        # Linux/X11 wheel buttons are delivered as discrete presses without a
+        # delta payload; keep those as one-step fallback behavior.
         num = getattr(event, "num", None)
         if num == 4:
             return -1
         if num == 5:
             return 1
 
+        # On Windows/macOS/precision devices, preserve fractional wheel motion
+        # and emit integer steps only once enough movement has accumulated.
         delta = getattr(event, "delta", 0) or 0
-        if delta:
-            direction = -1 if delta > 0 else 1
-            magnitude = max(1, abs(int(delta)) // 120)
-            return direction * min(magnitude, 3)
-        return 0
+        if not delta:
+            return 0
+
+        accumulated = getattr(self, accumulator_attr) + (-float(delta) / 120.0)
+        steps = math.trunc(accumulated)
+        setattr(self, accumulator_attr, accumulated - steps)
+        return steps
 
     def on_preview_mousewheel(self, event: tk.Event) -> str:
-        units = self._mousewheel_units(event)
+        if bool(event.state & 0x0004):
+            return "break"
+
+        units = self._consume_wheel_steps(event, "_wheel_accum_y")
         if units == 0:
             return "break"
         self.preview_canvas.yview_scroll(units, "units")
         return "break"
 
     def on_preview_shift_mousewheel(self, event: tk.Event) -> str:
-        units = self._mousewheel_units(event)
+        if bool(event.state & 0x0004):
+            return "break"
+
+        units = self._consume_wheel_steps(event, "_wheel_accum_x")
         if units == 0:
             return "break"
         self.preview_canvas.xview_scroll(units, "units")
         return "break"
 
     def on_preview_ctrl_mousewheel(self, event: tk.Event) -> str:
-        units = self._mousewheel_units(event)
+        units = self._consume_wheel_steps(event, "_wheel_accum_zoom")
         if units == 0:
             return "break"
         if self.ctrl_wheel_zoom_handler is not None:

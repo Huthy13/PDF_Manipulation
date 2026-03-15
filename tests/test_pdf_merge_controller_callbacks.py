@@ -229,7 +229,7 @@ def test_recompute_final_preview_offsets_applies_win32_safe_scroll_cap(monkeypat
         final_preview_module.FinalPreviewPage("a.pdf", 1, estimated_height=20_000),
     ]
 
-    monkeypatch.setattr(final_preview_module.sys, "platform", "linux")
+    monkeypatch.setattr(controller_module.sys, "platform", "linux")
 
     controller.final_preview_controller.recompute_final_preview_offsets()
 
@@ -239,7 +239,7 @@ def test_recompute_final_preview_offsets_applies_win32_safe_scroll_cap(monkeypat
 def test_final_preview_safe_scroll_height_uses_default_outside_win32(monkeypatch) -> None:
     controller = _build_controller(mode="final", windowing_system="x11")
 
-    monkeypatch.setattr(final_preview_module.sys, "platform", "linux")
+    monkeypatch.setattr(controller_module.sys, "platform", "linux")
 
     assert controller._final_preview_safe_scroll_height() == controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_DEFAULT
 
@@ -285,7 +285,7 @@ def test_render_virtual_final_preview_clamps_content_height_to_budget_for_many_p
     def fake_render(_source_path: str, page_index: int) -> FakeImage:
         return FakeImage(2_200 + (page_index % 3) * 200)
 
-    monkeypatch.setattr(final_preview_module.ttk, "Frame", FakeFrame)
+    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
     monkeypatch.setattr(final_preview_module.tk, "Label", FakeLabel)
     monkeypatch.setattr(controller, "_show_preview_widgets", fake_show)
     monkeypatch.setattr(controller, "render_preview_image", fake_render)
@@ -339,7 +339,7 @@ def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heig
         zoomed_height = 3_000 if page_index % 7 == 0 else 1_850
         return FakeImage(zoomed_height)
 
-    monkeypatch.setattr(final_preview_module.ttk, "Frame", FakeFrame)
+    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
     monkeypatch.setattr(final_preview_module.tk, "Label", FakeLabel)
     monkeypatch.setattr(controller, "_show_preview_widgets", fake_show)
     monkeypatch.setattr(controller, "render_preview_image", fake_render)

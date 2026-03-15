@@ -9,9 +9,7 @@ from __future__ import annotations
 
 from bisect import bisect_right
 from dataclasses import dataclass
-import sys
 import tkinter as tk
-from tkinter import ttk
 from typing import TYPE_CHECKING
 
 from PIL import ImageTk

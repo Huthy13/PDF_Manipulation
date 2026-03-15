@@ -35,6 +35,7 @@ class PdfMergeController:
     FINAL_PREVIEW_PAGE_GAP = 12
     FINAL_PREVIEW_OVERSCAN_PAGES = 2
     FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT = 1300
+    FINAL_PREVIEW_WIDGET_GRID_PAD_Y = 6
     RESIZE_DEBOUNCE_MS = 120
     FINAL_RESIZE_DEBOUNCE_MS = 180
     FINAL_RESIZE_SETTLE_MS = 240
@@ -651,6 +652,19 @@ class PdfMergeController:
             return self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
         return self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_DEFAULT
 
+    def _final_preview_safe_canvas_budget(self) -> int:
+        is_win32 = self._final_preview_safe_scroll_height() == self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
+        configured = (
+            self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
+            if is_win32
+            else self.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_DEFAULT
+        )
+        budget = max(int(configured), 1)
+        self._log_preview_debug(
+            f"_final_preview_safe_canvas_budget is_win32={is_win32} budget={budget}"
+        )
+        return budget
+
     def _visible_virtual_window(self) -> tuple[int, int]:
         viewport_height = max(self.view.preview_canvas.winfo_height(), 1)
         max_start = max(self._final_preview_total_height - viewport_height, 0)
@@ -688,6 +702,11 @@ class PdfMergeController:
         if sys.platform == "win32":
             return 10_000
         return 50_000
+
+    def _grid_inter_widget_padding(self, widget_count: int) -> int:
+        if widget_count <= 1:
+            return 0
+        return (widget_count - 1) * (self.FINAL_PREVIEW_WIDGET_GRID_PAD_Y * 2)
 
     def _build_spacer_widgets(self, total_height: int) -> list[tk.Widget]:
         if total_height <= 0:
@@ -746,6 +765,24 @@ class PdfMergeController:
             top, bottom = self._visible_virtual_window()
             start_idx, end_idx = self._visible_page_range(top, bottom)
 
+            safe_canvas_budget = self._final_preview_safe_canvas_budget()
+            while start_idx <= end_idx:
+                rendered_block_height = (
+                    sum(max(images_by_index[idx].height(), 1) for idx in range(start_idx, end_idx + 1) if idx in images_by_index)
+                    + self._grid_inter_widget_padding(end_idx - start_idx + 1)
+                )
+                if rendered_block_height <= safe_canvas_budget:
+                    break
+                if end_idx - start_idx <= 0:
+                    break
+                logical_anchor = (top + bottom) // 2
+                dist_start = abs(self._final_preview_offsets[start_idx] - logical_anchor)
+                dist_end = abs(self._final_preview_offsets[end_idx] - logical_anchor)
+                if dist_end >= dist_start:
+                    end_idx -= 1
+                else:
+                    start_idx += 1
+
             self._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
             self._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
 
@@ -758,13 +795,46 @@ class PdfMergeController:
                     return
                 images_by_index[idx] = rendered
 
+            rendered_block_height = (
+                sum(max(images_by_index[idx].height(), 1) for idx in range(start_idx, end_idx + 1))
+                + self._grid_inter_widget_padding(end_idx - start_idx + 1)
+            )
             top_spacer = self._final_preview_offsets[start_idx]
             bottom_spacer = max(self._final_preview_offsets[-1] - self._final_preview_offsets[end_idx + 1], 0)
+
+            spacer_budget = max(safe_canvas_budget - rendered_block_height, 0)
+            clamped = False
+            if top_spacer + bottom_spacer > spacer_budget:
+                clamped = True
+                if top_spacer + bottom_spacer <= 0:
+                    top_spacer = 0
+                    bottom_spacer = 0
+                else:
+                    top_ratio = top_spacer / (top_spacer + bottom_spacer)
+                    top_spacer = int(spacer_budget * top_ratio)
+                    bottom_spacer = spacer_budget - top_spacer
+
+            content_height = top_spacer + rendered_block_height + bottom_spacer
+            if clamped:
+                logical_top = top
+                visible_logical_top = self._final_preview_offsets[start_idx]
+                logical_offset_in_block = max(logical_top - visible_logical_top, 0)
+                rendered_max_start = max(content_height - max(self.view.preview_canvas.winfo_height(), 1), 0)
+                rendered_offset_in_block = min(logical_offset_in_block, max(rendered_block_height - 1, 0))
+                rendered_top = min(top_spacer + rendered_offset_in_block, rendered_max_start)
+                self._final_preview_anchor_fraction = 0.0 if rendered_max_start == 0 else rendered_top / rendered_max_start
+                self._log_preview_debug(
+                    f"_render_virtual_final_preview clamped anchor={self._final_preview_anchor_fraction:.6f} "
+                    f"start_idx={start_idx} end_idx={end_idx} rendered_block_height={rendered_block_height} "
+                    f"top_spacer={top_spacer} bottom_spacer={bottom_spacer} content_height={content_height}"
+                )
+
             top_chunks = len(self._build_spacer_widgets(top_spacer))
             bottom_chunks = len(self._build_spacer_widgets(bottom_spacer))
             self._log_preview_debug(
                 f"_render_virtual_final_preview spacer_stats top={top_spacer} bottom={bottom_spacer} "
-                f"top_chunks={top_chunks} bottom_chunks={bottom_chunks}"
+                f"top_chunks={top_chunks} bottom_chunks={bottom_chunks} rendered_block_height={rendered_block_height} "
+                f"safe_canvas_budget={safe_canvas_budget} content_height={content_height}"
             )
 
 

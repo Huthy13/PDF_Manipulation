@@ -33,12 +33,18 @@ class FakeVScroll:
 class FakeCanvas:
     width: int = 1024
     height: int = 768
+    yview_calls: list[float] | None = None
 
     def winfo_width(self) -> int:
         return self.width
 
     def winfo_height(self) -> int:
         return self.height
+
+    def yview_moveto(self, fraction: float) -> None:
+        if self.yview_calls is None:
+            self.yview_calls = []
+        self.yview_calls.append(fraction)
 
 
 class FakeTk:
@@ -226,3 +232,109 @@ def test_final_preview_safe_scroll_height_uses_default_outside_win32(monkeypatch
     monkeypatch.setattr(controller_module.sys, "platform", "linux")
 
     assert controller._final_preview_safe_scroll_height() == controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_DEFAULT
+
+
+def test_render_virtual_final_preview_clamps_content_height_to_budget_for_many_pages(monkeypatch) -> None:
+    controller = _build_controller(mode="final", height=700, windowing_system="win32")
+    controller._final_preview_pages = [
+        controller_module.FinalPreviewPage("big.pdf", idx, estimated_height=2_600)
+        for idx in range(120)
+    ]
+    controller._final_preview_anchor_fraction = 0.65
+    controller._recompute_final_preview_offsets()
+
+    class FakeImage:
+        def __init__(self, height: int) -> None:
+            self._height = height
+
+        def height(self) -> int:
+            return self._height
+
+    class FakeFrame:
+        def __init__(self, _parent, *, height: int) -> None:
+            self.height = height
+
+        def grid_propagate(self, _enabled: bool) -> None:
+            return None
+
+    class FakeLabel:
+        def __init__(self, _parent, *, image, bd: int, highlightthickness: int) -> None:
+            assert bd == 0
+            assert highlightthickness == 0
+            self.height = image.height()
+            self.image = image
+
+    measured: dict[str, int] = {}
+
+    def fake_show(widget_builder, reset_scroll: bool = True, preserve_scroll: bool = False) -> None:
+        assert preserve_scroll is False
+        assert reset_scroll is False
+        widgets = widget_builder()
+        measured["content_height"] = sum(getattr(widget, "height", 0) for widget in widgets)
+
+    def fake_render(_source_path: str, page_index: int) -> FakeImage:
+        return FakeImage(2_200 + (page_index % 3) * 200)
+
+    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
+    monkeypatch.setattr(controller_module.tk, "Label", FakeLabel)
+    monkeypatch.setattr(controller, "_show_preview_widgets", fake_show)
+    monkeypatch.setattr(controller, "render_preview_image", fake_render)
+
+    controller._render_virtual_final_preview(preserve_anchor=True)
+
+    assert controller._final_preview_visible_indices
+    assert measured["content_height"] <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
+
+
+def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heights(monkeypatch) -> None:
+    controller = _build_controller(mode="final", height=900, windowing_system="win32")
+    controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32 = 18_000
+    controller._final_preview_pages = [
+        controller_module.FinalPreviewPage("zoomed.pdf", idx, estimated_height=1_600)
+        for idx in range(80)
+    ]
+    controller._final_preview_anchor_fraction = 0.3
+    controller._recompute_final_preview_offsets()
+
+    class FakeImage:
+        def __init__(self, height: int) -> None:
+            self._height = height
+
+        def height(self) -> int:
+            return self._height
+
+    class FakeFrame:
+        def __init__(self, _parent, *, height: int) -> None:
+            self.height = height
+
+        def grid_propagate(self, _enabled: bool) -> None:
+            return None
+
+    class FakeLabel:
+        def __init__(self, _parent, *, image, bd: int, highlightthickness: int) -> None:
+            assert bd == 0
+            assert highlightthickness == 0
+            self.height = image.height()
+            self.image = image
+
+    measured: dict[str, int] = {}
+
+    def fake_show(widget_builder, reset_scroll: bool = True, preserve_scroll: bool = False) -> None:
+        assert preserve_scroll is False
+        assert reset_scroll is False
+        widgets = widget_builder()
+        measured["content_height"] = sum(getattr(widget, "height", 0) for widget in widgets)
+
+    def fake_render(_source_path: str, page_index: int) -> FakeImage:
+        zoomed_height = 3_000 if page_index % 7 == 0 else 1_850
+        return FakeImage(zoomed_height)
+
+    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
+    monkeypatch.setattr(controller_module.tk, "Label", FakeLabel)
+    monkeypatch.setattr(controller, "_show_preview_widgets", fake_show)
+    monkeypatch.setattr(controller, "render_preview_image", fake_render)
+
+    controller._render_virtual_final_preview(preserve_anchor=True)
+
+    assert controller._final_preview_visible_indices
+    assert measured["content_height"] <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from pdf_merge_gui.ui.controller import PdfMergeController
+from pdf_merge_gui.ui.controller import FinalPreviewPage, PdfMergeController
 
 
 T = TypeVar("T")
@@ -145,3 +145,33 @@ def test_final_resize_debounced_handler_guards_render_and_settles() -> None:
     controller._on_final_resize_settled()
 
     assert render_calls == [True]
+
+
+class FakeTk:
+    def __init__(self, windowing_system: str) -> None:
+        self._windowing_system = windowing_system
+
+    def call(self, *args: str) -> str:
+        if args == ("tk", "windowingsystem"):
+            return self._windowing_system
+        raise AssertionError(f"Unexpected tk call: {args}")
+
+
+class FakeMasterWithTk(FakeMaster):
+    def __init__(self, windowing_system: str) -> None:
+        super().__init__()
+        self.tk = FakeTk(windowing_system)
+
+
+def test_recompute_final_offsets_uses_win32_safe_scroll_limit() -> None:
+    controller = _build_controller(mode="final")
+    controller.master = FakeMasterWithTk("win32")
+    controller._final_preview_pages = [
+        FinalPreviewPage(source_path="a.pdf", page_index=i, estimated_height=1_000)
+        for i in range(100)
+    ]
+
+    controller._recompute_final_preview_offsets()
+
+    assert controller._final_preview_total_height <= controller.FINAL_PREVIEW_WIN32_SAFE_SCROLL_HEIGHT
+    assert any(page.logical_height < page.estimated_height for page in controller._final_preview_pages)

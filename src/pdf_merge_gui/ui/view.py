@@ -35,6 +35,7 @@ class PdfMergeView(ttk.Frame):
         self.zoom_out_handler: Optional[Callable[[], None]] = None
         self.zoom_reset_handler: Optional[Callable[[], None]] = None
         self.fit_preview_handler: Optional[Callable[[], None]] = None
+        self.preview_debug_logging_handler: Optional[Callable[[], None]] = None
         self.ctrl_wheel_zoom_handler: Optional[Callable[[int], None]] = None
         self.list_drag_drop_handler: Optional[Callable[[list[int], int], None]] = None
         self.list_ctrl_range_handler: Optional[Callable[[int, int], None]] = None
@@ -197,6 +198,11 @@ class PdfMergeView(ttk.Frame):
         self.cb_fit_preview.grid(row=0, column=4)
         self._tooltips.append(ToolTip(self.cb_fit_preview, "Scale preview to available panel size"))
 
+        self.preview_debug_logging = tk.BooleanVar(value=False)
+        self.cb_preview_debug_logging = ttk.Checkbutton(zoom_controls, text="Debug Log", variable=self.preview_debug_logging)
+        self.cb_preview_debug_logging.grid(row=0, column=5, padx=(6, 0))
+        self._tooltips.append(ToolTip(self.cb_preview_debug_logging, "Enable preview virtualization debug logging"))
+
         self.preview_panel = ttk.LabelFrame(right, text="Page Preview")
         self.preview_panel.grid(row=3, column=0, sticky="nsew")
         self.preview_panel.columnconfigure(0, weight=1)
@@ -265,11 +271,11 @@ class PdfMergeView(ttk.Frame):
         content_height = max(self.preview_content.winfo_reqheight(), 1)
 
         x_pos = max((canvas_width - content_width) // 2, 0)
-        y_pos = max((canvas_height - content_height) // 2, 0)
+        y_pos = 0
         self.preview_canvas.coords(self.preview_window, x_pos, y_pos)
 
-        region_width = max(content_width + (2 * x_pos), canvas_width)
-        region_height = max(content_height + (2 * y_pos), canvas_height)
+        region_width = max(content_width, canvas_width)
+        region_height = max(content_height, canvas_height)
         self.preview_canvas.configure(scrollregion=(0, 0, region_width, region_height))
 
     def on_preview_content_configure(self, _event: tk.Event) -> None:
@@ -283,15 +289,20 @@ class PdfMergeView(ttk.Frame):
         self._reposition_preview_content(canvas_width, canvas_height)
 
     def _mousewheel_units(self, event: tk.Event) -> int:
-        delta = getattr(event, "delta", 0) or 0
-        if delta:
-            return int(-delta / 120) or (-1 if delta > 0 else 1)
-
+        # Tk wheel delta scaling differs by OS/input device (mouse notches,
+        # precision trackpads, etc.), so clamp to a small unit range to keep
+        # canvas scrolling predictable and avoid huge jumps from large deltas.
         num = getattr(event, "num", None)
         if num == 4:
             return -1
         if num == 5:
             return 1
+
+        delta = getattr(event, "delta", 0) or 0
+        if delta:
+            direction = -1 if delta > 0 else 1
+            magnitude = max(1, abs(int(delta)) // 120)
+            return direction * min(magnitude, 3)
         return 0
 
     def on_preview_mousewheel(self, event: tk.Event) -> str:
@@ -546,6 +557,7 @@ class PdfMergeView(ttk.Frame):
         self.btn_zoom_out.configure(command=self.zoom_out_handler)
         self.btn_zoom_reset.configure(command=self.zoom_reset_handler)
         self.cb_fit_preview.configure(command=self.fit_preview_handler)
+        self.cb_preview_debug_logging.configure(command=self.preview_debug_logging_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())
         self.page_list.tag_configure("drag_source", background="#D6E4FF")
         self.page_list.tag_configure("insert_hint", background="#CFE8FF", foreground="#0B3D91")

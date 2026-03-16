@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Generic, TypeVar
 
 import pdf_merge_gui.ui.controller as controller_module
@@ -125,6 +126,12 @@ def _build_controller(
     controller._final_preview_last_scroll_render_ts = None
     controller._final_preview_velocity_bucket = "slow"
     controller._final_preview_overscan_telemetry = {"slow": 0, "medium": 0, "fast": 0}
+    controller._rotate_anchor_indices = None
+    controller._rotate_anchor_after = None
+    controller._rotate_anchor_expires_at = 0.0
+    controller._final_preview_selection_lock = False
+    controller._last_preview_mode = controller.view.preview_mode.get()
+    controller.model = SimpleNamespace(sequence=[])
     controller.final_preview_controller = final_preview_module.FinalPreviewController(controller)
     return controller
 
@@ -538,3 +545,67 @@ def test_active_page_index_does_not_advance_while_current_page_top_is_visible() 
     idx = controller.final_preview_controller._active_page_index_for_viewport(210, 470)
 
     assert idx == 2
+
+
+def test_final_preview_rapid_rotate_keeps_anchor_selection_when_viewport_sync_runs_between_calls() -> None:
+    controller = _build_controller(mode="final")
+    controller.view.page_list = SimpleNamespace(selection=lambda: ())
+    selected = [1]
+    rotate_calls: list[list[int]] = []
+
+    def fake_selected_indices() -> list[int]:
+        return list(selected)
+
+    def fake_set_selected_indices(indices: list[int]) -> None:
+        nonlocal selected
+        selected = list(indices)
+
+    def fake_rotate_clockwise(indices: list[int]) -> list[int]:
+        rotate_calls.append(list(indices))
+        return list(indices)
+
+    controller.selected_indices = fake_selected_indices
+    controller.set_selected_indices = fake_set_selected_indices
+    controller.model = SimpleNamespace(sequence=[object(), object(), object()], rotate_clockwise=fake_rotate_clockwise)
+    controller.refresh_list = lambda *, select_indices=None, select_index=None: None
+    controller._final_preview_pages = [
+        final_preview_module.FinalPreviewPage("doc.pdf", idx, 0, estimated_height=100, logical_height=100)
+        for idx in range(3)
+    ]
+    controller._final_preview_offsets = [0, 112, 224, 336]
+
+    controller.on_rotate_right()
+    controller.final_preview_controller._sync_final_preview_list_selection(logical_top=230, viewport_height=50)
+    assert selected == [1]
+
+    controller.on_rotate_right()
+
+    assert rotate_calls == [[1], [1]]
+
+
+def test_final_preview_rotate_anchor_expires_and_selection_sync_resumes() -> None:
+    controller = _build_controller(mode="final")
+    controller.view.page_list = SimpleNamespace(selection=lambda: ())
+    selected = [1]
+
+    controller.selected_indices = lambda: list(selected)
+
+    def fake_set_selected_indices(indices: list[int]) -> None:
+        selected.clear()
+        selected.extend(indices)
+
+    controller.set_selected_indices = fake_set_selected_indices
+    controller.model = SimpleNamespace(sequence=[object(), object(), object()])
+    controller._final_preview_pages = [
+        final_preview_module.FinalPreviewPage("doc.pdf", idx, 0, estimated_height=100, logical_height=100)
+        for idx in range(3)
+    ]
+    controller._final_preview_offsets = [0, 112, 224, 336]
+
+    controller._rotation_target_indices()
+    assert controller.is_final_preview_selection_locked() is True
+
+    controller._clear_rotate_anchor()
+    controller.final_preview_controller._sync_final_preview_list_selection(logical_top=230, viewport_height=50)
+
+    assert selected == [2]

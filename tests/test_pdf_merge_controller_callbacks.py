@@ -115,6 +115,12 @@ def _build_controller(
     controller._final_preview_total_height = 5_000
     controller._final_preview_visible_indices = set()
     controller._final_preview_render_window = None
+    controller._final_preview_dynamic_overscan_enabled = False
+    controller._final_preview_scroll_velocity_px_s = 0.0
+    controller._final_preview_last_scroll_event_ts = None
+    controller._final_preview_last_logical_top = None
+    controller._final_preview_velocity_bucket = "slow"
+    controller._final_preview_overscan_telemetry = {"slow": 0, "medium": 0, "fast": 0}
     controller.final_preview_controller = final_preview_module.FinalPreviewController(controller)
     return controller
 
@@ -424,3 +430,38 @@ def test_rendered_scroll_fraction_for_anchor_uses_mapping_and_allows_scrolling_u
     up_fraction = controller.final_preview_controller._rendered_scroll_fraction_for_anchor()
     assert 0.0 <= up_fraction < 1.0
     assert up_fraction < bottom_fraction
+
+
+def test_compute_overscan_pages_uses_velocity_buckets_and_clamps() -> None:
+    controller = _build_controller(mode="final")
+    controller.FINAL_PREVIEW_MIN_OVERSCAN_PAGES = 2
+    controller.FINAL_PREVIEW_MAX_OVERSCAN_PAGES = 6
+
+    slow = controller.compute_overscan_pages(10.0)
+    medium = controller.compute_overscan_pages(900.0)
+    fast = controller.compute_overscan_pages(9000.0)
+
+    assert slow == 2
+    assert medium == 4
+    assert fast == 6
+    assert controller._final_preview_velocity_bucket == "fast"
+    assert controller._final_preview_overscan_telemetry == {"slow": 1, "medium": 1, "fast": 1}
+
+
+def test_visible_page_range_dynamic_overscan_uses_velocity_and_logs_telemetry() -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_dynamic_overscan_enabled = True
+    controller._final_preview_scroll_velocity_px_s = 1500.0
+    controller._final_preview_offsets = [0, 100, 200, 300, 400, 500]
+    controller._final_preview_pages = [
+        final_preview_module.FinalPreviewPage("doc.pdf", idx, estimated_height=100)
+        for idx in range(5)
+    ]
+    logs: list[str] = []
+    controller._log_preview_debug = logs.append
+
+    start, end = controller.final_preview_controller.visible_page_range(120, 180)
+
+    assert (start, end) == (0, 4)
+    assert controller._final_preview_velocity_bucket == "fast"
+    assert any("velocity_bucket=fast" in entry and "overscan=" in entry and "rendered_pages=" in entry for entry in logs)

@@ -306,7 +306,7 @@ class FinalPreviewController:
             if (
                 preserve_anchor
                 and requested_indices == owner._final_preview_visible_indices
-                and render_signature == owner._last_final_render_signature
+                and render_signature == getattr(owner, "_last_final_render_signature", None)
             ):
                 rendered_fraction = self._rendered_scroll_fraction_for_anchor()
                 self.sync_canvas_scroll_to_fraction(rendered_fraction)
@@ -440,10 +440,12 @@ class FinalPreviewController:
             for idx in visible_indices
         )
         fit_preview = bool(owner.view.fit_preview.get())
+        preview_zoom = round(getattr(owner, "preview_zoom", owner.DEFAULT_ZOOM), 2)
+        panel_size = owner._panel_size() if fit_preview and hasattr(owner, "_panel_size") else None
         zoom_signature: tuple[object, ...] = (
-            round(owner.preview_zoom, 2),
+            preview_zoom,
             fit_preview,
-            owner._panel_size() if fit_preview else None,
+            panel_size,
         )
         return (visible_indices, rendered_page_identity, zoom_signature)
 

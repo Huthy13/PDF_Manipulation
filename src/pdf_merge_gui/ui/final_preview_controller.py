@@ -123,6 +123,7 @@ class FinalPreviewController:
             f"rendered_max_start={rendered_max_start} logical_top={logical_top:.2f} "
             f"velocity_px_s={velocity:.2f} instantaneous_velocity_px_s={instantaneous_velocity:.2f}"
         )
+        self._sync_final_preview_list_selection(logical_top=logical_top, viewport_height=viewport_height)
         last_scroll_render_anchor = getattr(owner, "_final_preview_last_scroll_render_anchor", previous_anchor)
         anchor_delta_from_last_render = abs(owner._final_preview_anchor_fraction - last_scroll_render_anchor)
         if mapping is not None and anchor_delta_from_last_render < owner.FINAL_SCROLL_RENDER_ANCHOR_EPSILON:
@@ -413,5 +414,48 @@ class FinalPreviewController:
             owner._show_preview_widgets(build, reset_scroll=not preserve_anchor)
             rendered_fraction = self._rendered_scroll_fraction_for_anchor()
             self.sync_canvas_scroll_to_fraction(rendered_fraction)
+            virtual_top, virtual_bottom = self.visible_virtual_window()
+            self._sync_final_preview_list_selection(
+                logical_top=virtual_top,
+                viewport_height=max(virtual_bottom - virtual_top, 1),
+            )
         finally:
             owner._final_preview_rendering = False
+
+    def _sync_final_preview_list_selection(self, logical_top: float, viewport_height: int) -> None:
+        owner = self.owner
+        page_idx = self._active_page_index_for_viewport(logical_top, logical_top + max(viewport_height, 1))
+        if page_idx is None:
+            return
+        if not hasattr(owner.view, "page_list"):
+            return
+
+        selected = owner.selected_indices()
+        if selected == [page_idx]:
+            return
+        owner.set_selected_indices([page_idx])
+
+    def _active_page_index_for_viewport(self, logical_top: float, logical_bottom: float) -> int | None:
+        owner = self.owner
+        if not owner._final_preview_pages or len(owner._final_preview_offsets) < 2:
+            return None
+
+        clamped_top = max(0.0, logical_top)
+        clamped_bottom = max(clamped_top, logical_bottom)
+        page_count = len(owner._final_preview_pages)
+
+        # Prefer the first fully visible page. This keeps selection anchored to
+        # the first complete page in view when multiple pages fit onscreen.
+        for idx in range(page_count):
+            page_top = owner._final_preview_offsets[idx]
+            page_bottom = page_top + max(owner._final_preview_pages[idx].logical_height, 1)
+            if page_top >= clamped_top and page_bottom <= clamped_bottom:
+                return idx
+
+        # Fall back to the first page whose top edge is visible.
+        for idx in range(page_count):
+            page_top = owner._final_preview_offsets[idx]
+            if page_top >= clamped_top:
+                return idx
+
+        return page_count - 1

@@ -37,9 +37,7 @@ class PdfMergeView(ttk.Frame):
         self.preview_mode_handler: Optional[Callable[[], None]] = None
         self.zoom_in_handler: Optional[Callable[[], None]] = None
         self.zoom_out_handler: Optional[Callable[[], None]] = None
-        self.zoom_reset_handler: Optional[Callable[[], None]] = None
         self.fit_preview_handler: Optional[Callable[[], None]] = None
-        self.preview_debug_logging_handler: Optional[Callable[[], None]] = None
         self.ctrl_wheel_zoom_handler: Optional[Callable[[int], None]] = None
         self.list_drag_drop_handler: Optional[Callable[[list[int], int], None]] = None
         self.list_ctrl_range_handler: Optional[Callable[[int, int], None]] = None
@@ -211,19 +209,10 @@ class PdfMergeView(ttk.Frame):
         self.btn_zoom_in.grid(row=0, column=2, padx=(2, 4))
         self._tooltips.append(ToolTip(self.btn_zoom_in, "Zoom in"))
 
-        self.btn_zoom_reset = ttk.Button(zoom_controls, text="Reset")
-        self.btn_zoom_reset.grid(row=0, column=3, padx=(2, 4))
-        self._tooltips.append(ToolTip(self.btn_zoom_reset, "Reset zoom to default"))
-
         self.fit_preview = tk.BooleanVar(value=True)
         self.cb_fit_preview = ttk.Checkbutton(zoom_controls, text="Fit", variable=self.fit_preview)
-        self.cb_fit_preview.grid(row=0, column=4)
+        self.cb_fit_preview.grid(row=0, column=3, padx=(6, 0))
         self._tooltips.append(ToolTip(self.cb_fit_preview, "Scale preview to available panel size"))
-
-        self.preview_debug_logging = tk.BooleanVar(value=False)
-        self.cb_preview_debug_logging = ttk.Checkbutton(zoom_controls, text="Debug Log", variable=self.preview_debug_logging)
-        self.cb_preview_debug_logging.grid(row=0, column=5, padx=(6, 0))
-        self._tooltips.append(ToolTip(self.cb_preview_debug_logging, "Enable preview virtualization debug logging"))
 
         self.preview_panel = ttk.LabelFrame(right, text="Page Preview")
         self.preview_panel.grid(row=3, column=0, sticky="nsew")
@@ -711,9 +700,7 @@ class PdfMergeView(ttk.Frame):
         self.rb_final.configure(command=self.preview_mode_handler)
         self.btn_zoom_in.configure(command=self.zoom_in_handler)
         self.btn_zoom_out.configure(command=self.zoom_out_handler)
-        self.btn_zoom_reset.configure(command=self.zoom_reset_handler)
         self.cb_fit_preview.configure(command=self.fit_preview_handler)
-        self.cb_preview_debug_logging.configure(command=self.preview_debug_logging_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())
         self.page_list.tag_configure("drag_source", background="#D6E4FF")
         self.page_list.tag_configure("insert_hint", background="#CFE8FF", foreground="#0B3D91")

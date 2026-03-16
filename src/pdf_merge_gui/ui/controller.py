@@ -18,7 +18,6 @@ from .final_preview_controller import (
     FinalPreviewPage,
     FinalPreviewRenderWindow,
 )
-from .preview_debug_logger import PreviewDebugLogger
 from .view import PdfMergeView
 
 
@@ -94,8 +93,6 @@ class PdfMergeController:
         self._final_preview_velocity_bucket = "slow"
         self._final_preview_overscan_telemetry: dict[str, int] = {"slow": 0, "medium": 0, "fast": 0}
 
-        logging_enabled = PreviewDebugLogger.env_override_enabled(default=False)
-        self.preview_debug_logger = PreviewDebugLogger(enabled=logging_enabled)
         self.final_preview_controller = FinalPreviewController(self)
 
         self.view.open_handler = self.on_open_pdfs
@@ -114,13 +111,10 @@ class PdfMergeController:
         self.view.preview_mode_handler = self.update_preview
         self.view.zoom_in_handler = self.on_zoom_in
         self.view.zoom_out_handler = self.on_zoom_out
-        self.view.zoom_reset_handler = self.on_zoom_reset
         self.view.fit_preview_handler = self.on_toggle_fit_preview
-        self.view.preview_debug_logging_handler = self.on_toggle_preview_debug_logging
         self.view.ctrl_wheel_zoom_handler = self.on_ctrl_wheel_zoom
         self.view.list_drag_drop_handler = self.on_list_drag_drop
         self.view.list_ctrl_range_handler = self.on_list_ctrl_range
-        self.view.preview_debug_logging.set(logging_enabled)
         self.view.bind_handlers()
         self._update_zoom_label()
 
@@ -498,20 +492,30 @@ class PdfMergeController:
         return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom, rotation_degrees=rotation_degrees)
 
     def on_zoom_in(self) -> None:
-        self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
+        self.preview_zoom = self._zoom_step_from_fit(direction=1)
         self._deactivate_fit_preview()
         self._update_zoom_label()
         self._schedule_zoom_render()
 
     def on_zoom_out(self) -> None:
-        self.preview_zoom = self._clamp_zoom(self.preview_zoom - self.ZOOM_STEP)
+        self.preview_zoom = self._zoom_step_from_fit(direction=-1)
         self._deactivate_fit_preview()
         self._update_zoom_label()
         self._schedule_zoom_render()
 
-    def on_zoom_reset(self) -> None:
-        self.preview_zoom = self.DEFAULT_ZOOM
-        self.update_preview()
+    def _zoom_step_from_fit(self, direction: int) -> float:
+        target_zoom = self.preview_zoom
+        if self.view.fit_preview.get() and self.model.sequence:
+            idx = self.selected_index()
+            if idx is None:
+                idx = 0
+            page = self.model.sequence[idx]
+            try:
+                effective_zoom, _ = self._resolve_zoom(page.source_path, page.page_index, page.rotation_degrees)
+                target_zoom = effective_zoom
+            except Exception:
+                target_zoom = self.preview_zoom
+        return self._clamp_zoom(target_zoom + (direction * self.ZOOM_STEP))
 
     def on_ctrl_wheel_zoom(self, wheel_units: int) -> None:
         next_zoom = self._clamp_zoom(self.preview_zoom + (-wheel_units * self.ZOOM_STEP))
@@ -541,16 +545,8 @@ class PdfMergeController:
     def on_toggle_fit_preview(self) -> None:
         self.update_preview()
 
-    def on_toggle_preview_debug_logging(self) -> None:
-        enabled = bool(self.view.preview_debug_logging.get())
-        self.preview_debug_logger.set_enabled(enabled)
-        self.preview_debug_logger.log(f"preview debug logging enabled={enabled}")
-
     def _log_preview_debug(self, message: str) -> None:
-        logger = getattr(self, "preview_debug_logger", None)
-        if logger is None:
-            return
-        logger.log(message)
+        return
 
     def on_preview_panel_resize(self, _event: tk.Event) -> None:
         if self._pending_resize_after is not None:

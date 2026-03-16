@@ -589,7 +589,12 @@ def test_final_preview_rotate_anchor_expires_and_selection_sync_resumes() -> Non
     selected = [1]
 
     controller.selected_indices = lambda: list(selected)
-    controller.set_selected_indices = lambda indices: selected.clear() or selected.extend(indices)
+
+    def fake_set_selected_indices(indices: list[int]) -> None:
+        selected.clear()
+        selected.extend(indices)
+
+    controller.set_selected_indices = fake_set_selected_indices
     controller.model = SimpleNamespace(sequence=[object(), object(), object()])
     controller._final_preview_pages = [
         final_preview_module.FinalPreviewPage("doc.pdf", idx, 0, estimated_height=100, logical_height=100)

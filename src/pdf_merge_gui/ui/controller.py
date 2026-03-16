@@ -73,6 +73,7 @@ class PdfMergeController:
         self._final_preview_offsets: list[int] = [0]
         self._final_preview_total_height = 0
         self._final_preview_visible_indices: set[int] = set()
+        self._last_final_render_signature: Optional[tuple[object, ...]] = None
         self._final_preview_anchor_fraction = 0.0
         self._final_preview_last_scroll_render_anchor = 0.0
         self._final_preview_render_window: Optional[FinalPreviewRenderWindow] = None
@@ -446,6 +447,7 @@ class PdfMergeController:
     def show_preview_image(self, image: ImageTk.PhotoImage, reset_scroll: bool = True) -> None:
         self._preview_image_refs = [image]
         self._final_preview_visible_indices = set()
+        self._last_final_render_signature = None
         def build() -> list[tk.Widget]:
             preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
             preview.image = image
@@ -456,6 +458,7 @@ class PdfMergeController:
     def show_preview_images(self, images: list[ImageTk.PhotoImage], preserve_scroll: bool = False) -> None:
         self._preview_image_refs = list(images)
         self._final_preview_visible_indices = set()
+        self._last_final_render_signature = None
         def build() -> list[tk.Widget]:
             widgets: list[tk.Widget] = []
             for image in images:
@@ -760,6 +763,7 @@ class PdfMergeController:
     def update_preview(self) -> None:
         if not self.model.sequence:
             self._last_preview_render_key = None
+            self._last_final_render_signature = None
             self.view.preview_caption.configure(text="No pages loaded")
             self._update_zoom_label()
             self.show_preview_text("Open one or more PDFs to begin.")
@@ -768,6 +772,7 @@ class PdfMergeController:
         if self.view.preview_mode.get() == self.view.PREVIEW_SINGLE:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
+            self._last_final_render_signature = None
             idx = self.selected_index()
             if idx is None:
                 idx = 0

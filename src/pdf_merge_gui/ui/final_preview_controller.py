@@ -298,11 +298,16 @@ class FinalPreviewController:
                 return
 
             requested_indices = set(range(start_idx, end_idx + 1))
+            render_signature = self._build_final_render_signature(start_idx, end_idx)
             owner._log_preview_debug(
                 f"_render_virtual_final_preview preserve_anchor={preserve_anchor} start_idx={start_idx} end_idx={end_idx} "
                 f"requested_count={len(requested_indices)} viewport={owner.view.preview_canvas.winfo_width()}x{owner.view.preview_canvas.winfo_height()}"
             )
-            if preserve_anchor and requested_indices == owner._final_preview_visible_indices:
+            if (
+                preserve_anchor
+                and requested_indices == owner._final_preview_visible_indices
+                and render_signature == getattr(owner, "_last_final_render_signature", None)
+            ):
                 rendered_fraction = self._rendered_scroll_fraction_for_anchor()
                 self.sync_canvas_scroll_to_fraction(rendered_fraction)
                 return
@@ -342,6 +347,7 @@ class FinalPreviewController:
 
             owner._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
             owner._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
+            owner._last_final_render_signature = self._build_final_render_signature(start_idx, end_idx)
 
             for idx in range(start_idx, end_idx + 1):
                 if idx in images_by_index:
@@ -421,6 +427,27 @@ class FinalPreviewController:
             )
         finally:
             owner._final_preview_rendering = False
+
+    def _build_final_render_signature(self, start_idx: int, end_idx: int) -> tuple[object, ...]:
+        owner = self.owner
+        visible_indices = tuple(range(start_idx, end_idx + 1))
+        rendered_page_identity = tuple(
+            (
+                owner._final_preview_pages[idx].source_path,
+                owner._final_preview_pages[idx].page_index,
+                owner._final_preview_pages[idx].rotation_degrees,
+            )
+            for idx in visible_indices
+        )
+        fit_preview = bool(owner.view.fit_preview.get())
+        preview_zoom = round(getattr(owner, "preview_zoom", owner.DEFAULT_ZOOM), 2)
+        panel_size = owner._panel_size() if fit_preview and hasattr(owner, "_panel_size") else None
+        zoom_signature: tuple[object, ...] = (
+            preview_zoom,
+            fit_preview,
+            panel_size,
+        )
+        return (visible_indices, rendered_page_identity, zoom_signature)
 
     def _sync_final_preview_list_selection(self, logical_top: float, viewport_height: int) -> None:
         owner = self.owner

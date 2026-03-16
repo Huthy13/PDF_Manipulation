@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Optional
@@ -50,6 +51,13 @@ class PdfMergeView(ttk.Frame):
         self._wheel_accum_y = 0.0
         self._wheel_accum_x = 0.0
         self._wheel_accum_zoom = 0.0
+        self._wheel_pixel_accum_y = 0.0
+        self._wheel_pixel_accum_x = 0.0
+        self._wheel_pixels_per_notch = 40.0
+        self._wheel_delta_deadzone_px = 0.35
+        self._wheel_delta_damping = 0.85
+        self._wheel_pixel_scroll_feature_enabled = self._bool_from_env("PDF_MERGE_ENABLE_PIXEL_SCROLL", default=True)
+        self._wheel_pixel_scroll_capable = self._detect_pixel_scroll_capability()
 
         self._build_layout()
 
@@ -256,6 +264,101 @@ class PdfMergeView(ttk.Frame):
         widget.bind("<Control-Button-4>", self.on_preview_ctrl_mousewheel)
         widget.bind("<Control-Button-5>", self.on_preview_ctrl_mousewheel)
 
+    @staticmethod
+    def _bool_from_env(name: str, default: bool) -> bool:
+        raw_value = os.environ.get(name)
+        if raw_value is None:
+            return default
+        normalized = raw_value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+        return default
+
+    def _detect_pixel_scroll_capability(self) -> bool:
+        if not hasattr(self, "preview_canvas"):
+            return False
+
+        windowing_system = ""
+        tk_interp = getattr(getattr(self, "master", None), "tk", None)
+        if tk_interp is not None:
+            try:
+                windowing_system = str(tk_interp.call("tk", "windowingsystem"))
+            except tk.TclError:
+                windowing_system = ""
+
+        has_fractional_scroll_api = hasattr(self.preview_canvas, "yview_moveto") and hasattr(self.preview_canvas, "xview_moveto")
+        return has_fractional_scroll_api and windowing_system in {"aqua", "win32", "x11"}
+
+    def _normalize_wheel_delta_to_pixels(self, event: tk.Event) -> tuple[float, int | None]:
+        num = getattr(event, "num", None)
+        if num == 4:
+            return 0.0, -1
+        if num == 5:
+            return 0.0, 1
+
+        delta = float(getattr(event, "delta", 0) or 0)
+        if delta == 0.0:
+            return 0.0, None
+
+        windowing_system = ""
+        tk_interp = getattr(getattr(self, "master", None), "tk", None)
+        if tk_interp is not None:
+            try:
+                windowing_system = str(tk_interp.call("tk", "windowingsystem"))
+            except tk.TclError:
+                windowing_system = ""
+
+        if windowing_system == "aqua" and abs(delta) < 120.0:
+            pixel_intent = -delta
+        else:
+            pixel_intent = (-delta / 120.0) * self._wheel_pixels_per_notch
+
+        if abs(pixel_intent) <= self._wheel_delta_deadzone_px:
+            return 0.0, None
+        return pixel_intent, None
+
+    def _scrollable_extent_px(self, axis: str) -> float:
+        raw_scrollregion = str(self.preview_canvas.cget("scrollregion") or "").strip()
+        if not raw_scrollregion:
+            return 0.0
+        try:
+            x1, y1, x2, y2 = (float(part) for part in raw_scrollregion.split())
+        except ValueError:
+            return 0.0
+
+        if axis == "y":
+            return max((y2 - y1) - float(self.preview_canvas.winfo_height()), 0.0)
+        return max((x2 - x1) - float(self.preview_canvas.winfo_width()), 0.0)
+
+    def _apply_pixel_scroll(self, axis: str, pixel_delta: float) -> bool:
+        accumulator_attr = "_wheel_pixel_accum_y" if axis == "y" else "_wheel_pixel_accum_x"
+        accumulated = getattr(self, accumulator_attr) + pixel_delta
+        if abs(accumulated) <= self._wheel_delta_deadzone_px:
+            setattr(self, accumulator_attr, accumulated)
+            return True
+
+        scroll_extent = self._scrollable_extent_px(axis)
+        if scroll_extent <= 0.0:
+            setattr(self, accumulator_attr, 0.0)
+            return False
+
+        effective_delta = accumulated * self._wheel_delta_damping
+        setattr(self, accumulator_attr, accumulated - effective_delta)
+
+        view = self.preview_canvas.yview() if axis == "y" else self.preview_canvas.xview()
+        if not view:
+            return False
+        current_fraction = float(view[0])
+        next_fraction = min(1.0, max(0.0, current_fraction + (effective_delta / scroll_extent)))
+
+        if axis == "y":
+            self.preview_canvas.yview_moveto(next_fraction)
+        else:
+            self.preview_canvas.xview_moveto(next_fraction)
+        return True
+
     def clear_preview_widgets(self) -> None:
         for widget in self.preview_content.winfo_children():
             widget.destroy()
@@ -316,6 +419,20 @@ class PdfMergeView(ttk.Frame):
         if bool(event.state & 0x0004):
             return "break"
 
+        pixel_intent, fallback_units = self._normalize_wheel_delta_to_pixels(event)
+        if (
+            self._wheel_pixel_scroll_feature_enabled
+            and self._wheel_pixel_scroll_capable
+            and fallback_units is None
+            and pixel_intent != 0.0
+            and self._apply_pixel_scroll("y", pixel_intent)
+        ):
+            return "break"
+
+        if fallback_units is not None:
+            self.preview_canvas.yview_scroll(fallback_units, "units")
+            return "break"
+
         units = self._consume_wheel_steps(event, "_wheel_accum_y")
         if units == 0:
             return "break"
@@ -324,6 +441,20 @@ class PdfMergeView(ttk.Frame):
 
     def on_preview_shift_mousewheel(self, event: tk.Event) -> str:
         if bool(event.state & 0x0004):
+            return "break"
+
+        pixel_intent, fallback_units = self._normalize_wheel_delta_to_pixels(event)
+        if (
+            self._wheel_pixel_scroll_feature_enabled
+            and self._wheel_pixel_scroll_capable
+            and fallback_units is None
+            and pixel_intent != 0.0
+            and self._apply_pixel_scroll("x", pixel_intent)
+        ):
+            return "break"
+
+        if fallback_units is not None:
+            self.preview_canvas.xview_scroll(fallback_units, "units")
             return "break"
 
         units = self._consume_wheel_steps(event, "_wheel_accum_x")

@@ -113,6 +113,8 @@ def _build_controller(
     controller._final_preview_syncing_scrollbar = False
     controller._final_preview_rendering = False
     controller._final_preview_total_height = 5_000
+    controller._final_preview_pages = []
+    controller._final_preview_offsets = [0]
     controller._final_preview_visible_indices = set()
     controller._final_preview_render_window = None
     controller._final_preview_dynamic_overscan_enabled = False
@@ -493,3 +495,46 @@ def test_visible_page_range_dynamic_overscan_uses_velocity_and_logs_telemetry() 
     assert (start, end) == (0, 4)
     assert controller._final_preview_velocity_bucket == "fast"
     assert any("velocity_bucket=fast" in entry and "overscan=" in entry and "rendered_pages=" in entry for entry in logs)
+
+
+def test_active_page_index_prefers_first_fully_visible_page() -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_pages = [
+        final_preview_module.FinalPreviewPage("doc.pdf", idx, 0, estimated_height=100, logical_height=100)
+        for idx in range(4)
+    ]
+    controller._final_preview_offsets = [0, 112, 224, 336, 448]
+
+    # Viewport starts inside page 0 and fully contains page 1.
+    idx = controller.final_preview_controller._active_page_index_for_viewport(60, 260)
+
+    assert idx == 1
+
+
+def test_active_page_index_falls_back_to_first_page_with_visible_top() -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_pages = [
+        final_preview_module.FinalPreviewPage("doc.pdf", idx, 0, estimated_height=100, logical_height=100)
+        for idx in range(3)
+    ]
+    controller._final_preview_offsets = [0, 112, 224, 336]
+
+    # No page top is visible here; keep selection on the page containing the viewport top.
+    idx = controller.final_preview_controller._active_page_index_for_viewport(150, 200)
+
+    assert idx == 1
+
+
+def test_active_page_index_does_not_advance_while_current_page_top_is_visible() -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_pages = [
+        final_preview_module.FinalPreviewPage("doc.pdf", idx, 0, estimated_height=100, logical_height=100)
+        for idx in range(5)
+    ]
+    controller._final_preview_offsets = [0, 112, 224, 336, 448, 560]
+
+    # Page index 2 top is still visible, so selection should remain on 2
+    # instead of advancing to 3.
+    idx = controller.final_preview_controller._active_page_index_for_viewport(210, 470)
+
+    assert idx == 2

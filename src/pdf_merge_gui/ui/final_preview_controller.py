@@ -451,6 +451,8 @@ class FinalPreviewController:
 
     def _sync_final_preview_list_selection(self, logical_top: float, viewport_height: int) -> None:
         owner = self.owner
+        if owner.is_final_preview_selection_locked():
+            return
         page_idx = self._active_page_index_for_viewport(logical_top, logical_top + max(viewport_height, 1))
         if page_idx is None:
             return

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
+import time
 from pathlib import Path
 import sys
 from tkinter import filedialog, messagebox, ttk
@@ -53,6 +54,7 @@ class PdfMergeController:
     FINAL_SCROLL_RENDER_ANCHOR_EPSILON = 0.0025
     FINAL_SCROLL_SYNC_EPSILON = 0.001
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
+    ROTATE_ANCHOR_DEBOUNCE_MS = 350
 
     def __init__(self, master: tk.Tk) -> None:
         self.master = master
@@ -92,6 +94,11 @@ class PdfMergeController:
         self._final_preview_last_scroll_render_ts: Optional[float] = None
         self._final_preview_velocity_bucket = "slow"
         self._final_preview_overscan_telemetry: dict[str, int] = {"slow": 0, "medium": 0, "fast": 0}
+        self._rotate_anchor_indices: tuple[int, ...] | None = None
+        self._rotate_anchor_after: Optional[str] = None
+        self._rotate_anchor_expires_at: float = 0.0
+        self._final_preview_selection_lock = False
+        self._last_preview_mode: Optional[str] = self.view.preview_mode.get()
 
         self.final_preview_controller = FinalPreviewController(self)
 
@@ -124,6 +131,8 @@ class PdfMergeController:
         self.view.page_list.bind("<Delete>", self.on_delete_shortcut)
         self.view.page_list.bind("<Control-Up>", self.on_move_up_shortcut)
         self.view.page_list.bind("<Control-Down>", self.on_move_down_shortcut)
+        self.view.page_list.bind("<ButtonRelease-1>", self.on_user_list_selection_change, add="+")
+        self.view.page_list.bind("<KeyRelease>", self.on_user_list_selection_change, add="+")
         self.master.protocol("WM_DELETE_WINDOW", self.on_close)
         self.view.preview_panel.bind("<Configure>", self.on_preview_panel_resize)
         self.view.preview_canvas.configure(yscrollcommand=self._on_preview_canvas_yscroll)
@@ -155,6 +164,9 @@ class PdfMergeController:
         if self._pending_final_scroll_render_after is not None:
             self.master.after_cancel(self._pending_final_scroll_render_after)
             self._pending_final_scroll_render_after = None
+        if self._rotate_anchor_after is not None:
+            self.master.after_cancel(self._rotate_anchor_after)
+            self._rotate_anchor_after = None
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
@@ -250,6 +262,7 @@ class PdfMergeController:
         self.refresh_list(select_indices=self.model.move_down_many(indices))
 
     def on_list_drag_drop(self, source_indices: list[int], preview_index: int) -> None:
+        self._clear_rotate_anchor()
         if not self.model.sequence:
             return
 
@@ -264,6 +277,7 @@ class PdfMergeController:
             self.refresh_list(select_indices=moved_indices)
 
     def on_list_ctrl_range(self, anchor_index: int, clicked_index: int) -> None:
+        self._clear_rotate_anchor()
         if not self.model.sequence:
             return
 
@@ -338,16 +352,57 @@ class PdfMergeController:
 
 
     def on_rotate_left(self) -> None:
-        indices = self.selected_indices()
+        indices = self._rotation_target_indices()
         if not indices:
             return
         self.refresh_list(select_indices=self.model.rotate_counterclockwise(indices))
 
     def on_rotate_right(self) -> None:
-        indices = self.selected_indices()
+        indices = self._rotation_target_indices()
         if not indices:
             return
         self.refresh_list(select_indices=self.model.rotate_clockwise(indices))
+
+    def on_user_list_selection_change(self, _event: tk.Event) -> None:
+        self._clear_rotate_anchor()
+
+    def is_final_preview_selection_locked(self) -> bool:
+        return self._final_preview_selection_lock
+
+    def _rotation_target_indices(self) -> list[int]:
+        indices = self.selected_indices()
+        if self.view.preview_mode.get() != self.view.PREVIEW_FINAL:
+            self._clear_rotate_anchor()
+            return indices
+        if not indices and self._rotate_anchor_indices is None:
+            return []
+
+        now = time.monotonic()
+        if self._rotate_anchor_indices is not None and now < self._rotate_anchor_expires_at:
+            target = list(self._rotate_anchor_indices)
+        else:
+            if not indices:
+                return []
+            target = sorted(set(indices))
+            self._rotate_anchor_indices = tuple(target)
+
+        self._final_preview_selection_lock = True
+        self._rotate_anchor_expires_at = now + (self.ROTATE_ANCHOR_DEBOUNCE_MS / 1000)
+        self._schedule_rotate_anchor_reset()
+        return target
+
+    def _schedule_rotate_anchor_reset(self) -> None:
+        if self._rotate_anchor_after is not None:
+            self.master.after_cancel(self._rotate_anchor_after)
+        self._rotate_anchor_after = self.master.after(self.ROTATE_ANCHOR_DEBOUNCE_MS, self._clear_rotate_anchor)
+
+    def _clear_rotate_anchor(self) -> None:
+        self._rotate_anchor_indices = None
+        self._rotate_anchor_expires_at = 0.0
+        self._final_preview_selection_lock = False
+        if self._rotate_anchor_after is not None:
+            self.master.after_cancel(self._rotate_anchor_after)
+            self._rotate_anchor_after = None
 
     def on_merge_export(self) -> None:
         if not self.model.sequence:
@@ -757,6 +812,11 @@ class PdfMergeController:
         self.final_preview_controller.render_virtual_final_preview(preserve_anchor)
 
     def update_preview(self) -> None:
+        current_mode = self.view.preview_mode.get()
+        if self._last_preview_mode != current_mode:
+            self._clear_rotate_anchor()
+            self._last_preview_mode = current_mode
+
         if not self.model.sequence:
             self._last_preview_render_key = None
             self._last_final_render_signature = None
@@ -765,7 +825,7 @@ class PdfMergeController:
             self.show_preview_text("Open one or more PDFs to begin.")
             return
 
-        if self.view.preview_mode.get() == self.view.PREVIEW_SINGLE:
+        if current_mode == self.view.PREVIEW_SINGLE:
             self._final_preview_pages = []
             self._final_preview_visible_indices = set()
             self._last_final_render_signature = None

@@ -105,18 +105,22 @@ class FinalPreviewController:
 
         previous_ts = owner._final_preview_last_scroll_event_ts
         previous_top = owner._final_preview_last_logical_top
-        velocity = owner._final_preview_scroll_velocity_px_s
+        previous_velocity = owner._final_preview_scroll_velocity_px_s
+        instantaneous_velocity = previous_velocity
         if previous_ts is not None and previous_top is not None:
             dt_s = now - previous_ts
             if dt_s > 0:
-                velocity = abs(logical_top - previous_top) / dt_s
+                instantaneous_velocity = abs(logical_top - previous_top) / dt_s
+        alpha = owner.FINAL_SCROLL_VELOCITY_EMA_ALPHA
+        velocity = (alpha * instantaneous_velocity) + ((1.0 - alpha) * previous_velocity)
         owner._final_preview_last_scroll_event_ts = now
         owner._final_preview_last_logical_top = logical_top
         owner._final_preview_scroll_velocity_px_s = velocity
         owner._log_preview_debug(
             f"_on_preview_canvas_yscroll anchor_updated={owner._final_preview_anchor_fraction:.6f} "
             f"first_fraction={first_fraction:.6f} rendered_top={rendered_top:.2f} "
-            f"rendered_max_start={rendered_max_start} logical_top={logical_top:.2f}"
+            f"rendered_max_start={rendered_max_start} logical_top={logical_top:.2f} "
+            f"velocity_px_s={velocity:.2f} instantaneous_velocity_px_s={instantaneous_velocity:.2f}"
         )
         last_scroll_render_anchor = getattr(owner, "_final_preview_last_scroll_render_anchor", previous_anchor)
         anchor_delta_from_last_render = abs(owner._final_preview_anchor_fraction - last_scroll_render_anchor)
@@ -130,9 +134,21 @@ class FinalPreviewController:
             return
         if owner._pending_final_scroll_render_after is not None:
             return
+        debounce_ms = owner.compute_debounce_ms(owner._final_preview_scroll_velocity_px_s)
+        elapsed_since_last_render_ms = None
+        if owner._final_preview_last_scroll_render_ts is not None:
+            elapsed_since_last_render_ms = (now - owner._final_preview_last_scroll_render_ts) * 1000.0
+        if elapsed_since_last_render_ms is not None and elapsed_since_last_render_ms >= owner.FINAL_SCROLL_RENDER_MAX_UPDATE_INTERVAL_MS:
+            debounce_ms = 0
+        owner._log_preview_debug(
+            f"_on_preview_canvas_yscroll schedule_scroll_render debounce_ms={debounce_ms} "
+            f"velocity_px_s={owner._final_preview_scroll_velocity_px_s:.2f} "
+            f"max_update_interval_ms={owner.FINAL_SCROLL_RENDER_MAX_UPDATE_INTERVAL_MS} "
+            f"elapsed_since_last_render_ms={elapsed_since_last_render_ms}"
+        )
         owner._final_preview_last_scroll_render_anchor = owner._final_preview_anchor_fraction
         owner._pending_final_scroll_render_after = owner.master.after(
-            owner.FINAL_SCROLL_RENDER_DEBOUNCE_MS,
+            debounce_ms,
             self.render_final_preview_from_scroll,
         )
 
@@ -143,6 +159,7 @@ class FinalPreviewController:
             return
         if owner._final_preview_rendering:
             return
+        owner._final_preview_last_scroll_render_ts = time.monotonic()
         self.render_virtual_final_preview(preserve_anchor=True)
 
     def sync_canvas_scroll_to_fraction(self, fraction: float) -> bool:

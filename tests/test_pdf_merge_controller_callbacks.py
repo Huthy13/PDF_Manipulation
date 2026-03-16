@@ -116,9 +116,11 @@ def _build_controller(
     controller._final_preview_visible_indices = set()
     controller._final_preview_render_window = None
     controller._final_preview_dynamic_overscan_enabled = False
+    controller._final_preview_dynamic_scroll_debounce_enabled = True
     controller._final_preview_scroll_velocity_px_s = 0.0
     controller._final_preview_last_scroll_event_ts = None
     controller._final_preview_last_logical_top = None
+    controller._final_preview_last_scroll_render_ts = None
     controller._final_preview_velocity_bucket = "slow"
     controller._final_preview_overscan_telemetry = {"slow": 0, "medium": 0, "fast": 0}
     controller.final_preview_controller = final_preview_module.FinalPreviewController(controller)
@@ -431,6 +433,30 @@ def test_rendered_scroll_fraction_for_anchor_uses_mapping_and_allows_scrolling_u
     assert 0.0 <= up_fraction < 1.0
     assert up_fraction < bottom_fraction
 
+
+def test_compute_debounce_ms_uses_velocity_buckets_and_supports_fixed_mode() -> None:
+    controller = _build_controller(mode="final")
+
+    assert controller.compute_debounce_ms(10.0) == controller.FINAL_SCROLL_RENDER_DEBOUNCE_SLOW_MS
+    assert controller.compute_debounce_ms(900.0) == controller.FINAL_SCROLL_RENDER_DEBOUNCE_MEDIUM_MS
+    assert controller.compute_debounce_ms(9000.0) == controller.FINAL_SCROLL_RENDER_DEBOUNCE_FAST_MS
+
+    controller._final_preview_dynamic_scroll_debounce_enabled = False
+    assert controller.compute_debounce_ms(9000.0) == controller.FINAL_SCROLL_RENDER_DEBOUNCE_MS
+
+
+def test_on_preview_canvas_yscroll_caps_update_interval_for_long_flings(monkeypatch) -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_last_scroll_render_ts = 1.0
+    controller._final_preview_last_scroll_event_ts = 0.9
+    controller._final_preview_last_logical_top = 0.0
+
+    monkeypatch.setattr(final_preview_module.time, "monotonic", lambda: 1.2)
+
+    controller.final_preview_controller.on_preview_canvas_yscroll("0.5", "0.8")
+
+    assert controller.master.after_calls
+    assert controller.master.after_calls[-1][1] == 0
 
 def test_compute_overscan_pages_uses_velocity_buckets_and_clamps() -> None:
     controller = _build_controller(mode="final")

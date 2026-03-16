@@ -444,17 +444,25 @@ class FinalPreviewController:
         clamped_bottom = max(clamped_top, logical_bottom)
         page_count = len(owner._final_preview_pages)
 
-        # Prefer the first fully visible page. This keeps selection anchored to
-        # the first complete page in view when multiple pages fit onscreen.
+        # Keep selection on the first page whose top edge is still visible.
+        # This avoids switching to the next page too early while the current
+        # page header is still on-screen.
         for idx in range(page_count):
-            page_top = owner._final_preview_offsets[idx]
-            page_bottom = page_top + max(owner._final_preview_pages[idx].logical_height, 1)
-            if page_top >= clamped_top and page_bottom <= clamped_bottom:
+            page_top = float(owner._final_preview_offsets[idx])
+            if clamped_top <= page_top <= clamped_bottom:
                 return idx
 
-        # Fall back to the first page whose top edge is visible.
+        # If no page top is visible (e.g., viewport is inside a very tall page),
+        # stay anchored to the page containing the viewport top.
         for idx in range(page_count):
-            page_top = owner._final_preview_offsets[idx]
+            page_top = float(owner._final_preview_offsets[idx])
+            page_bottom = page_top + float(max(owner._final_preview_pages[idx].logical_height, 1))
+            if page_top <= clamped_top < page_bottom:
+                return idx
+
+        # Fall back to the next page whose top starts below the viewport top.
+        for idx in range(page_count):
+            page_top = float(owner._final_preview_offsets[idx])
             if page_top >= clamped_top:
                 return idx
 

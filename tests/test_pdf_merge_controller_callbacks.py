@@ -519,7 +519,22 @@ def test_active_page_index_falls_back_to_first_page_with_visible_top() -> None:
     ]
     controller._final_preview_offsets = [0, 112, 224, 336]
 
-    # No full page fits; should select the first page whose top edge is visible.
+    # No page top is visible here; keep selection on the page containing the viewport top.
     idx = controller.final_preview_controller._active_page_index_for_viewport(150, 200)
+
+    assert idx == 1
+
+
+def test_active_page_index_does_not_advance_while_current_page_top_is_visible() -> None:
+    controller = _build_controller(mode="final")
+    controller._final_preview_pages = [
+        final_preview_module.FinalPreviewPage("doc.pdf", idx, 0, estimated_height=100, logical_height=100)
+        for idx in range(5)
+    ]
+    controller._final_preview_offsets = [0, 112, 224, 336, 448, 560]
+
+    # Page index 2 top is still visible, so selection should remain on 2
+    # instead of advancing to 3.
+    idx = controller.final_preview_controller._active_page_index_for_viewport(210, 470)
 
     assert idx == 2

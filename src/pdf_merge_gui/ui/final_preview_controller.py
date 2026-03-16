@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from bisect import bisect_right
 from dataclasses import dataclass
+import time
 import tkinter as tk
 from typing import TYPE_CHECKING
 
@@ -60,6 +61,7 @@ class FinalPreviewController:
     def on_preview_canvas_yscroll(self, first: str, last: str) -> None:
         owner = self.owner
         owner.view.preview_vscroll.set(first, last)
+        now = time.monotonic()
         owner._log_preview_debug(
             f"_on_preview_canvas_yscroll first={first} last={last} anchor_before={owner._final_preview_anchor_fraction:.6f} "
             f"syncing={owner._final_preview_syncing_scrollbar} rendering={owner._final_preview_rendering}"
@@ -100,10 +102,25 @@ class FinalPreviewController:
             max_start = max(owner._final_preview_total_height - viewport_height, 0)
             logical_top = max(0.0, min(logical_top, float(max_start)))
             owner._final_preview_anchor_fraction = 0.0 if max_start == 0 else logical_top / max_start
+
+        previous_ts = owner._final_preview_last_scroll_event_ts
+        previous_top = owner._final_preview_last_logical_top
+        previous_velocity = owner._final_preview_scroll_velocity_px_s
+        instantaneous_velocity = previous_velocity
+        if previous_ts is not None and previous_top is not None:
+            dt_s = now - previous_ts
+            if dt_s > 0:
+                instantaneous_velocity = abs(logical_top - previous_top) / dt_s
+        alpha = owner.FINAL_SCROLL_VELOCITY_EMA_ALPHA
+        velocity = (alpha * instantaneous_velocity) + ((1.0 - alpha) * previous_velocity)
+        owner._final_preview_last_scroll_event_ts = now
+        owner._final_preview_last_logical_top = logical_top
+        owner._final_preview_scroll_velocity_px_s = velocity
         owner._log_preview_debug(
             f"_on_preview_canvas_yscroll anchor_updated={owner._final_preview_anchor_fraction:.6f} "
             f"first_fraction={first_fraction:.6f} rendered_top={rendered_top:.2f} "
-            f"rendered_max_start={rendered_max_start} logical_top={logical_top:.2f}"
+            f"rendered_max_start={rendered_max_start} logical_top={logical_top:.2f} "
+            f"velocity_px_s={velocity:.2f} instantaneous_velocity_px_s={instantaneous_velocity:.2f}"
         )
         last_scroll_render_anchor = getattr(owner, "_final_preview_last_scroll_render_anchor", previous_anchor)
         anchor_delta_from_last_render = abs(owner._final_preview_anchor_fraction - last_scroll_render_anchor)
@@ -117,9 +134,21 @@ class FinalPreviewController:
             return
         if owner._pending_final_scroll_render_after is not None:
             return
+        debounce_ms = owner.compute_debounce_ms(owner._final_preview_scroll_velocity_px_s)
+        elapsed_since_last_render_ms = None
+        if owner._final_preview_last_scroll_render_ts is not None:
+            elapsed_since_last_render_ms = (now - owner._final_preview_last_scroll_render_ts) * 1000.0
+        if elapsed_since_last_render_ms is not None and elapsed_since_last_render_ms >= owner.FINAL_SCROLL_RENDER_MAX_UPDATE_INTERVAL_MS:
+            debounce_ms = 0
+        owner._log_preview_debug(
+            f"_on_preview_canvas_yscroll schedule_scroll_render debounce_ms={debounce_ms} "
+            f"velocity_px_s={owner._final_preview_scroll_velocity_px_s:.2f} "
+            f"max_update_interval_ms={owner.FINAL_SCROLL_RENDER_MAX_UPDATE_INTERVAL_MS} "
+            f"elapsed_since_last_render_ms={elapsed_since_last_render_ms}"
+        )
         owner._final_preview_last_scroll_render_anchor = owner._final_preview_anchor_fraction
         owner._pending_final_scroll_render_after = owner.master.after(
-            owner.FINAL_SCROLL_RENDER_DEBOUNCE_MS,
+            debounce_ms,
             self.render_final_preview_from_scroll,
         )
 
@@ -130,6 +159,7 @@ class FinalPreviewController:
             return
         if owner._final_preview_rendering:
             return
+        owner._final_preview_last_scroll_render_ts = time.monotonic()
         self.render_virtual_final_preview(preserve_anchor=True)
 
     def sync_canvas_scroll_to_fraction(self, fraction: float) -> bool:
@@ -225,13 +255,24 @@ class FinalPreviewController:
         if not owner._final_preview_pages:
             owner._log_preview_debug(f"_visible_page_range top={top} bottom={bottom} pages=0 -> start=0 end=-1")
             return 0, -1
-        start = max(bisect_right(owner._final_preview_offsets, top) - 1 - owner.FINAL_PREVIEW_OVERSCAN_PAGES, 0)
+
+        if owner._final_preview_dynamic_overscan_enabled:
+            velocity = owner._final_preview_scroll_velocity_px_s
+            overscan_pages = owner.compute_overscan_pages(velocity)
+            bucket = owner._final_preview_velocity_bucket
+        else:
+            overscan_pages = owner.FINAL_PREVIEW_OVERSCAN_PAGES
+            bucket = "fixed"
+
+        start = max(bisect_right(owner._final_preview_offsets, top) - 1 - overscan_pages, 0)
         end = min(
-            bisect_right(owner._final_preview_offsets, bottom) - 1 + owner.FINAL_PREVIEW_OVERSCAN_PAGES,
+            bisect_right(owner._final_preview_offsets, bottom) - 1 + overscan_pages,
             len(owner._final_preview_pages) - 1,
         )
+        rendered_pages = max(end - start + 1, 0)
         owner._log_preview_debug(
-            f"_visible_page_range top={top} bottom={bottom} pages={len(owner._final_preview_pages)} -> start={start} end={end}"
+            f"_visible_page_range top={top} bottom={bottom} pages={len(owner._final_preview_pages)} "
+            f"velocity_bucket={bucket} overscan={overscan_pages} rendered_pages={rendered_pages} -> start={start} end={end}"
         )
         return start, end
 

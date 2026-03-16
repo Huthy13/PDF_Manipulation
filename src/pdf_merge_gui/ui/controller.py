@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tkinter as tk
 from pathlib import Path
 import sys
@@ -30,12 +31,25 @@ class PdfMergeController:
     FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32 = 30_000
     FINAL_PREVIEW_PAGE_GAP = 12
     FINAL_PREVIEW_OVERSCAN_PAGES = 2
+    FINAL_PREVIEW_MIN_OVERSCAN_PAGES = 1
+    FINAL_PREVIEW_MAX_OVERSCAN_PAGES = 9
+    FINAL_PREVIEW_OVERSCAN_SLOW_MAX_VELOCITY_PX_S = 300.0
+    FINAL_PREVIEW_OVERSCAN_MEDIUM_MAX_VELOCITY_PX_S = 1200.0
+    FINAL_PREVIEW_OVERSCAN_MEDIUM_PAGES = 4
+    FINAL_PREVIEW_OVERSCAN_FAST_PAGES = 7
+    FINAL_PREVIEW_DYNAMIC_OVERSCAN_ENV = "PDF_MERGE_GUI_DYNAMIC_OVERSCAN"
+    FINAL_SCROLL_DYNAMIC_DEBOUNCE_ENV = "PDF_MERGE_GUI_DYNAMIC_SCROLL_DEBOUNCE"
     FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT = 1300
     FINAL_PREVIEW_WIDGET_GRID_PAD_Y = 6
     RESIZE_DEBOUNCE_MS = 120
     FINAL_RESIZE_DEBOUNCE_MS = 180
     FINAL_RESIZE_SETTLE_MS = 240
     FINAL_SCROLL_RENDER_DEBOUNCE_MS = 72
+    FINAL_SCROLL_RENDER_DEBOUNCE_SLOW_MS = 24
+    FINAL_SCROLL_RENDER_DEBOUNCE_MEDIUM_MS = 48
+    FINAL_SCROLL_RENDER_DEBOUNCE_FAST_MS = 96
+    FINAL_SCROLL_RENDER_MAX_UPDATE_INTERVAL_MS = 120
+    FINAL_SCROLL_VELOCITY_EMA_ALPHA = 0.35
     ZOOM_RENDER_DEBOUNCE_MS = 60
     FINAL_SCROLL_RENDER_ANCHOR_EPSILON = 0.0025
     FINAL_SCROLL_SYNC_EPSILON = 0.001
@@ -64,6 +78,20 @@ class PdfMergeController:
         self._final_preview_render_window: Optional[FinalPreviewRenderWindow] = None
         self._final_preview_syncing_scrollbar = False
         self._final_preview_rendering = False
+        self._final_preview_dynamic_overscan_enabled = self._bool_from_env(
+            self.FINAL_PREVIEW_DYNAMIC_OVERSCAN_ENV,
+            default=False,
+        )
+        self._final_preview_dynamic_scroll_debounce_enabled = self._bool_from_env(
+            self.FINAL_SCROLL_DYNAMIC_DEBOUNCE_ENV,
+            default=True,
+        )
+        self._final_preview_scroll_velocity_px_s = 0.0
+        self._final_preview_last_scroll_event_ts: Optional[float] = None
+        self._final_preview_last_logical_top: Optional[float] = None
+        self._final_preview_last_scroll_render_ts: Optional[float] = None
+        self._final_preview_velocity_bucket = "slow"
+        self._final_preview_overscan_telemetry: dict[str, int] = {"slow": 0, "medium": 0, "fast": 0}
 
         logging_enabled = PreviewDebugLogger.env_override_enabled(default=False)
         self.preview_debug_logger = PreviewDebugLogger(enabled=logging_enabled)
@@ -104,6 +132,18 @@ class PdfMergeController:
         self.view.preview_canvas.configure(yscrollcommand=self._on_preview_canvas_yscroll)
 
         self.refresh_list()
+
+    @staticmethod
+    def _bool_from_env(key: str, *, default: bool) -> bool:
+        raw = os.environ.get(key)
+        if raw is None:
+            return default
+        normalized = raw.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+        return default
 
     def on_close(self) -> None:
         if self._pending_resize_after is not None:
@@ -533,6 +573,39 @@ class PdfMergeController:
             f"_final_preview_safe_canvas_budget is_win32={is_win32} budget={budget}"
         )
         return budget
+
+    def _velocity_bucket_for_scroll_velocity(self, scroll_velocity_px_s: float) -> str:
+        velocity = max(float(scroll_velocity_px_s), 0.0)
+        if velocity < self.FINAL_PREVIEW_OVERSCAN_SLOW_MAX_VELOCITY_PX_S:
+            return "slow"
+        if velocity <= self.FINAL_PREVIEW_OVERSCAN_MEDIUM_MAX_VELOCITY_PX_S:
+            return "medium"
+        return "fast"
+
+    def compute_overscan_pages(self, scroll_velocity_px_s: float) -> int:
+        bucket = self._velocity_bucket_for_scroll_velocity(scroll_velocity_px_s)
+        if bucket == "slow":
+            requested = self.FINAL_PREVIEW_OVERSCAN_PAGES
+        elif bucket == "medium":
+            requested = self.FINAL_PREVIEW_OVERSCAN_MEDIUM_PAGES
+        else:
+            requested = self.FINAL_PREVIEW_OVERSCAN_FAST_PAGES
+
+        overscan = max(self.FINAL_PREVIEW_MIN_OVERSCAN_PAGES, min(requested, self.FINAL_PREVIEW_MAX_OVERSCAN_PAGES))
+        self._final_preview_velocity_bucket = bucket
+        self._final_preview_overscan_telemetry[bucket] = self._final_preview_overscan_telemetry.get(bucket, 0) + 1
+        return overscan
+
+    def compute_debounce_ms(self, scroll_velocity_px_s: float) -> int:
+        if not self._final_preview_dynamic_scroll_debounce_enabled:
+            return self.FINAL_SCROLL_RENDER_DEBOUNCE_MS
+
+        bucket = self._velocity_bucket_for_scroll_velocity(scroll_velocity_px_s)
+        if bucket == "slow":
+            return self.FINAL_SCROLL_RENDER_DEBOUNCE_SLOW_MS
+        if bucket == "medium":
+            return self.FINAL_SCROLL_RENDER_DEBOUNCE_MEDIUM_MS
+        return self.FINAL_SCROLL_RENDER_DEBOUNCE_FAST_MS
 
     def _set_virtual_anchor(self, virtual_top: int) -> None:
         viewport_height = max(self.view.preview_canvas.winfo_height(), 1)

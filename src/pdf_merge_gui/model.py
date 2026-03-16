@@ -50,5 +50,11 @@ class MergeModel:
     def reverse_selected(self, indices: Sequence[int]) -> list[int]:
         return self.sequence_service.reverse_selected(indices)
 
+    def rotate_clockwise(self, indices: Sequence[int]) -> list[int]:
+        return self.sequence_service.rotate_clockwise(indices)
+
+    def rotate_counterclockwise(self, indices: Sequence[int]) -> list[int]:
+        return self.sequence_service.rotate_counterclockwise(indices)
+
     def write_merged(self, output_path: str) -> None:
         self.document_session.write_merged(self.sequence, output_path)

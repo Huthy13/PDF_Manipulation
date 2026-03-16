@@ -233,8 +233,8 @@ def test_build_spacer_widgets_keeps_single_chunk_below_limit(monkeypatch) -> Non
 def test_recompute_final_preview_offsets_applies_win32_safe_scroll_cap(monkeypatch) -> None:
     controller = _build_controller(mode="final", windowing_system="win32")
     controller._final_preview_pages = [
-        final_preview_module.FinalPreviewPage("a.pdf", 0, estimated_height=20_000),
-        final_preview_module.FinalPreviewPage("a.pdf", 1, estimated_height=20_000),
+        final_preview_module.FinalPreviewPage("a.pdf", 0, 0, estimated_height=20_000),
+        final_preview_module.FinalPreviewPage("a.pdf", 1, 0, estimated_height=20_000),
     ]
 
     monkeypatch.setattr(controller_module.sys, "platform", "linux")
@@ -255,7 +255,7 @@ def test_final_preview_safe_scroll_height_uses_default_outside_win32(monkeypatch
 def test_render_virtual_final_preview_clamps_content_height_to_budget_for_many_pages(monkeypatch) -> None:
     controller = _build_controller(mode="final", height=700, windowing_system="win32")
     controller._final_preview_pages = [
-        final_preview_module.FinalPreviewPage("big.pdf", idx, estimated_height=2_600)
+        final_preview_module.FinalPreviewPage("big.pdf", idx, 0, estimated_height=2_600)
         for idx in range(120)
     ]
     controller._final_preview_anchor_fraction = 0.65
@@ -308,7 +308,7 @@ def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heig
     controller = _build_controller(mode="final", height=900, windowing_system="win32")
     controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32 = 18_000
     controller._final_preview_pages = [
-        final_preview_module.FinalPreviewPage("zoomed.pdf", idx, estimated_height=1_600)
+        final_preview_module.FinalPreviewPage("zoomed.pdf", idx, 0, estimated_height=1_600)
         for idx in range(80)
     ]
     controller._final_preview_anchor_fraction = 0.3
@@ -480,7 +480,7 @@ def test_visible_page_range_dynamic_overscan_uses_velocity_and_logs_telemetry() 
     controller._final_preview_scroll_velocity_px_s = 1500.0
     controller._final_preview_offsets = [0, 100, 200, 300, 400, 500]
     controller._final_preview_pages = [
-        final_preview_module.FinalPreviewPage("doc.pdf", idx, estimated_height=100)
+        final_preview_module.FinalPreviewPage("doc.pdf", idx, 0, estimated_height=100)
         for idx in range(5)
     ]
     logs: list[str] = []

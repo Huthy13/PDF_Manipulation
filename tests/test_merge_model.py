@@ -68,3 +68,18 @@ def test_write_merged_raises_typed_error_with_cause_for_missing_source(tmp_path:
 
     assert isinstance(exc_info.value.__cause__, PdfSourceNotFoundError)
     assert isinstance(exc_info.value.__cause__.__cause__, FileNotFoundError)
+
+
+def test_write_merged_applies_page_rotation(tmp_path: Path):
+    pdf1 = tmp_path / "a.pdf"
+    out = tmp_path / "merged.pdf"
+
+    write_pdf(pdf1, pages=1)
+
+    model = MergeModel()
+    model.add_pdf(str(pdf1))
+    model.rotate_clockwise([0])
+    model.write_merged(str(out))
+
+    reader = PdfReader(str(out))
+    assert int(reader.pages[0].get("/Rotate", 0)) == 90

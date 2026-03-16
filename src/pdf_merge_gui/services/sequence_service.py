@@ -122,3 +122,24 @@ class SequenceService:
         for idx, page in zip(selected, selected_pages):
             self.sequence[idx] = page
         return selected
+
+    def _rotate(self, indices: Sequence[int], delta: int) -> list[int]:
+        selected = sorted({idx for idx in indices if 0 <= idx < len(self.sequence)})
+        if not selected:
+            return []
+
+        for idx in selected:
+            page = self.sequence[idx]
+            self.sequence[idx] = PageRef(
+                source_path=page.source_path,
+                page_index=page.page_index,
+                display_name=page.display_name,
+                rotation_degrees=(page.rotation_degrees + delta) % 360,
+            )
+        return selected
+
+    def rotate_clockwise(self, indices: Sequence[int]) -> list[int]:
+        return self._rotate(indices, 90)
+
+    def rotate_counterclockwise(self, indices: Sequence[int]) -> list[int]:
+        return self._rotate(indices, -90)

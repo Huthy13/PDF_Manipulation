@@ -290,7 +290,8 @@ def test_render_virtual_final_preview_clamps_content_height_to_budget_for_many_p
         widgets = widget_builder()
         measured["content_height"] = sum(getattr(widget, "height", 0) for widget in widgets)
 
-    def fake_render(_source_path: str, page_index: int) -> FakeImage:
+    def fake_render(_source_path: str, page_index: int, rotation_degrees: int = 0) -> FakeImage:
+        assert rotation_degrees == 0
         return FakeImage(2_200 + (page_index % 3) * 200)
 
     monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
@@ -343,7 +344,8 @@ def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heig
         widgets = widget_builder()
         measured["content_height"] = sum(getattr(widget, "height", 0) for widget in widgets)
 
-    def fake_render(_source_path: str, page_index: int) -> FakeImage:
+    def fake_render(_source_path: str, page_index: int, rotation_degrees: int = 0) -> FakeImage:
+        assert rotation_degrees == 0
         zoomed_height = 3_000 if page_index % 7 == 0 else 1_850
         return FakeImage(zoomed_height)
 

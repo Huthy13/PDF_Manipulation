@@ -118,8 +118,9 @@ def test_preview_service_quantizes_zoom_for_cache_and_render(monkeypatch):
 
     monkeypatch.setattr('pdf_merge_gui.services.preview_service.ImageTk.PhotoImage', FakePhotoImage)
 
-    def fake_render_page(_source_path, _page_index, zoom, document_cache):
+    def fake_render_page(_source_path, _page_index, zoom, document_cache, rotation_degrees=0):
         assert document_cache is service.document_cache
+        assert rotation_degrees == 0
         render_calls.append(zoom)
         return f'rendered:{zoom}'
 

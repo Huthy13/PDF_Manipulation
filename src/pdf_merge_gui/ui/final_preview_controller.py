@@ -76,6 +76,19 @@ class FinalPreviewController:
         except ValueError:
             return
         first_fraction = max(0.0, min(1.0, first_fraction))
+        if (
+            owner._final_preview_last_synced_fraction is not None
+            and owner._final_preview_last_sync_ts is not None
+            and (now - owner._final_preview_last_sync_ts) <= owner.FINAL_SCROLL_SYNC_CALLBACK_SUPPRESSION_WINDOW_S
+            and abs(first_fraction - owner._final_preview_last_synced_fraction)
+            <= owner.FINAL_SCROLL_SYNC_CALLBACK_SUPPRESSION_EPSILON
+        ):
+            owner._log_preview_debug(
+                f"_on_preview_canvas_yscroll suppressed_post_sync_callback first_fraction={first_fraction:.6f} "
+                f"synced_fraction={owner._final_preview_last_synced_fraction:.6f} "
+                f"elapsed_ms={(now - owner._final_preview_last_sync_ts) * 1000.0:.2f}"
+            )
+            return
         viewport_height = max(owner.view.preview_canvas.winfo_height(), 1)
         scrollregion = owner.view.preview_canvas.cget("scrollregion")
         rendered_content_height = viewport_height
@@ -175,8 +188,11 @@ class FinalPreviewController:
                 if abs(current_fraction - target_fraction) < owner.FINAL_SCROLL_SYNC_EPSILON:
                     return False
         owner._final_preview_syncing_scrollbar = True
+        owner._final_preview_last_synced_fraction = target_fraction
+        owner._final_preview_last_sync_ts = time.monotonic()
         try:
             owner.view.preview_canvas.yview_moveto(target_fraction)
+            owner._final_preview_last_sync_ts = time.monotonic()
         finally:
             owner._final_preview_syncing_scrollbar = False
         return True

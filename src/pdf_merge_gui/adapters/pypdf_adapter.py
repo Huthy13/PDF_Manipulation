@@ -52,7 +52,10 @@ class PdfDocumentSession:
             try:
                 for page_ref in sequence:
                     reader = self._get_reader(page_ref.source_path)
-                    writer.add_page(reader.pages[page_ref.page_index])
+                    page = reader.pages[page_ref.page_index]
+                    if page_ref.rotation_degrees:
+                        page = page.rotate(page_ref.rotation_degrees)
+                    writer.add_page(page)
 
                 with open(output_path, "wb") as file_obj:
                     writer.write(file_obj)

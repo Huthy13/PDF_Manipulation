@@ -74,22 +74,34 @@ class DocumentSessionCache:
             pass
 
 
-def _render_from_document(fitz_module: Any, document: Any, page_index: int, zoom: float) -> Image.Image:
+def _render_from_document(
+    fitz_module: Any,
+    document: Any,
+    page_index: int,
+    zoom: float,
+    rotation_degrees: int = 0,
+) -> Image.Image:
     if page_index < 0 or page_index >= len(document):
         raise PreviewRenderError(f"Page index out of range: {page_index}")
 
     page = document.load_page(page_index)
     matrix = fitz_module.Matrix(zoom, zoom)
     pixmap = page.get_pixmap(matrix=matrix, alpha=False)
-    return Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
+    image = Image.frombytes("RGB", [pixmap.width, pixmap.height], pixmap.samples)
+    normalized_rotation = rotation_degrees % 360
+    if normalized_rotation:
+        image = image.rotate(-normalized_rotation, expand=True)
+    return image
 
 
 def render_page(
     pdf_path: str,
     page_index: int,
     zoom: float = 1.5,
+    rotation_degrees: int = 0,
     document_cache: DocumentSessionCache | None = None,
 ) -> Image.Image:
+
     """Render one PDF page to a PIL image using PyMuPDF.
 
     Args:
@@ -112,7 +124,7 @@ def render_page(
     if document_cache is None:
         try:
             with fitz.open(str(path)) as document:
-                return _render_from_document(fitz, document, page_index, zoom)
+                return _render_from_document(fitz, document, page_index, zoom, rotation_degrees)
         except PreviewRenderError:
             raise
         except Exception as exc:
@@ -122,7 +134,7 @@ def render_page(
     for _attempt in range(2):
         try:
             document = document_cache.get_or_open(str(path), fitz)
-            return _render_from_document(fitz, document, page_index, zoom)
+            return _render_from_document(fitz, document, page_index, zoom, rotation_degrees)
         except PreviewRenderError:
             raise
         except Exception as exc:

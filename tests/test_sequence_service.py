@@ -93,3 +93,17 @@ def test_reverse_all_flips_entire_sequence():
 
     assert [p.display_name for p in svc.sequence] == ["C", "B", "A"]
     assert selected == [0, 1, 2]
+
+
+def test_rotate_selected_clockwise_and_counterclockwise():
+    svc = SequenceService()
+    svc.extend([make_page("A"), make_page("B"), make_page("C")])
+
+    rotated = svc.rotate_clockwise([0, 2])
+
+    assert rotated == [0, 2]
+    assert [p.rotation_degrees for p in svc.sequence] == [90, 0, 90]
+
+    svc.rotate_counterclockwise([2])
+
+    assert [p.rotation_degrees for p in svc.sequence] == [90, 0, 0]

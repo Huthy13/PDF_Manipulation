@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 class FinalPreviewPage:
     source_path: str
     page_index: int
+    rotation_degrees: int
     estimated_height: int
     logical_height: int = 1
 
@@ -181,25 +182,26 @@ class FinalPreviewController:
 
     def build_final_preview_model(self) -> None:
         owner = self.owner
-        sequence = [(page.source_path, page.page_index) for page in owner.model.sequence]
-        existing = [(page.source_path, page.page_index) for page in owner._final_preview_pages]
+        sequence = [(page.source_path, page.page_index, page.rotation_degrees) for page in owner.model.sequence]
+        existing = [(page.source_path, page.page_index, page.rotation_degrees) for page in owner._final_preview_pages]
         if sequence == existing:
             return
 
         previous_heights = {
-            (page.source_path, page.page_index): page.estimated_height
+            (page.source_path, page.page_index, page.rotation_degrees): page.estimated_height
             for page in owner._final_preview_pages
         }
         owner._final_preview_pages = [
             FinalPreviewPage(
                 source_path=source_path,
                 page_index=page_index,
+                rotation_degrees=rotation_degrees,
                 estimated_height=previous_heights.get(
-                    (source_path, page_index),
+                    (source_path, page_index, rotation_degrees),
                     owner.FINAL_PREVIEW_ESTIMATED_PAGE_HEIGHT,
                 ),
             )
-            for source_path, page_index in sequence
+            for source_path, page_index, rotation_degrees in sequence
         ]
         self.recompute_final_preview_offsets()
 
@@ -307,7 +309,7 @@ class FinalPreviewController:
             images_by_index: dict[int, ImageTk.PhotoImage] = {}
             for idx in range(start_idx, end_idx + 1):
                 descriptor = owner._final_preview_pages[idx]
-                rendered = owner.render_preview_image(descriptor.source_path, descriptor.page_index)
+                rendered = owner.render_preview_image(descriptor.source_path, descriptor.page_index, descriptor.rotation_degrees)
                 if rendered is None:
                     return
                 images_by_index[idx] = rendered
@@ -344,7 +346,7 @@ class FinalPreviewController:
                 if idx in images_by_index:
                     continue
                 descriptor = owner._final_preview_pages[idx]
-                rendered = owner.render_preview_image(descriptor.source_path, descriptor.page_index)
+                rendered = owner.render_preview_image(descriptor.source_path, descriptor.page_index, descriptor.rotation_degrees)
                 if rendered is None:
                     return
                 images_by_index[idx] = rendered

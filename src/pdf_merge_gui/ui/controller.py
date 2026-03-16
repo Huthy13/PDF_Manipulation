@@ -105,6 +105,8 @@ class PdfMergeController:
         self.view.reverse_selected_handler = self.on_reverse_selected
         self.view.reverse_all_handler = self.on_reverse_all
         self.view.merge_handler = self.on_merge_export
+        self.view.rotate_left_handler = self.on_rotate_left
+        self.view.rotate_right_handler = self.on_rotate_right
         self.view.prev_handler = self.on_prev_preview
         self.view.next_handler = self.on_next_preview
         self.view.selection_handler = self.update_preview
@@ -339,6 +341,19 @@ class PdfMergeController:
             return
         self.refresh_list()
 
+
+    def on_rotate_left(self) -> None:
+        indices = self.selected_indices()
+        if not indices:
+            return
+        self.refresh_list(select_indices=self.model.rotate_counterclockwise(indices))
+
+    def on_rotate_right(self) -> None:
+        indices = self.selected_indices()
+        if not indices:
+            return
+        self.refresh_list(select_indices=self.model.rotate_clockwise(indices))
+
     def on_merge_export(self) -> None:
         if not self.model.sequence:
             messagebox.showwarning("Nothing to merge", "Please add at least one PDF page.")
@@ -464,9 +479,9 @@ class PdfMergeController:
         height = self.view.preview_canvas.winfo_height() - 8
         return max(width, 1), max(height, 1)
 
-    def _resolve_zoom(self, source_path: str, page_index: int) -> tuple[float, ImageTk.PhotoImage]:
+    def _resolve_zoom(self, source_path: str, page_index: int, rotation_degrees: int = 0) -> tuple[float, ImageTk.PhotoImage]:
         base_zoom = self.preview_zoom
-        rendered = self.preview_service.render(source_path, page_index, base_zoom)
+        rendered = self.preview_service.render(source_path, page_index, base_zoom, rotation_degrees=rotation_degrees)
         if not self.view.fit_preview.get():
             return base_zoom, rendered
 
@@ -477,7 +492,7 @@ class PdfMergeController:
         fit_zoom = self._clamp_zoom(base_zoom * fit_ratio)
         if abs(fit_zoom - base_zoom) < 0.01:
             return base_zoom, rendered
-        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom)
+        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom, rotation_degrees=rotation_degrees)
 
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._clamp_zoom(self.preview_zoom + self.ZOOM_STEP)
@@ -690,9 +705,9 @@ class PdfMergeController:
     def _sync_canvas_scroll_to_fraction(self, fraction: float) -> bool:
         return self.final_preview_controller.sync_canvas_scroll_to_fraction(fraction)
 
-    def render_preview_image(self, source_path: str, page_index: int) -> Optional[ImageTk.PhotoImage]:
+    def render_preview_image(self, source_path: str, page_index: int, rotation_degrees: int = 0) -> Optional[ImageTk.PhotoImage]:
         try:
-            effective_zoom, rendered = self._resolve_zoom(source_path, page_index)
+            effective_zoom, rendered = self._resolve_zoom(source_path, page_index, rotation_degrees)
             self._update_zoom_label(effective_zoom=effective_zoom)
             return rendered
         except PreviewDependencyUnavailable as exc:
@@ -711,8 +726,8 @@ class PdfMergeController:
             return None
 
 
-    def _sequence_signature(self) -> tuple[tuple[str, int], ...]:
-        return tuple((page.source_path, page.page_index) for page in self.model.sequence)
+    def _sequence_signature(self) -> tuple[tuple[str, int, int], ...]:
+        return tuple((page.source_path, page.page_index, page.rotation_degrees) for page in self.model.sequence)
 
     def _current_preview_key(self, mode: str, selected_index: Optional[int] = None) -> tuple[object, ...]:
         key: list[object] = [
@@ -763,7 +778,7 @@ class PdfMergeController:
             if preview_key == self._last_preview_render_key:
                 return
 
-            rendered = self.render_preview_image(page.source_path, page.page_index)
+            rendered = self.render_preview_image(page.source_path, page.page_index, page.rotation_degrees)
             if rendered is not None:
                 self.show_preview_image(rendered)
                 self._last_preview_render_key = preview_key

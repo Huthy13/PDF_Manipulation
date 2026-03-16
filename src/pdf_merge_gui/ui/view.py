@@ -29,6 +29,8 @@ class PdfMergeView(ttk.Frame):
         self.reverse_selected_handler: Optional[Callable[[], None]] = None
         self.reverse_all_handler: Optional[Callable[[], None]] = None
         self.merge_handler: Optional[Callable[[], None]] = None
+        self.rotate_left_handler: Optional[Callable[[], None]] = None
+        self.rotate_right_handler: Optional[Callable[[], None]] = None
         self.prev_handler: Optional[Callable[[], None]] = None
         self.next_handler: Optional[Callable[[], None]] = None
         self.selection_handler: Optional[Callable[[], None]] = None
@@ -186,6 +188,14 @@ class PdfMergeView(ttk.Frame):
 
         self.btn_next = ttk.Button(nav_inner, text="Next ▶")
         self.btn_next.grid(row=0, column=2, padx=(12, 0))
+
+        self.btn_rotate_left = ttk.Button(nav_inner, text="↺ 90°")
+        self.btn_rotate_left.grid(row=0, column=3, padx=(12, 4))
+        self._tooltips.append(ToolTip(self.btn_rotate_left, "Rotate selected page(s) counterclockwise"))
+
+        self.btn_rotate_right = ttk.Button(nav_inner, text="↻ 90°")
+        self.btn_rotate_right.grid(row=0, column=4, padx=(4, 0))
+        self._tooltips.append(ToolTip(self.btn_rotate_right, "Rotate selected page(s) clockwise"))
 
         zoom_controls = ttk.Frame(nav)
         zoom_controls.grid(row=0, column=1, sticky="e")
@@ -693,6 +703,8 @@ class PdfMergeView(ttk.Frame):
         self.btn_reverse_selected.configure(command=self.reverse_selected_handler)
         self.btn_reverse_all.configure(command=self.reverse_all_handler)
         self.btn_merge.configure(command=self.merge_handler)
+        self.btn_rotate_left.configure(command=self.rotate_left_handler)
+        self.btn_rotate_right.configure(command=self.rotate_right_handler)
         self.btn_prev.configure(command=self.prev_handler)
         self.btn_next.configure(command=self.next_handler)
         self.rb_single.configure(command=self.preview_mode_handler)

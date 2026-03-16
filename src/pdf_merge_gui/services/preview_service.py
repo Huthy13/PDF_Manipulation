@@ -11,7 +11,7 @@ class PreviewService:
     ZOOM_QUANTIZATION_DIGITS = 2
 
     def __init__(self, cache_size: int = 100, document_cache_size: int = 16) -> None:
-        self.cache: LRUCache[tuple[str, int, float], ImageTk.PhotoImage] = LRUCache(cache_size)
+        self.cache: LRUCache[tuple[str, int, int, float], ImageTk.PhotoImage] = LRUCache(cache_size)
         self.document_cache = DocumentSessionCache(capacity=document_cache_size)
 
     @classmethod
@@ -26,10 +26,11 @@ class PreviewService:
         self.cache.remove_matching_prefix(source_path)
         self.document_cache.clear_for_source(source_path)
 
-    def render(self, source_path: str, page_index: int, zoom: float) -> ImageTk.PhotoImage:
+    def render(self, source_path: str, page_index: int, zoom: float, rotation_degrees: int = 0) -> ImageTk.PhotoImage:
         telemetry = get_telemetry()
         quantized_zoom = self._quantize_zoom(zoom)
-        key = (source_path, page_index, quantized_zoom)
+        normalized_rotation = rotation_degrees % 360
+        key = (source_path, page_index, normalized_rotation, quantized_zoom)
         cached = self.cache.get(key)
         if cached is not None:
             telemetry.increment("preview_cache_hit")
@@ -39,7 +40,13 @@ class PreviewService:
         telemetry.increment("preview_cache_miss")
         telemetry.increment("zoom_quantized_miss")
         with telemetry.time_block("preview_render_miss"):
-            image = render_page(source_path, page_index, zoom=quantized_zoom, document_cache=self.document_cache)
+            image = render_page(
+                source_path,
+                page_index,
+                zoom=quantized_zoom,
+                rotation_degrees=normalized_rotation,
+                document_cache=self.document_cache,
+            )
             photo = ImageTk.PhotoImage(image)
         self.cache.put(key, photo)
         return photo

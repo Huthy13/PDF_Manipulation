@@ -112,6 +112,8 @@ def _build_controller(
     controller._last_preview_canvas_size = (0, 0)
     controller._final_preview_anchor_fraction = 0.0
     controller._final_preview_syncing_scrollbar = False
+    controller._final_preview_last_synced_fraction = None
+    controller._final_preview_last_sync_ts = None
     controller._final_preview_rendering = False
     controller._final_preview_total_height = 5_000
     controller._final_preview_pages = []
@@ -162,6 +164,22 @@ def test_regression_final_preview_scroll_loop_does_not_reenter_render() -> None:
     assert controller.view.preview_vscroll.calls.count(("0.25", "0.60")) == 20
     assert controller.view.preview_vscroll.calls.count(("0.73", "0.92")) == 20
 
+
+
+
+def test_on_preview_canvas_yscroll_ignores_delayed_post_sync_callback(monkeypatch) -> None:
+    controller = _build_controller(mode="final")
+
+    timeline = iter((10.0, 10.0, 10.03))
+    monkeypatch.setattr(final_preview_module.time, "monotonic", lambda: next(timeline))
+
+    synced = controller.final_preview_controller.sync_canvas_scroll_to_fraction(0.25)
+    assert synced is True
+
+    controller.final_preview_controller.on_preview_canvas_yscroll("0.2508", "0.70")
+
+    assert controller._pending_final_scroll_render_after is None
+    assert controller.master.after_calls == []
 
 def test_on_preview_panel_resize_debounces_pending_callback() -> None:
     controller = _build_controller(mode="final")

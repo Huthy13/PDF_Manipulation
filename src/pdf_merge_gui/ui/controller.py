@@ -53,6 +53,8 @@ class PdfMergeController:
     ZOOM_RENDER_DEBOUNCE_MS = 60
     FINAL_SCROLL_RENDER_ANCHOR_EPSILON = 0.0025
     FINAL_SCROLL_SYNC_EPSILON = 0.001
+    FINAL_SCROLL_SYNC_CALLBACK_SUPPRESSION_WINDOW_S = 0.1
+    FINAL_SCROLL_SYNC_CALLBACK_SUPPRESSION_EPSILON = 0.002
     RESIZE_NEGLIGIBLE_DELTA_PX = 6
     ROTATE_ANCHOR_DEBOUNCE_MS = 350
 
@@ -79,6 +81,8 @@ class PdfMergeController:
         self._final_preview_last_scroll_render_anchor = 0.0
         self._final_preview_render_window: Optional[FinalPreviewRenderWindow] = None
         self._final_preview_syncing_scrollbar = False
+        self._final_preview_last_synced_fraction: Optional[float] = None
+        self._final_preview_last_sync_ts: Optional[float] = None
         self._final_preview_rendering = False
         self._final_preview_dynamic_overscan_enabled = self._bool_from_env(
             self.FINAL_PREVIEW_DYNAMIC_OVERSCAN_ENV,

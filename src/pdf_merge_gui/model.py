@@ -3,13 +3,15 @@ from __future__ import annotations
 from typing import Sequence
 
 from .adapters.pypdf_adapter import PdfDocumentSession
-from .domain import PageRef
+from .domain import PageRef, SplitMode, SplitNamingOptions, SplitOutputSpec
 from .services.sequence_service import SequenceService
+from .services.split_service import SplitService
 
 
 class MergeModel:
     def __init__(self) -> None:
         self.sequence_service = SequenceService()
+        self.split_service = SplitService()
         self.document_session = PdfDocumentSession()
 
     @property
@@ -58,3 +60,25 @@ class MergeModel:
 
     def write_merged(self, output_path: str) -> None:
         self.document_session.write_merged(self.sequence, output_path)
+
+    def build_split_output_specs(
+        self,
+        *,
+        mode: SplitMode | str,
+        page_count: int,
+        naming_options: SplitNamingOptions | None = None,
+        range_starts: Sequence[int] | None = None,
+        every_n: int | None = None,
+        bookmark_starts: Sequence[int] | None = None,
+        separator_starts: Sequence[int] | None = None,
+    ) -> list[SplitOutputSpec]:
+        plan = self.split_service.build_plan(
+            mode=mode,
+            page_count=page_count,
+            naming_options=naming_options,
+            range_starts=range_starts,
+            every_n=every_n,
+            bookmark_starts=bookmark_starts,
+            separator_starts=separator_starts,
+        )
+        return self.split_service.emit_output_specs(plan, page_count=page_count)

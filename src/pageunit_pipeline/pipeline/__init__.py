@@ -10,6 +10,17 @@ from .intake import (
     create_processing_session_id,
     validate_pdf_input,
 )
+from .orchestrator import (
+    DocumentPipelineOrchestrator,
+    DocumentPipelineResult,
+    DocumentSummaryStats,
+    PageProcessingArtifact,
+)
+from .serialize import (
+    serialize_pageunits,
+    write_pageunits_json,
+    write_pageunits_ndjson,
+)
 
 __all__ = [
     "DocumentContext",
@@ -20,4 +31,11 @@ __all__ = [
     "collect_file_metadata",
     "count_pages",
     "create_processing_session_id",
+    "DocumentPipelineOrchestrator",
+    "DocumentPipelineResult",
+    "PageProcessingArtifact",
+    "DocumentSummaryStats",
+    "write_pageunits_json",
+    "write_pageunits_ndjson",
+    "serialize_pageunits",
 ]

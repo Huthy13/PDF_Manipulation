@@ -3,10 +3,11 @@ from __future__ import annotations
 import os
 import tkinter as tk
 import time
+import json
 from pathlib import Path
 import sys
 from tkinter import filedialog, messagebox, ttk
-from typing import Callable, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence
 
 from PIL import ImageTk
 
@@ -103,6 +104,8 @@ class PdfMergeController:
         self._rotate_anchor_expires_at: float = 0.0
         self._final_preview_selection_lock = False
         self._last_preview_mode: Optional[str] = self.view.preview_mode.get()
+        self._pageunit_orchestrator: Any | None = None
+        self._pageunit_json_cache: dict[str, list[str]] = {}
 
         self.final_preview_controller = FinalPreviewController(self)
 
@@ -123,6 +126,7 @@ class PdfMergeController:
         self.view.zoom_in_handler = self.on_zoom_in
         self.view.zoom_out_handler = self.on_zoom_out
         self.view.fit_preview_handler = self.on_toggle_fit_preview
+        self.view.pageunit_json_handler = self.on_toggle_pageunit_json
         self.view.ctrl_wheel_zoom_handler = self.on_ctrl_wheel_zoom
         self.view.list_drag_drop_handler = self.on_list_drag_drop
         self.view.list_ctrl_range_handler = self.on_list_ctrl_range
@@ -175,6 +179,7 @@ class PdfMergeController:
         self._preview_image_refs = []
         self._final_preview_pages = []
         self.model.clear()
+        self._pageunit_json_cache.clear()
         self.master.destroy()
 
     def selected_indices(self) -> list[int]:
@@ -241,6 +246,7 @@ class PdfMergeController:
                 )
                 continue
             added_any = True
+            self._pageunit_json_cache.pop(filepath, None)
 
         if not added_any:
             return
@@ -311,6 +317,7 @@ class PdfMergeController:
         for source in removed_sources:
             if not any(page.source_path == source for page in self.model.sequence):
                 self.preview_service.clear_for_source(source)
+                self._pageunit_json_cache.pop(source, None)
 
         if not self.model.sequence:
             self.refresh_list()
@@ -328,6 +335,7 @@ class PdfMergeController:
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
+        self._pageunit_json_cache.clear()
         self.refresh_list()
 
     def on_reverse_selected(self) -> None:
@@ -815,6 +823,58 @@ class PdfMergeController:
     def _render_virtual_final_preview(self, preserve_anchor: bool) -> None:
         self.final_preview_controller.render_virtual_final_preview(preserve_anchor)
 
+    def _pageunit_json_for_source(self, source_path: str) -> list[str]:
+        cached = self._pageunit_json_cache.get(source_path)
+        if cached is not None:
+            return cached
+
+        if self._pageunit_orchestrator is None:
+            from pageunit_pipeline.pipeline.orchestrator import DocumentPipelineOrchestrator
+
+            self._pageunit_orchestrator = DocumentPipelineOrchestrator()
+
+        pipeline_result = self._pageunit_orchestrator.run(source_path, filename=Path(source_path).name)
+        payloads: list[str] = []
+        for artifact in pipeline_result.pages:
+            payloads.append(
+                json.dumps(
+                    artifact.page_unit.model_dump(mode="json"),
+                    indent=2,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+        self._pageunit_json_cache[source_path] = payloads
+        return payloads
+
+    def on_toggle_pageunit_json(self) -> None:
+        pane_visible = self.view.toggle_pageunit_pane()
+        if not pane_visible:
+            return
+
+        self._refresh_pageunit_json_panel()
+
+    def _refresh_pageunit_json_panel(self) -> None:
+        if not self.view.is_pageunit_pane_visible():
+            return
+
+        idx = self.selected_index()
+        if idx is None or idx >= len(self.model.sequence):
+            self.view.set_pageunit_json_text("Select a page to view PageUnit JSON.")
+            return
+
+        page = self.model.sequence[idx]
+        try:
+            page_payloads = self._pageunit_json_for_source(page.source_path)
+            if page.page_index < 0 or page.page_index >= len(page_payloads):
+                self.view.set_pageunit_json_text("No PageUnit JSON is available for this page.")
+                return
+
+            header = f"{Path(page.source_path).name} — page {page.page_index + 1}\n\n"
+            self.view.set_pageunit_json_text(header + page_payloads[page.page_index])
+        except Exception as exc:
+            self.view.set_pageunit_json_text(f"Could not load PageUnit JSON.\n\n{exc}")
+
     def update_preview(self) -> None:
         current_mode = self.view.preview_mode.get()
         if self._last_preview_mode != current_mode:
@@ -827,6 +887,7 @@ class PdfMergeController:
             self.view.preview_caption.configure(text="No pages loaded")
             self._update_zoom_label()
             self.show_preview_text("Open one or more PDFs to begin.")
+            self._refresh_pageunit_json_panel()
             return
 
         if current_mode == self.view.PREVIEW_SINGLE:
@@ -841,19 +902,23 @@ class PdfMergeController:
             self.view.preview_caption.configure(text=f"Single Page ({idx + 1}/{len(self.model.sequence)})")
             preview_key = self._current_preview_key(self.view.PREVIEW_SINGLE, selected_index=idx)
             if preview_key == self._last_preview_render_key:
+                self._refresh_pageunit_json_panel()
                 return
 
             rendered = self.render_preview_image(page.source_path, page.page_index, page.rotation_degrees)
             if rendered is not None:
                 self.show_preview_image(rendered)
                 self._last_preview_render_key = preview_key
+            self._refresh_pageunit_json_panel()
             return
 
         self.view.preview_caption.configure(text=f"Final Output ({len(self.model.sequence)} pages)")
         preview_key = self._current_preview_key(self.view.PREVIEW_FINAL)
         if preview_key == self._last_preview_render_key:
+            self._refresh_pageunit_json_panel()
             return
 
         self._build_final_preview_model()
         self._render_virtual_final_preview(preserve_anchor=True)
         self._last_preview_render_key = preview_key
+        self._refresh_pageunit_json_panel()

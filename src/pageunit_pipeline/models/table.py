@@ -29,4 +29,7 @@ class TableUnit(BaseModel):
     bbox: BBox | None = Field(default=None)
     n_rows: int = Field(default=0)
     n_cols: int = Field(default=0)
+    header_row_indices: list[int] = Field(default_factory=list)
+    header_confidence: float | None = Field(default=None)
     cells: list[TableCell] = Field(default_factory=list)
+    raw_provider_data: dict[str, object] = Field(default_factory=dict)

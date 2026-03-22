@@ -12,6 +12,12 @@ from pageunit_pipeline.builders.pageunit_builder import (
     PageUnitBuilder,
     candidate_from_any,
 )
+from pageunit_pipeline.debug.artifacts import (
+    DocumentDebugArtifact,
+    DocumentLifecycleEvent,
+    FinalSummaryCounters,
+    PageDebugArtifact,
+)
 from pageunit_pipeline.images.detector import HeuristicImageDetector
 from pageunit_pipeline.models.page import ExtractionMethod, PageUnit
 from pageunit_pipeline.models.text import LineUnit, TextBlock
@@ -59,6 +65,7 @@ class DocumentPipelineResult:
     context: DocumentContext
     pages: tuple[PageProcessingArtifact, ...] = field(default_factory=tuple)
     summary: DocumentSummaryStats | None = None
+    debug: DocumentDebugArtifact | None = None
 
 
 class DocumentPipelineOrchestrator:
@@ -91,22 +98,55 @@ class DocumentPipelineOrchestrator:
 
         context = validate_pdf_input(source, filename=filename)
         page_artifacts: list[PageProcessingArtifact] = []
+        debug_document_events: list[DocumentLifecycleEvent] = [
+            DocumentLifecycleEvent(
+                event="document_open",
+                page_count=context.page_count,
+                source_doc_id=context.source_doc_id,
+            ),
+            DocumentLifecycleEvent(
+                event="document_start",
+                page_count=context.page_count,
+                source_doc_id=context.source_doc_id,
+            ),
+        ]
+        debug_pages: list[PageDebugArtifact] = []
 
         with fitz.open(stream=context.pdf_bytes, filetype="pdf") as pdf_doc:
             for page_number in range(1, context.page_count + 1):
-                page_artifacts.append(
-                    self._process_single_page(
+                try:
+                    page_artifact, page_debug = self._process_single_page(
                         context=context,
                         page_number=page_number,
                         pdf_doc=pdf_doc,
                     )
-                )
+                except Exception as exc:  # noqa: BLE001
+                    page_artifact, page_debug = self._build_failed_page_artifact(
+                        page_number=page_number,
+                        pdf_doc=pdf_doc,
+                        error=exc,
+                    )
+                page_artifacts.append(page_artifact)
+                debug_pages.append(page_debug)
 
         summary = self._build_summary(page_artifacts, context.page_count)
+        final_counters = self._build_final_debug_counters(page_artifacts)
+        debug_document_events.append(
+            DocumentLifecycleEvent(
+                event="document_end",
+                page_count=context.page_count,
+                source_doc_id=context.source_doc_id,
+            )
+        )
         return DocumentPipelineResult(
             context=context,
             pages=tuple(page_artifacts),
             summary=summary,
+            debug=DocumentDebugArtifact(
+                document_events=tuple(debug_document_events),
+                pages=tuple(debug_pages),
+                final_summary=final_counters,
+            ),
         )
 
     def _process_single_page(
@@ -115,11 +155,15 @@ class DocumentPipelineOrchestrator:
         context: DocumentContext,
         page_number: int,
         pdf_doc: fitz.Document,
-    ) -> PageProcessingArtifact:
+    ) -> tuple[PageProcessingArtifact, PageDebugArtifact]:
+        page_obj = pdf_doc.load_page(page_number - 1)
+        rect = page_obj.rect
+        table_success = True
+        table_error: str | None = None
         raw_page = self.parser.extract_page(pdf_bytes=context.pdf_bytes, page_number=page_number)
         decision = choose_extraction_mode(raw_page)
 
-        native_page = self._build_native_candidate(raw_page, context.pdf_bytes)
+        native_page, table_success, table_error = self._build_native_candidate(raw_page, context.pdf_bytes)
         ocr_page = self._build_ocr_candidate(
             raw_page=raw_page,
             page_number=page_number,
@@ -144,16 +188,37 @@ class DocumentPipelineOrchestrator:
         built = build_result.pages[0]
         validation = self.validator.validate_pages([built.page_unit])
         validated_page = validation.pages[0]
+        validation_success = all(issue.severity != "error" for issue in validation.issues)
+        ocr_applied = decision.mode in {"ocr", "hybrid"} and ocr_page is not None
 
-        return PageProcessingArtifact(
-            page_unit=validated_page,
-            decision_mode=decision.mode,
-            decision_rationale=tuple(decision.rationale),
-            warnings=built.warnings,
-            issues=validation.issues,
+        return (
+            PageProcessingArtifact(
+                page_unit=validated_page,
+                decision_mode=decision.mode,
+                decision_rationale=tuple(decision.rationale),
+                warnings=built.warnings,
+                issues=validation.issues,
+            ),
+            PageDebugArtifact(
+                page_number=page_number,
+                width=float(rect.width),
+                height=float(rect.height),
+                mode_decision=decision.mode,
+                mode_rationale=tuple(decision.rationale),
+                ocr_applied=ocr_applied,
+                table_success=table_success,
+                table_error=table_error,
+                image_count=validated_page.image_count,
+                images_present=validated_page.images_present,
+                validation_success=validation_success,
+                validation_issue_count=len(validation.issues),
+                warning_count=len(built.warnings),
+                page_start=True,
+                page_end=True,
+            ),
         )
 
-    def _build_native_candidate(self, raw_page, pdf_bytes: bytes) -> PageUnit:
+    def _build_native_candidate(self, raw_page, pdf_bytes: bytes) -> tuple[PageUnit, bool, str | None]:
         normalized_text = normalize_text(raw_page.full_text_candidate)
         text_blocks = map_blocks_to_text_blocks(
             raw_page.block_candidates,
@@ -164,20 +229,31 @@ class DocumentPipelineOrchestrator:
         if not text_blocks:
             text_blocks = [TextBlock(text=normalized_text.text)]
 
-        tables = self.table_adapter.extract_table_units(
-            pdf_bytes=pdf_bytes,
-            page_number=raw_page.page_number,
-        )
+        table_success = True
+        table_error: str | None = None
+        try:
+            tables = self.table_adapter.extract_table_units(
+                pdf_bytes=pdf_bytes,
+                page_number=raw_page.page_number,
+            )
+        except Exception as exc:  # noqa: BLE001
+            tables = []
+            table_success = False
+            table_error = str(exc)
         image_detection = self.image_detector.detect(page=raw_page)
 
-        return PageUnit(
-            page_number=raw_page.page_number,
-            extraction_method=ExtractionMethod.NATIVE_PDF,
-            text_blocks=text_blocks,
-            tables=tables,
-            images=image_detection.image_regions,
-            image_count=image_detection.image_count,
-            images_present=image_detection.images_present,
+        return (
+            PageUnit(
+                page_number=raw_page.page_number,
+                extraction_method=ExtractionMethod.NATIVE_PDF,
+                text_blocks=text_blocks,
+                tables=tables,
+                images=image_detection.image_regions,
+                image_count=image_detection.image_count,
+                images_present=image_detection.images_present,
+            ),
+            table_success,
+            table_error,
         )
 
     def _build_ocr_candidate(
@@ -275,4 +351,73 @@ class DocumentPipelineOrchestrator:
             total_images=total_images,
             total_text_blocks=total_text_blocks,
             total_validation_issues=total_issues,
+        )
+
+    def _build_failed_page_artifact(
+        self,
+        *,
+        page_number: int,
+        pdf_doc: fitz.Document,
+        error: Exception,
+    ) -> tuple[PageProcessingArtifact, PageDebugArtifact]:
+        rect = pdf_doc.load_page(page_number - 1).rect
+        failed_page = PageUnit(
+            page_number=page_number,
+            extraction_method=ExtractionMethod.FAILED,
+            text_blocks=[TextBlock(text="")],
+        )
+        validation = self.validator.validate_pages([failed_page])
+
+        return (
+            PageProcessingArtifact(
+                page_unit=validation.pages[0],
+                decision_mode="failed",
+                decision_rationale=("Page processing failed; document processing continued.",),
+                warnings=(str(error),),
+                issues=validation.issues
+                + (
+                    ValidationIssue(
+                        code="page_processing_error",
+                        message=str(error),
+                        page_number=page_number,
+                    ),
+                ),
+            ),
+            PageDebugArtifact(
+                page_number=page_number,
+                width=float(rect.width),
+                height=float(rect.height),
+                mode_decision="failed",
+                mode_rationale=("Page processing failed; document processing continued.",),
+                ocr_applied=False,
+                table_success=False,
+                table_error=str(error),
+                image_count=0,
+                images_present=False,
+                validation_success=False,
+                validation_issue_count=len(validation.issues) + 1,
+                warning_count=1,
+                error=str(error),
+                page_start=True,
+                page_end=True,
+            ),
+        )
+
+    def _build_final_debug_counters(
+        self,
+        pages: list[PageProcessingArtifact],
+    ) -> FinalSummaryCounters:
+        return FinalSummaryCounters(
+            native=sum(1 for page in pages if page.page_unit.extraction_method == ExtractionMethod.NATIVE_PDF),
+            ocr=sum(1 for page in pages if page.page_unit.extraction_method == ExtractionMethod.OCR),
+            hybrid=sum(1 for page in pages if page.page_unit.extraction_method == ExtractionMethod.HYBRID),
+            warnings=sum(len(page.warnings) for page in pages),
+            errors=sum(
+                1
+                for page in pages
+                for issue in page.issues
+                if issue.severity == "error"
+            ),
+            tables=sum(len(page.page_unit.tables) for page in pages),
+            images=sum(page.page_unit.image_count for page in pages),
         )

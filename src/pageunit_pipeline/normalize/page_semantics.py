@@ -182,10 +182,27 @@ def _infer_role(text: str) -> ContentRole:
 
 def _infer_implicit_tables(blocks: list[TextBlock]) -> list[TableUnit]:
     table_lines: list[str] = []
+    collecting_rows = False
     for block in blocks:
         text = block.text.strip()
-        if _HEADER_TABLE_HINT_RE.search(text) or "|" in text:
-            table_lines.extend([line.strip() for line in text.splitlines() if line.strip()])
+        if not text:
+            continue
+
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        has_header_hint = bool(_HEADER_TABLE_HINT_RE.search(text))
+        has_pipe = "|" in text
+        looks_like_row = _looks_like_implicit_row(text)
+
+        if has_header_hint or has_pipe:
+            collecting_rows = True
+            table_lines.extend(lines)
+            continue
+
+        if collecting_rows and looks_like_row:
+            table_lines.extend(lines)
+            continue
+
+        collecting_rows = False
 
     if len(table_lines) < 2:
         return []
@@ -211,6 +228,25 @@ def _infer_implicit_tables(blocks: list[TextBlock]) -> list[TableUnit]:
             raw_provider_data={"inferred": True},
         )
     ]
+
+
+def _looks_like_implicit_row(text: str) -> bool:
+    tokens = [token for token in re.split(r"\s{2,}", text) if token.strip()]
+    if len(tokens) < 2:
+        tokens = text.split()
+    if len(tokens) < 2:
+        return False
+
+    numeric_tokens = 0
+    for token in tokens:
+        cleaned = token.replace(",", "").replace("$", "")
+        try:
+            float(cleaned)
+            numeric_tokens += 1
+        except ValueError:
+            continue
+
+    return numeric_tokens >= 1 and len(tokens) >= 2
 
 
 def _classify_page_type(content_blocks: list[PageContentBlock], metadata: dict[str, str]) -> str:

@@ -122,10 +122,19 @@ def _should_merge(left: TextBlock, right: TextBlock) -> bool:
     if not left_text or not right_text:
         return False
 
+    left_looks_tabular = bool(_HEADER_TABLE_HINT_RE.search(left_text)) or "|" in left_text
+    right_looks_tabular = bool(_HEADER_TABLE_HINT_RE.search(right_text)) or "|" in right_text
+    if left_looks_tabular or right_looks_tabular:
+        return False
+
     if left.block_type == right.block_type == BlockType.PARAGRAPH:
         return not left_text.endswith((".", "?", "!")) or right_text.lower().startswith(("note", "auto", "off", "manual"))
 
-    if left_text.lower().startswith("note") and right.block_type in {BlockType.PARAGRAPH, BlockType.UNKNOWN}:
+    if (
+        left_text.lower().startswith("note")
+        and right.block_type in {BlockType.PARAGRAPH, BlockType.UNKNOWN}
+        and not right_looks_tabular
+    ):
         return True
 
     return False

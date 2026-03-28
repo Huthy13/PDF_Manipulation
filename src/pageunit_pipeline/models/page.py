@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from .image import ImageRegion
 from .table import TableUnit
-from .text import TextBlock
+from .text import PageContentBlock, QualityFlag, TextBlock
 
 
 class ExtractionMethod(str, Enum):
@@ -28,10 +28,15 @@ class PageUnit(BaseModel):
     schema_version: Literal["1.0"] = Field(default="1.0")
     page_number: int = Field(default=1)
     extraction_method: ExtractionMethod = Field(default=ExtractionMethod.FAILED)
+    page_type: str = Field(default="unknown")
+    page_metadata: dict[str, str] = Field(default_factory=dict)
 
     text_blocks: list[TextBlock] = Field(default_factory=list)
+    content_blocks: list[PageContentBlock] = Field(default_factory=list)
+    noise_blocks: list[TextBlock] = Field(default_factory=list)
     tables: list[TableUnit] = Field(default_factory=list)
     images: list[ImageRegion] = Field(default_factory=list)
+    quality_flags: list[QualityFlag] = Field(default_factory=list)
 
     image_count: int = Field(default=0)
     images_present: bool = Field(default=False)

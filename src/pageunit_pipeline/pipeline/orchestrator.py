@@ -21,6 +21,7 @@ from pageunit_pipeline.debug.artifacts import (
 from pageunit_pipeline.images.detector import HeuristicImageDetector
 from pageunit_pipeline.models.page import ExtractionMethod, PageUnit
 from pageunit_pipeline.models.text import LineUnit, TextBlock
+from pageunit_pipeline.normalize.page_semantics import normalize_page_semantics
 from pageunit_pipeline.normalize.structure_mapper import map_blocks_to_text_blocks
 from pageunit_pipeline.normalize.text_normalizer import normalize_text
 from pageunit_pipeline.ocr.decision import choose_extraction_mode
@@ -228,6 +229,7 @@ class DocumentPipelineOrchestrator:
 
         if not text_blocks:
             text_blocks = [TextBlock(text=normalized_text.text)]
+        semantic_result = normalize_page_semantics(text_blocks)
 
         table_success = True
         table_error: str | None = None
@@ -241,16 +243,22 @@ class DocumentPipelineOrchestrator:
             table_success = False
             table_error = str(exc)
         image_detection = self.image_detector.detect(page=raw_page)
+        merged_tables = list(tables) + list(semantic_result.inferred_tables)
 
         return (
             PageUnit(
                 page_number=raw_page.page_number,
                 extraction_method=ExtractionMethod.NATIVE_PDF,
+                page_type=semantic_result.page_type,
+                page_metadata=semantic_result.page_metadata,
                 text_blocks=text_blocks,
-                tables=tables,
+                content_blocks=semantic_result.content_blocks,
+                noise_blocks=semantic_result.noise_blocks,
+                tables=merged_tables,
                 images=image_detection.image_regions,
                 image_count=image_detection.image_count,
                 images_present=image_detection.images_present,
+                quality_flags=semantic_result.quality_flags,
             ),
             table_success,
             table_error,
@@ -280,15 +288,21 @@ class DocumentPipelineOrchestrator:
 
         lines = [LineUnit(text=line.text) for line in ocr_result.line_boxes if line.text.strip()]
         block = TextBlock(text=text, lines=lines)
+        semantic_result = normalize_page_semantics([block])
 
         return PageUnit(
             page_number=page_number,
             extraction_method=ExtractionMethod.OCR,
             text_blocks=[block],
+            content_blocks=semantic_result.content_blocks,
+            noise_blocks=semantic_result.noise_blocks,
+            page_type=semantic_result.page_type,
+            page_metadata=semantic_result.page_metadata,
             tables=list(fallback_tables),
             images=list(fallback_images),
             image_count=len(fallback_images),
             images_present=bool(fallback_images),
+            quality_flags=semantic_result.quality_flags,
         )
 
     def _build_hybrid_candidate(
@@ -303,15 +317,21 @@ class DocumentPipelineOrchestrator:
 
         merged_blocks = list(native_page.text_blocks)
         merged_blocks.extend(ocr_page.text_blocks)
+        semantic_result = normalize_page_semantics(merged_blocks)
 
         return PageUnit(
             page_number=native_page.page_number,
             extraction_method=ExtractionMethod.HYBRID,
+            page_type=semantic_result.page_type,
+            page_metadata={**native_page.page_metadata, **ocr_page.page_metadata},
             text_blocks=merged_blocks,
+            content_blocks=semantic_result.content_blocks,
+            noise_blocks=semantic_result.noise_blocks,
             tables=native_page.tables,
             images=native_page.images,
             image_count=native_page.image_count,
             images_present=native_page.images_present,
+            quality_flags=semantic_result.quality_flags,
         )
 
     def _build_summary(
@@ -365,6 +385,7 @@ class DocumentPipelineOrchestrator:
             page_number=page_number,
             extraction_method=ExtractionMethod.FAILED,
             text_blocks=[TextBlock(text="")],
+            content_blocks=[],
         )
         validation = self.validator.validate_pages([failed_page])
 

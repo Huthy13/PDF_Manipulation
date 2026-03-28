@@ -38,6 +38,7 @@ class PdfMergeView(ttk.Frame):
         self.zoom_in_handler: Optional[Callable[[], None]] = None
         self.zoom_out_handler: Optional[Callable[[], None]] = None
         self.fit_preview_handler: Optional[Callable[[], None]] = None
+        self.pageunit_json_handler: Optional[Callable[[], None]] = None
         self.ctrl_wheel_zoom_handler: Optional[Callable[[int], None]] = None
         self.list_drag_drop_handler: Optional[Callable[[list[int], int], None]] = None
         self.list_ctrl_range_handler: Optional[Callable[[int, int], None]] = None
@@ -79,19 +80,19 @@ class PdfMergeView(ttk.Frame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
 
-        paned = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
-        paned.grid(row=0, column=0, sticky="nsew")
+        self.main_paned = ttk.Panedwindow(self, orient=tk.HORIZONTAL)
+        self.main_paned.grid(row=0, column=0, sticky="nsew")
 
-        left = ttk.Frame(paned, padding=(0, 0, 10, 0))
+        left = ttk.Frame(self.main_paned, padding=(0, 0, 10, 0))
         left.columnconfigure(0, weight=1)
         left.rowconfigure(1, weight=1)
 
-        right = ttk.Frame(paned, padding=(10, 0, 0, 0))
+        right = ttk.Frame(self.main_paned, padding=(10, 0, 0, 0))
         right.columnconfigure(0, weight=1)
         right.rowconfigure(3, weight=1)
 
-        paned.add(left, weight=2)
-        paned.add(right, weight=3)
+        self.main_paned.add(left, weight=2)
+        self.main_paned.add(right, weight=3)
 
         controls = ttk.Frame(left)
         controls.grid(row=0, column=0, sticky="ew", pady=(0, 8))
@@ -195,6 +196,10 @@ class PdfMergeView(ttk.Frame):
         self.btn_rotate_right.grid(row=0, column=4, padx=(4, 0))
         self._tooltips.append(ToolTip(self.btn_rotate_right, "Rotate selected page(s) clockwise"))
 
+        self.btn_pageunit_json = ttk.Button(nav_inner, text="{} JSON", width=10)
+        self.btn_pageunit_json.grid(row=0, column=5, padx=(12, 0))
+        self._tooltips.append(ToolTip(self.btn_pageunit_json, "Show/hide PageUnit JSON for the selected page"))
+
         zoom_controls = ttk.Frame(nav)
         zoom_controls.grid(row=0, column=1, sticky="e")
 
@@ -251,6 +256,35 @@ class PdfMergeView(ttk.Frame):
         self._bind_preview_wheel(self.preview_canvas)
         self._bind_preview_wheel(self.preview_content)
         self._bind_preview_wheel(self.preview_placeholder)
+
+        self.pageunit_panel = ttk.LabelFrame(self.main_paned, text="PageUnit JSON")
+        self.pageunit_panel.columnconfigure(0, weight=1)
+        self.pageunit_panel.rowconfigure(0, weight=1)
+
+        json_frame = ttk.Frame(self.pageunit_panel)
+        json_frame.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
+        json_frame.columnconfigure(0, weight=1)
+        json_frame.rowconfigure(0, weight=1)
+
+        self.pageunit_text = tk.Text(
+            json_frame,
+            wrap="none",
+            height=16,
+            font=("Courier New", 10),
+        )
+        self.pageunit_text.grid(row=0, column=0, sticky="nsew")
+        self.pageunit_text.configure(state=tk.DISABLED)
+
+        self.pageunit_vscroll = ttk.Scrollbar(json_frame, orient=tk.VERTICAL, command=self.pageunit_text.yview)
+        self.pageunit_vscroll.grid(row=0, column=1, sticky="ns")
+        self.pageunit_hscroll = ttk.Scrollbar(json_frame, orient=tk.HORIZONTAL, command=self.pageunit_text.xview)
+        self.pageunit_hscroll.grid(row=1, column=0, sticky="ew")
+        self.pageunit_text.configure(
+            xscrollcommand=self.pageunit_hscroll.set,
+            yscrollcommand=self.pageunit_vscroll.set,
+        )
+
+        self._pageunit_pane_visible = False
 
     def _bind_preview_wheel(self, widget: tk.Widget) -> None:
         widget.bind("<MouseWheel>", self.on_preview_mousewheel)
@@ -701,9 +735,31 @@ class PdfMergeView(ttk.Frame):
         self.btn_zoom_in.configure(command=self.zoom_in_handler)
         self.btn_zoom_out.configure(command=self.zoom_out_handler)
         self.cb_fit_preview.configure(command=self.fit_preview_handler)
+        self.btn_pageunit_json.configure(command=self.pageunit_json_handler)
         self.page_list.bind("<<TreeviewSelect>>", lambda _e: self.selection_handler and self.selection_handler())
         self.page_list.tag_configure("drag_source", background="#D6E4FF")
         self.page_list.tag_configure("insert_hint", background="#CFE8FF", foreground="#0B3D91")
         self.page_list.bind("<ButtonPress-1>", self.on_list_drag_start, add="+")
         self.page_list.bind("<B1-Motion>", self.on_list_drag_motion, add="+")
         self.page_list.bind("<ButtonRelease-1>", self.on_list_drag_release, add="+")
+
+    def is_pageunit_pane_visible(self) -> bool:
+        return self._pageunit_pane_visible
+
+    def toggle_pageunit_pane(self) -> bool:
+        if self._pageunit_pane_visible:
+            self.main_paned.forget(self.pageunit_panel)
+            self._pageunit_pane_visible = False
+            self.btn_pageunit_json.configure(text="{} JSON")
+            return False
+
+        self.main_paned.add(self.pageunit_panel, weight=2)
+        self._pageunit_pane_visible = True
+        self.btn_pageunit_json.configure(text="Hide JSON")
+        return True
+
+    def set_pageunit_json_text(self, text: str) -> None:
+        self.pageunit_text.configure(state=tk.NORMAL)
+        self.pageunit_text.delete("1.0", tk.END)
+        self.pageunit_text.insert("1.0", text)
+        self.pageunit_text.configure(state=tk.DISABLED)

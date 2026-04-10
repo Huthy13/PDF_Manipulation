@@ -5,7 +5,7 @@ import tkinter as tk
 import time
 from pathlib import Path
 import sys
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox
 from typing import Callable, Optional, Sequence
 
 from PIL import ImageTk

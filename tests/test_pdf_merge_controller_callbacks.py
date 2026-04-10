@@ -402,7 +402,6 @@ def test_render_virtual_final_preview_clamps_content_height_to_budget_for_many_p
         assert rotation_degrees == 0
         return FakeImage(2_200 + (page_index % 3) * 200)
 
-    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
     monkeypatch.setattr(controller, "_show_preview_widgets", fake_show)
     monkeypatch.setattr(controller, "render_preview_image", fake_render)
 
@@ -459,7 +458,6 @@ def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heig
         zoomed_height = 3_000 if page_index % 7 == 0 else 1_850
         return FakeImage(zoomed_height)
 
-    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
     monkeypatch.setattr(controller, "_show_preview_widgets", fake_show)
     monkeypatch.setattr(controller, "render_preview_image", fake_render)
 
@@ -499,7 +497,6 @@ def test_render_virtual_final_preview_trims_with_estimated_heights_before_raster
             return None
 
     render_calls: list[int] = []
-    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
     monkeypatch.setattr(controller, "_show_preview_widgets", lambda widget_builder, reset_scroll=True: widget_builder())
     monkeypatch.setattr(controller, "_final_preview_safe_canvas_budget", lambda: 2_100)
 
@@ -556,7 +553,6 @@ def test_render_virtual_final_preview_schedules_one_reconciliation_render_when_r
         def grid_propagate(self, _enabled: bool) -> None:
             return None
 
-    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
     monkeypatch.setattr(controller, "render_preview_image", lambda *_args, **_kwargs: FakeImage(900))
 
     controller.final_preview_controller.render_virtual_final_preview(preserve_anchor=True)

@@ -314,43 +314,25 @@ def test_final_resize_debounced_handler_guards_render_and_settles() -> None:
 def test_build_spacer_widgets_chunks_large_heights_without_exceeding_cap(monkeypatch) -> None:
     controller = _build_controller(mode="final")
 
-    class FakeFrame:
-        def __init__(self, _parent, *, height: int) -> None:
-            self.height = height
-            self.propagate: list[bool] = []
-
-        def grid_propagate(self, enabled: bool) -> None:
-            self.propagate.append(enabled)
-
-    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
     monkeypatch.setattr(PdfMergeController, "_spacer_chunk_limit", lambda _self: 10_000)
 
     spacers = controller._build_spacer_widgets(27_501)
 
     assert len(spacers) == 3
-    assert [spacer.height for spacer in spacers] == [10_000, 10_000, 7_501]
-    assert sum(spacer.height for spacer in spacers) == 27_501
-    assert max(spacer.height for spacer in spacers) <= 10_000
-    assert all(spacer.propagate == [False] for spacer in spacers)
+    assert [spacer["height"] for spacer in spacers] == [10_000, 10_000, 7_501]
+    assert sum(spacer["height"] for spacer in spacers) == 27_501
+    assert max(spacer["height"] for spacer in spacers) <= 10_000
 
 
 def test_build_spacer_widgets_keeps_single_chunk_below_limit(monkeypatch) -> None:
     controller = _build_controller(mode="final")
 
-    class FakeFrame:
-        def __init__(self, _parent, *, height: int) -> None:
-            self.height = height
-
-        def grid_propagate(self, _enabled: bool) -> None:
-            return None
-
-    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
     monkeypatch.setattr(PdfMergeController, "_spacer_chunk_limit", lambda _self: 10_000)
 
     spacers = controller._build_spacer_widgets(9_999)
 
     assert len(spacers) == 1
-    assert spacers[0].height == 9_999
+    assert spacers[0]["height"] == 9_999
 
 
 def test_recompute_final_preview_offsets_applies_win32_safe_scroll_cap(monkeypatch) -> None:
@@ -411,14 +393,16 @@ def test_render_virtual_final_preview_clamps_content_height_to_budget_for_many_p
         assert preserve_scroll is False
         assert reset_scroll is False
         widgets = widget_builder()
-        measured["content_height"] = sum(getattr(widget, "height", 0) for widget in widgets)
+        measured["content_height"] = sum(
+            (widget.get("height", 0) if isinstance(widget, dict) else getattr(widget, "height", 0))
+            for widget in widgets
+        )
 
     def fake_render(_source_path: str, page_index: int, rotation_degrees: int = 0) -> FakeImage:
         assert rotation_degrees == 0
         return FakeImage(2_200 + (page_index % 3) * 200)
 
     monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
-    monkeypatch.setattr(final_preview_module.tk, "Label", FakeLabel)
     monkeypatch.setattr(controller, "_show_preview_widgets", fake_show)
     monkeypatch.setattr(controller, "render_preview_image", fake_render)
 
@@ -465,7 +449,10 @@ def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heig
         assert preserve_scroll is False
         assert reset_scroll is False
         widgets = widget_builder()
-        measured["content_height"] = sum(getattr(widget, "height", 0) for widget in widgets)
+        measured["content_height"] = sum(
+            (widget.get("height", 0) if isinstance(widget, dict) else getattr(widget, "height", 0))
+            for widget in widgets
+        )
 
     def fake_render(_source_path: str, page_index: int, rotation_degrees: int = 0) -> FakeImage:
         assert rotation_degrees == 0
@@ -473,7 +460,6 @@ def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heig
         return FakeImage(zoomed_height)
 
     monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
-    monkeypatch.setattr(final_preview_module.tk, "Label", FakeLabel)
     monkeypatch.setattr(controller, "_show_preview_widgets", fake_show)
     monkeypatch.setattr(controller, "render_preview_image", fake_render)
 
@@ -514,7 +500,6 @@ def test_render_virtual_final_preview_trims_with_estimated_heights_before_raster
 
     render_calls: list[int] = []
     monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
-    monkeypatch.setattr(final_preview_module.tk, "Label", FakeLabel)
     monkeypatch.setattr(controller, "_show_preview_widgets", lambda widget_builder, reset_scroll=True: widget_builder())
     monkeypatch.setattr(controller, "_final_preview_safe_canvas_budget", lambda: 2_100)
 
@@ -572,7 +557,6 @@ def test_render_virtual_final_preview_schedules_one_reconciliation_render_when_r
             return None
 
     monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
-    monkeypatch.setattr(final_preview_module.tk, "Label", FakeLabel)
     monkeypatch.setattr(controller, "render_preview_image", lambda *_args, **_kwargs: FakeImage(900))
 
     controller.final_preview_controller.render_virtual_final_preview(preserve_anchor=True)

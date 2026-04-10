@@ -21,7 +21,7 @@ from .final_preview_controller import (
     FinalPreviewRenderWindow,
 )
 from .render_worker import RenderRequest, RenderWorker, build_photo_image
-from .view import PdfMergeView
+from .view import PdfMergeView, PreviewWidgetSpec
 
 
 class PdfMergeController:
@@ -484,21 +484,22 @@ class PdfMergeController:
 
     def _show_preview_widgets(
         self,
-        widget_builder: Callable[[], list[tk.Widget]],
+        widget_builder: Callable[[], list[PreviewWidgetSpec]],
         reset_scroll: bool = True,
         preserve_scroll: bool = False,
     ) -> None:
+        telemetry = get_telemetry()
+        telemetry.increment("preview_show_widgets_calls")
         scroll_x = 0.0
         scroll_y = 0.0
         if preserve_scroll:
             scroll_x = self.view.preview_canvas.xview()[0]
             scroll_y = self.view.preview_canvas.yview()[0]
 
-        self.view.clear_preview_widgets()
-        widgets = widget_builder()
-        for row, widget in enumerate(widgets):
-            self.view.add_preview_widget(widget, row)
-        self.view.refresh_preview_layout()
+        with telemetry.time_block("preview_show_widgets"):
+            widget_specs = widget_builder()
+            self.view.show_preview_widget_specs(widget_specs)
+            self.view.refresh_preview_layout()
 
         if preserve_scroll:
             self.view.preview_canvas.xview_moveto(scroll_x)
@@ -508,16 +509,8 @@ class PdfMergeController:
 
     def show_preview_text(self, text: str) -> None:
         self._preview_image_refs = []
-        def build() -> list[tk.Widget]:
-            return [
-                ttk.Label(
-                    self.view.preview_content,
-                    text=text,
-                    anchor="center",
-                    justify="center",
-                    padding=24,
-                )
-            ]
+        def build() -> list[PreviewWidgetSpec]:
+            return [{"kind": "label", "text": text, "padding": 24}]
 
         self._show_preview_widgets(build)
 
@@ -525,10 +518,8 @@ class PdfMergeController:
         self._preview_image_refs = [image]
         self._final_preview_visible_indices = set()
         self._last_final_render_signature = None
-        def build() -> list[tk.Widget]:
-            preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
-            preview.image = image
-            return [preview]
+        def build() -> list[PreviewWidgetSpec]:
+            return [{"kind": "image", "image": image}]
 
         self._show_preview_widgets(build, reset_scroll=reset_scroll)
 
@@ -536,13 +527,8 @@ class PdfMergeController:
         self._preview_image_refs = list(images)
         self._final_preview_visible_indices = set()
         self._last_final_render_signature = None
-        def build() -> list[tk.Widget]:
-            widgets: list[tk.Widget] = []
-            for image in images:
-                preview = tk.Label(self.view.preview_content, image=image, bd=0, highlightthickness=0)
-                preview.image = image
-                widgets.append(preview)
-            return widgets
+        def build() -> list[PreviewWidgetSpec]:
+            return [{"kind": "image", "image": image} for image in images]
 
         self._show_preview_widgets(build, preserve_scroll=preserve_scroll)
 
@@ -803,18 +789,16 @@ class PdfMergeController:
             return 0
         return (widget_count - 1) * (self.FINAL_PREVIEW_WIDGET_GRID_PAD_Y * 2)
 
-    def _build_spacer_widgets(self, total_height: int) -> list[tk.Widget]:
+    def _build_spacer_widgets(self, total_height: int) -> list[PreviewWidgetSpec]:
         if total_height <= 0:
             return []
 
         chunk_limit = self._spacer_chunk_limit()
         remaining = total_height
-        widgets: list[tk.Widget] = []
+        widgets: list[PreviewWidgetSpec] = []
         while remaining > 0:
             chunk_height = min(remaining, chunk_limit)
-            spacer = ttk.Frame(self.view.preview_content, height=chunk_height)
-            spacer.grid_propagate(False)
-            widgets.append(spacer)
+            widgets.append({"kind": "spacer", "height": chunk_height, "pady": 0})
             remaining -= chunk_height
         return widgets
 

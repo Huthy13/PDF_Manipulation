@@ -4,9 +4,18 @@ import math
 import os
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable, Optional
+from typing import Callable, Optional, TypedDict
 
 from .tooltip import ToolTip
+
+
+class PreviewWidgetSpec(TypedDict, total=False):
+    kind: str
+    image: object
+    text: str
+    padding: int
+    height: int
+    pady: int
 
 
 class PdfMergeView(ttk.Frame):
@@ -58,6 +67,8 @@ class PdfMergeView(ttk.Frame):
         self._wheel_delta_damping = 0.85
         self._wheel_pixel_scroll_feature_enabled = self._bool_from_env("PDF_MERGE_ENABLE_PIXEL_SCROLL", default=True)
         self._wheel_pixel_scroll_capable = self._detect_pixel_scroll_capability()
+        self._preview_widget_pool: list[tk.Widget] = []
+        self._global_preview_wheel_bound = False
 
         self._build_layout()
 
@@ -249,8 +260,7 @@ class PdfMergeView(ttk.Frame):
         self.preview_content.bind("<Configure>", self.on_preview_content_configure)
         self.preview_canvas.bind("<Configure>", self.on_preview_canvas_configure)
         self._bind_preview_wheel(self.preview_canvas)
-        self._bind_preview_wheel(self.preview_content)
-        self._bind_preview_wheel(self.preview_placeholder)
+        self._bind_preview_wheel_globally_once()
 
     def _bind_preview_wheel(self, widget: tk.Widget) -> None:
         widget.bind("<MouseWheel>", self.on_preview_mousewheel)
@@ -363,14 +373,105 @@ class PdfMergeView(ttk.Frame):
             widget.destroy()
 
     def add_preview_widget(self, widget: tk.Widget, row: int) -> None:
-        self._bind_preview_wheel(widget)
         widget.grid(row=row, column=0, pady=6)
 
+    def _bind_preview_wheel_globally_once(self) -> None:
+        if self._global_preview_wheel_bound:
+            return
+        self._global_preview_wheel_bound = True
+        root = self.winfo_toplevel()
+        root.bind_all("<MouseWheel>", self._on_global_preview_mousewheel, add="+")
+        root.bind_all("<Shift-MouseWheel>", self._on_global_preview_shift_mousewheel, add="+")
+        root.bind_all("<Button-4>", self._on_global_preview_mousewheel, add="+")
+        root.bind_all("<Button-5>", self._on_global_preview_mousewheel, add="+")
+        root.bind_all("<Shift-Button-4>", self._on_global_preview_shift_mousewheel, add="+")
+        root.bind_all("<Shift-Button-5>", self._on_global_preview_shift_mousewheel, add="+")
+        root.bind_all("<Control-MouseWheel>", self._on_global_preview_ctrl_mousewheel, add="+")
+        root.bind_all("<Control-Button-4>", self._on_global_preview_ctrl_mousewheel, add="+")
+        root.bind_all("<Control-Button-5>", self._on_global_preview_ctrl_mousewheel, add="+")
+
+    def _pointer_inside_preview_panel(self) -> bool:
+        pointer_x = self.winfo_pointerx()
+        pointer_y = self.winfo_pointery()
+        left = self.preview_panel.winfo_rootx()
+        top = self.preview_panel.winfo_rooty()
+        right = left + self.preview_panel.winfo_width()
+        bottom = top + self.preview_panel.winfo_height()
+        return left <= pointer_x <= right and top <= pointer_y <= bottom
+
+    def _on_global_preview_mousewheel(self, event: tk.Event) -> str | None:
+        if not self._pointer_inside_preview_panel():
+            return None
+        return self.on_preview_mousewheel(event)
+
+    def _on_global_preview_shift_mousewheel(self, event: tk.Event) -> str | None:
+        if not self._pointer_inside_preview_panel():
+            return None
+        return self.on_preview_shift_mousewheel(event)
+
+    def _on_global_preview_ctrl_mousewheel(self, event: tk.Event) -> str | None:
+        if not self._pointer_inside_preview_panel():
+            return None
+        return self.on_preview_ctrl_mousewheel(event)
+
+    def show_preview_widget_specs(self, widget_specs: list[PreviewWidgetSpec]) -> None:
+        for row, spec in enumerate(widget_specs):
+            kind = str(spec.get("kind", "label"))
+            widget = self._preview_widget_pool[row] if row < len(self._preview_widget_pool) else None
+            widget = self._coerce_preview_widget(widget, kind, spec)
+            if row >= len(self._preview_widget_pool):
+                self._preview_widget_pool.append(widget)
+            self._configure_preview_widget(widget, spec)
+            widget.grid(row=row, column=0, pady=int(spec.get("pady", 6)))
+
+        for row in range(len(widget_specs), len(self._preview_widget_pool)):
+            self._preview_widget_pool[row].grid_remove()
+
+    def _coerce_preview_widget(self, widget: tk.Widget | None, kind: str, spec: PreviewWidgetSpec) -> tk.Widget:
+        if kind == "spacer":
+            if isinstance(widget, ttk.Frame):
+                return widget
+            if widget is not None:
+                widget.destroy()
+            spacer = ttk.Frame(self.preview_content, height=int(spec.get("height", 0)))
+            spacer.grid_propagate(False)
+            return spacer
+
+        if kind == "image":
+            if isinstance(widget, tk.Label):
+                return widget
+            if widget is not None:
+                widget.destroy()
+            return tk.Label(self.preview_content, bd=0, highlightthickness=0)
+
+        if isinstance(widget, ttk.Label):
+            return widget
+        if widget is not None:
+            widget.destroy()
+        return ttk.Label(self.preview_content, anchor="center", justify="center")
+
+    def _configure_preview_widget(self, widget: tk.Widget, spec: PreviewWidgetSpec) -> None:
+        kind = str(spec.get("kind", "label"))
+        if kind == "spacer":
+            widget.configure(height=int(spec.get("height", 0)))
+            return
+        if kind == "image":
+            image = spec.get("image")
+            widget.configure(image=image)
+            setattr(widget, "image", image)
+            return
+        widget.configure(text=str(spec.get("text", "")), padding=int(spec.get("padding", 24)))
+
     def refresh_preview_layout(self) -> None:
-        self.preview_content.update_idletasks()
-        canvas_width = max(self.preview_canvas.winfo_width(), 1)
-        canvas_height = max(self.preview_canvas.winfo_height(), 1)
-        self._reposition_preview_content(canvas_width, canvas_height)
+        from ..services.telemetry import get_telemetry
+
+        telemetry = get_telemetry()
+        telemetry.increment("preview_refresh_layout_calls")
+        with telemetry.time_block("preview_refresh_layout"):
+            self.preview_content.update_idletasks()
+            canvas_width = max(self.preview_canvas.winfo_width(), 1)
+            canvas_height = max(self.preview_canvas.winfo_height(), 1)
+            self._reposition_preview_content(canvas_width, canvas_height)
 
     def _reposition_preview_content(self, canvas_width: int, canvas_height: int) -> None:
         content_width = max(self.preview_content.winfo_reqwidth(), 1)

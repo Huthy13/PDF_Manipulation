@@ -109,6 +109,7 @@ def _build_controller(
     controller._pending_resize_after = None
     controller._pending_final_resize_settle_after = None
     controller._pending_final_scroll_render_after = None
+    controller._pending_final_reconcile_after = None
     controller._last_preview_canvas_size = (0, 0)
     controller._final_preview_anchor_fraction = 0.0
     controller._final_preview_syncing_scrollbar = False
@@ -480,6 +481,106 @@ def test_render_virtual_final_preview_clamps_content_height_for_zoomed_page_heig
 
     assert controller._final_preview_visible_indices
     assert measured["content_height"] <= controller.FINAL_PREVIEW_SAFE_SCROLL_HEIGHT_WIN32
+
+
+def test_render_virtual_final_preview_trims_with_estimated_heights_before_rasterizing(monkeypatch) -> None:
+    controller = _build_controller(mode="final", height=700)
+    controller._final_preview_pages = [
+        final_preview_module.FinalPreviewPage("doc.pdf", idx, 0, estimated_height=1_000)
+        for idx in range(8)
+    ]
+    controller.final_preview_controller.recompute_final_preview_offsets()
+
+    class FakeImage:
+        def __init__(self, height: int) -> None:
+            self._height = height
+
+        def height(self) -> int:
+            return self._height
+
+    class FakeLabel:
+        def __init__(self, _parent, *, image, bd: int, highlightthickness: int) -> None:
+            assert bd == 0
+            assert highlightthickness == 0
+            self.height = image.height()
+            self.image = image
+
+    class FakeFrame:
+        def __init__(self, _parent, *, height: int) -> None:
+            self.height = height
+
+        def grid_propagate(self, _enabled: bool) -> None:
+            return None
+
+    render_calls: list[int] = []
+    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
+    monkeypatch.setattr(final_preview_module.tk, "Label", FakeLabel)
+    monkeypatch.setattr(controller, "_show_preview_widgets", lambda widget_builder, reset_scroll=True: widget_builder())
+    monkeypatch.setattr(controller, "_final_preview_safe_canvas_budget", lambda: 2_100)
+
+    def fake_render(_source_path: str, page_index: int, rotation_degrees: int = 0) -> FakeImage:
+        assert rotation_degrees == 0
+        render_calls.append(page_index)
+        return FakeImage(1_000)
+
+    monkeypatch.setattr(controller, "render_preview_image", fake_render)
+
+    controller.final_preview_controller.render_virtual_final_preview(preserve_anchor=True)
+
+    assert render_calls == [0, 1]
+
+
+def test_render_virtual_final_preview_schedules_one_reconciliation_render_when_range_shifts(monkeypatch) -> None:
+    controller = _build_controller(mode="final", height=700)
+    controller._final_preview_pages = [
+        final_preview_module.FinalPreviewPage("doc.pdf", idx, 0, estimated_height=900)
+        for idx in range(6)
+    ]
+    controller.final_preview_controller.recompute_final_preview_offsets()
+    monkeypatch.setattr(controller, "_final_preview_safe_canvas_budget", lambda: 100_000)
+    monkeypatch.setattr(controller.final_preview_controller, "visible_virtual_window", lambda: (0, 700))
+
+    ranges = [(0, 2), (1, 3)]
+
+    def fake_visible_page_range(_top: int, _bottom: int) -> tuple[int, int]:
+        if ranges:
+            return ranges.pop(0)
+        return 1, 3
+
+    monkeypatch.setattr(controller.final_preview_controller, "visible_page_range", fake_visible_page_range)
+    monkeypatch.setattr(controller, "_show_preview_widgets", lambda widget_builder, reset_scroll=True: widget_builder())
+
+    class FakeImage:
+        def __init__(self, height: int) -> None:
+            self._height = height
+
+        def height(self) -> int:
+            return self._height
+
+    class FakeLabel:
+        def __init__(self, _parent, *, image, bd: int, highlightthickness: int) -> None:
+            assert bd == 0
+            assert highlightthickness == 0
+            self.height = image.height()
+            self.image = image
+
+    class FakeFrame:
+        def __init__(self, _parent, *, height: int) -> None:
+            self.height = height
+
+        def grid_propagate(self, _enabled: bool) -> None:
+            return None
+
+    monkeypatch.setattr(controller_module.ttk, "Frame", FakeFrame)
+    monkeypatch.setattr(final_preview_module.tk, "Label", FakeLabel)
+    monkeypatch.setattr(controller, "render_preview_image", lambda *_args, **_kwargs: FakeImage(900))
+
+    controller.final_preview_controller.render_virtual_final_preview(preserve_anchor=True)
+    assert controller._pending_final_reconcile_after is not None
+    assert [delay for _token, delay in controller.master.after_calls] == [0]
+
+    controller.final_preview_controller.render_virtual_final_preview(preserve_anchor=True)
+    assert [delay for _token, delay in controller.master.after_calls] == [0]
 
 
 def test_on_preview_canvas_yscroll_maps_rendered_space_to_logical_anchor_for_clamped_virtualization() -> None:

@@ -70,6 +70,7 @@ class PdfMergeController:
         self._pending_zoom_after: Optional[str] = None
         self._pending_final_resize_settle_after: Optional[str] = None
         self._pending_final_scroll_render_after: Optional[str] = None
+        self._pending_final_reconcile_after: Optional[str] = None
         self._last_preview_render_key: Optional[tuple[object, ...]] = None
         self._last_preview_canvas_size: tuple[int, int] = (0, 0)
         self._preview_image_refs: list[ImageTk.PhotoImage] = []
@@ -171,6 +172,9 @@ class PdfMergeController:
         if self._pending_final_scroll_render_after is not None:
             self.master.after_cancel(self._pending_final_scroll_render_after)
             self._pending_final_scroll_render_after = None
+        if self._pending_final_reconcile_after is not None:
+            self.master.after_cancel(self._pending_final_reconcile_after)
+            self._pending_final_reconcile_after = None
         if self._rotate_anchor_after is not None:
             self.master.after_cancel(self._rotate_anchor_after)
             self._rotate_anchor_after = None

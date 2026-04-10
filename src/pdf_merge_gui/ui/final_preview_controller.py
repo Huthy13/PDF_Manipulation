@@ -295,7 +295,49 @@ class FinalPreviewController:
         )
         return start, end
 
-    def render_virtual_final_preview(self, preserve_anchor: bool) -> None:
+    def _estimate_rendered_block_height(self, start_idx: int, end_idx: int) -> int:
+        owner = self.owner
+        if end_idx < start_idx:
+            return 0
+        estimated_pages_height = sum(
+            max(owner._final_preview_pages[idx].estimated_height, 1) for idx in range(start_idx, end_idx + 1)
+        )
+        return estimated_pages_height + owner._grid_inter_widget_padding(end_idx - start_idx + 1)
+
+    def _trim_range_to_canvas_budget(self, start_idx: int, end_idx: int, logical_anchor: int) -> tuple[int, int]:
+        owner = self.owner
+        safe_canvas_budget = owner._final_preview_safe_canvas_budget()
+        trimmed_start = start_idx
+        trimmed_end = end_idx
+        while trimmed_start <= trimmed_end:
+            estimated_block_height = self._estimate_rendered_block_height(trimmed_start, trimmed_end)
+            if estimated_block_height <= safe_canvas_budget:
+                break
+            if trimmed_end - trimmed_start <= 0:
+                break
+            dist_start = abs(owner._final_preview_offsets[trimmed_start] - logical_anchor)
+            dist_end = abs(owner._final_preview_offsets[trimmed_end] - logical_anchor)
+            if dist_end >= dist_start:
+                trimmed_end -= 1
+            else:
+                trimmed_start += 1
+        return trimmed_start, trimmed_end
+
+    def _schedule_single_reconciliation_render(self) -> None:
+        owner = self.owner
+        pending = getattr(owner, "_pending_final_reconcile_after", None)
+        if pending is not None:
+            return
+
+        def _run_reconciliation() -> None:
+            owner._pending_final_reconcile_after = None
+            if owner.view.preview_mode.get() != owner.view.PREVIEW_FINAL:
+                return
+            self.render_virtual_final_preview(preserve_anchor=True, _allow_reconciliation=False)
+
+        owner._pending_final_reconcile_after = owner.master.after(0, _run_reconciliation)
+
+    def render_virtual_final_preview(self, preserve_anchor: bool, _allow_reconciliation: bool = True) -> None:
         owner = self.owner
         if owner._final_preview_rendering:
             return
@@ -310,6 +352,10 @@ class FinalPreviewController:
 
             top, bottom = self.visible_virtual_window()
             start_idx, end_idx = self.visible_page_range(top, bottom)
+            if end_idx < start_idx:
+                return
+            logical_anchor = (top + bottom) // 2
+            start_idx, end_idx = self._trim_range_to_canvas_budget(start_idx, end_idx, logical_anchor)
             if end_idx < start_idx:
                 return
 
@@ -341,21 +387,32 @@ class FinalPreviewController:
 
             self.recompute_final_preview_offsets()
             top, bottom = self.visible_virtual_window()
-            start_idx, end_idx = self.visible_page_range(top, bottom)
+            reconciled_start, reconciled_end = self.visible_page_range(top, bottom)
+            reconciled_start, reconciled_end = self._trim_range_to_canvas_budget(
+                reconciled_start,
+                reconciled_end,
+                logical_anchor=(top + bottom) // 2,
+            )
+            if _allow_reconciliation and (reconciled_start, reconciled_end) != (start_idx, end_idx):
+                owner._log_preview_debug(
+                    f"_render_virtual_final_preview schedule_reconciliation "
+                    f"rendered_start={start_idx} rendered_end={end_idx} "
+                    f"reconciled_start={reconciled_start} reconciled_end={reconciled_end}"
+                )
+                self._schedule_single_reconciliation_render()
 
             safe_canvas_budget = owner._final_preview_safe_canvas_budget()
             while start_idx <= end_idx:
                 rendered_block_height = (
-                    sum(max(images_by_index[idx].height(), 1) for idx in range(start_idx, end_idx + 1) if idx in images_by_index)
+                    sum(max(images_by_index[idx].height(), 1) for idx in range(start_idx, end_idx + 1))
                     + owner._grid_inter_widget_padding(end_idx - start_idx + 1)
                 )
                 if rendered_block_height <= safe_canvas_budget:
                     break
                 if end_idx - start_idx <= 0:
                     break
-                logical_anchor = (top + bottom) // 2
-                dist_start = abs(owner._final_preview_offsets[start_idx] - logical_anchor)
-                dist_end = abs(owner._final_preview_offsets[end_idx] - logical_anchor)
+                dist_start = abs(owner._final_preview_offsets[start_idx] - ((top + bottom) // 2))
+                dist_end = abs(owner._final_preview_offsets[end_idx] - ((top + bottom) // 2))
                 if dist_end >= dist_start:
                     end_idx -= 1
                 else:
@@ -364,15 +421,6 @@ class FinalPreviewController:
             owner._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
             owner._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
             owner._last_final_render_signature = self._build_final_render_signature(start_idx, end_idx)
-
-            for idx in range(start_idx, end_idx + 1):
-                if idx in images_by_index:
-                    continue
-                descriptor = owner._final_preview_pages[idx]
-                rendered = owner.render_preview_image(descriptor.source_path, descriptor.page_index, descriptor.rotation_degrees)
-                if rendered is None:
-                    return
-                images_by_index[idx] = rendered
 
             rendered_block_height = (
                 sum(max(images_by_index[idx].height(), 1) for idx in range(start_idx, end_idx + 1))

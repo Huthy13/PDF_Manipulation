@@ -14,6 +14,7 @@ from ..domain import PdfLoadError, PdfMergeWriteError, PdfSourceNotFoundError
 from ..model import MergeModel
 from ..preview import PreviewDependencyUnavailable, PreviewRenderError
 from ..services.preview_service import PreviewService
+from ..services.telemetry import get_telemetry
 from .final_preview_controller import (
     FinalPreviewController,
     FinalPreviewPage,
@@ -103,6 +104,8 @@ class PdfMergeController:
         self._rotate_anchor_expires_at: float = 0.0
         self._final_preview_selection_lock = False
         self._last_preview_mode: Optional[str] = self.view.preview_mode.get()
+        self._fit_zoom_page_dimensions_pt_cache: dict[tuple[str, int], tuple[float, float]] = {}
+        self._fit_zoom_measured_pixel_cache: dict[tuple[str, int, int], tuple[int, int, float]] = {}
 
         self.final_preview_controller = FinalPreviewController(self)
 
@@ -537,18 +540,101 @@ class PdfMergeController:
 
     def _resolve_zoom(self, source_path: str, page_index: int, rotation_degrees: int = 0) -> tuple[float, ImageTk.PhotoImage]:
         base_zoom = self.preview_zoom
-        rendered = self.preview_service.render(source_path, page_index, base_zoom, rotation_degrees=rotation_degrees)
+        telemetry = get_telemetry()
+        normalized_rotation = rotation_degrees % 360
         if not self.view.fit_preview.get():
+            rendered = self.preview_service.render(source_path, page_index, base_zoom, rotation_degrees=rotation_degrees)
+            self._remember_measured_fit_size(source_path, page_index, normalized_rotation, rendered, base_zoom)
             return base_zoom, rendered
 
         panel_width, panel_height = self._panel_size()
+        estimated_zoom = self._estimate_fit_zoom(source_path, page_index, normalized_rotation, panel_width, panel_height)
+        if estimated_zoom is not None:
+            fit_zoom = self._clamp_zoom(estimated_zoom)
+            rendered = self.preview_service.render(source_path, page_index, fit_zoom, rotation_degrees=rotation_degrees)
+            self._remember_measured_fit_size(source_path, page_index, normalized_rotation, rendered, fit_zoom)
+            telemetry.increment("fit_mode_single_render")
+            return fit_zoom, rendered
+
+        telemetry.increment("fit_mode_double_render_attempts")
+        rendered = self.preview_service.render(source_path, page_index, base_zoom, rotation_degrees=rotation_degrees)
+        self._remember_measured_fit_size(source_path, page_index, normalized_rotation, rendered, base_zoom)
         width_ratio = panel_width / max(rendered.width(), 1)
         height_ratio = panel_height / max(rendered.height(), 1)
         fit_ratio = min(width_ratio, height_ratio)
         fit_zoom = self._clamp_zoom(base_zoom * fit_ratio)
         if abs(fit_zoom - base_zoom) < 0.01:
             return base_zoom, rendered
-        return fit_zoom, self.preview_service.render(source_path, page_index, fit_zoom, rotation_degrees=rotation_degrees)
+        fit_rendered = self.preview_service.render(source_path, page_index, fit_zoom, rotation_degrees=rotation_degrees)
+        self._remember_measured_fit_size(source_path, page_index, normalized_rotation, fit_rendered, fit_zoom)
+        return fit_zoom, fit_rendered
+
+    def _remember_measured_fit_size(
+        self,
+        source_path: str,
+        page_index: int,
+        rotation_degrees: int,
+        rendered: ImageTk.PhotoImage,
+        zoom: float,
+    ) -> None:
+        if zoom <= 0:
+            return
+        self._fit_zoom_measured_pixel_cache[(source_path, page_index, rotation_degrees)] = (
+            rendered.width(),
+            rendered.height(),
+            zoom,
+        )
+
+    def _estimate_fit_zoom(
+        self,
+        source_path: str,
+        page_index: int,
+        rotation_degrees: int,
+        panel_width: int,
+        panel_height: int,
+    ) -> float | None:
+        exact_dimensions = self._get_cached_page_dimensions_points(source_path, page_index, rotation_degrees)
+        if exact_dimensions is not None:
+            page_width, page_height = exact_dimensions
+            return min(panel_width / max(page_width, 1.0), panel_height / max(page_height, 1.0))
+
+        measured = self._fit_zoom_measured_pixel_cache.get((source_path, page_index, rotation_degrees))
+        if measured is None:
+            return None
+
+        measured_width_px, measured_height_px, measured_zoom = measured
+        if measured_zoom <= 0:
+            return None
+
+        unscaled_width = measured_width_px / measured_zoom
+        unscaled_height = measured_height_px / measured_zoom
+        return min(panel_width / max(unscaled_width, 1.0), panel_height / max(unscaled_height, 1.0))
+
+    def _get_cached_page_dimensions_points(
+        self,
+        source_path: str,
+        page_index: int,
+        rotation_degrees: int,
+    ) -> tuple[float, float] | None:
+        key = (source_path, page_index)
+        cached = self._fit_zoom_page_dimensions_pt_cache.get(key)
+        if cached is None:
+            try:
+                from pypdf import PdfReader
+
+                reader = PdfReader(source_path)
+                page = reader.pages[page_index]
+                media_box = page.mediabox
+                page_width = float(media_box.width)
+                page_height = float(media_box.height)
+                cached = (page_width, page_height)
+                self._fit_zoom_page_dimensions_pt_cache[key] = cached
+            except Exception:
+                return None
+
+        if rotation_degrees % 180 == 90:
+            return (cached[1], cached[0])
+        return cached
 
     def on_zoom_in(self) -> None:
         self.preview_zoom = self._zoom_step_from_fit(direction=1)

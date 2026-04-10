@@ -10,7 +10,6 @@ from __future__ import annotations
 from bisect import bisect_right
 from dataclasses import dataclass
 import time
-import tkinter as tk
 from typing import TYPE_CHECKING
 
 from PIL import ImageTk
@@ -540,16 +539,14 @@ class FinalPreviewController:
             f"safe_canvas_budget={safe_canvas_budget} content_height={content_height}"
         )
 
-        def build() -> list[tk.Widget]:
-            widgets: list[tk.Widget] = []
+        def build() -> list[dict[str, object]]:
+            widgets: list[dict[str, object]] = []
             widgets.extend(owner._build_spacer_widgets(top_spacer))
             for idx in range(start_idx, end_idx + 1):
                 image = images_by_index.get(idx)
                 if image is None:
                     continue
-                preview = tk.Label(owner.view.preview_content, image=image, bd=0, highlightthickness=0)
-                preview.image = image
-                widgets.append(preview)
+                widgets.append({"kind": "image", "image": image})
             widgets.extend(owner._build_spacer_widgets(bottom_spacer))
             return widgets
 

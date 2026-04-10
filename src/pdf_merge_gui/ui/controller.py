@@ -20,6 +20,7 @@ from .final_preview_controller import (
     FinalPreviewPage,
     FinalPreviewRenderWindow,
 )
+from .render_worker import RenderRequest, RenderWorker, build_photo_image
 from .view import PdfMergeView
 
 
@@ -108,6 +109,14 @@ class PdfMergeController:
         self._fit_zoom_page_dimensions_pt_cache: dict[tuple[str, int], tuple[float, float]] = {}
         self._fit_zoom_measured_pixel_cache: dict[tuple[str, int, int], tuple[int, int, float]] = {}
 
+        self.render_worker = RenderWorker()
+        self._render_request_sequence = 0
+        self._active_render_generation = 0
+        self._final_render_jobs: dict[int, dict[int, tuple[str, int, int]]] = {}
+        self._final_render_results: dict[int, dict[int, ImageTk.PhotoImage]] = {}
+        self._final_render_job_meta: dict[int, dict[str, object]] = {}
+        self._pending_render_poll_after: Optional[str] = None
+
         self.final_preview_controller = FinalPreviewController(self)
 
         self.view.open_handler = self.on_open_pdfs
@@ -178,6 +187,10 @@ class PdfMergeController:
         if self._rotate_anchor_after is not None:
             self.master.after_cancel(self._rotate_anchor_after)
             self._rotate_anchor_after = None
+        if self._pending_render_poll_after is not None:
+            self.master.after_cancel(self._pending_render_poll_after)
+            self._pending_render_poll_after = None
+        self.render_worker.close()
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
@@ -332,6 +345,10 @@ class PdfMergeController:
 
     def on_clear_all(self) -> None:
         self.model.clear()
+        if self._pending_render_poll_after is not None:
+            self.master.after_cancel(self._pending_render_poll_after)
+            self._pending_render_poll_after = None
+        self.render_worker.close()
         self.preview_service.clear()
         self._preview_image_refs = []
         self._final_preview_pages = []
@@ -872,6 +889,84 @@ class PdfMergeController:
             messagebox.showerror("Preview failed", f"Unexpected preview error:\n{exc}")
             self.show_preview_text("Unexpected error while rendering preview.")
             return None
+
+
+    def _resolve_render_zoom_for_request(self, source_path: str, page_index: int, rotation_degrees: int = 0) -> float:
+        if not self.view.fit_preview.get():
+            return self.preview_zoom
+        panel_width, panel_height = self._panel_size()
+        estimated_zoom = self._estimate_fit_zoom(source_path, page_index, rotation_degrees % 360, panel_width, panel_height)
+        if estimated_zoom is None:
+            return self.preview_zoom
+        return self._clamp_zoom(estimated_zoom)
+
+    def queue_final_preview_render(
+        self,
+        *,
+        requests: dict[int, tuple[str, int, int]],
+        meta: dict[str, object],
+    ) -> int:
+        self._active_render_generation += 1
+        generation_id = self._active_render_generation
+        self._render_request_sequence += 1
+        self._final_render_jobs[generation_id] = dict(requests)
+        self._final_render_results[generation_id] = {}
+        self._final_render_job_meta[generation_id] = dict(meta)
+        for list_idx, (source_path, page_index, rotation_degrees) in requests.items():
+            zoom = self._resolve_render_zoom_for_request(source_path, page_index, rotation_degrees)
+            self.render_worker.submit(
+                RenderRequest(
+                    generation_id=generation_id,
+                    request_id=list_idx,
+                    source_path=source_path,
+                    page_index=page_index,
+                    rotation_degrees=rotation_degrees,
+                    zoom=zoom,
+                )
+            )
+        self._schedule_render_result_poll()
+        return generation_id
+
+    def _schedule_render_result_poll(self) -> None:
+        if self._pending_render_poll_after is not None:
+            return
+        self._pending_render_poll_after = self.master.after(10, self._poll_render_results)
+
+    def _poll_render_results(self) -> None:
+        self._pending_render_poll_after = None
+        had_results = False
+        for result in self.render_worker.poll_results():
+            had_results = True
+            if result.generation_id != self._active_render_generation:
+                continue
+            expected = self._final_render_jobs.get(result.generation_id)
+            if expected is None or result.request_id not in expected:
+                continue
+            if result.error is not None:
+                continue
+            photo = build_photo_image(result, ImageTk)
+            self._final_render_results[result.generation_id][result.request_id] = photo
+            source_path, page_index, rotation_degrees = expected[result.request_id]
+            self._remember_measured_fit_size(source_path, page_index, rotation_degrees % 360, photo, self._resolve_render_zoom_for_request(source_path, page_index, rotation_degrees))
+
+        active = self._active_render_generation
+        expected = self._final_render_jobs.get(active)
+        completed = self._final_render_results.get(active)
+        if expected is not None and completed is not None and len(completed) == len(expected):
+            self.final_preview_controller.apply_completed_final_render_generation(active)
+            self._final_render_jobs.pop(active, None)
+            self._final_render_results.pop(active, None)
+            self._final_render_job_meta.pop(active, None)
+            return
+
+        if had_results or self._final_render_jobs.get(self._active_render_generation):
+            self._schedule_render_result_poll()
+
+    def get_completed_final_render_images(self, generation_id: int) -> dict[int, ImageTk.PhotoImage]:
+        return dict(self._final_render_results.get(generation_id, {}))
+
+    def get_final_render_meta(self, generation_id: int) -> dict[str, object]:
+        return dict(self._final_render_job_meta.get(generation_id, {}))
 
 
     def _sequence_signature(self) -> tuple[tuple[str, int, int], ...]:

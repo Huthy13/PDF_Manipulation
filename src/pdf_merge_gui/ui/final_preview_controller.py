@@ -374,123 +374,193 @@ class FinalPreviewController:
                 self.sync_canvas_scroll_to_fraction(rendered_fraction)
                 return
 
-            images_by_index: dict[int, ImageTk.PhotoImage] = {}
-            for idx in range(start_idx, end_idx + 1):
-                descriptor = owner._final_preview_pages[idx]
-                rendered = owner.render_preview_image(descriptor.source_path, descriptor.page_index, descriptor.rotation_degrees)
-                if rendered is None:
-                    return
-                images_by_index[idx] = rendered
-                measured_height = max(rendered.height(), 1)
-                if measured_height != descriptor.estimated_height:
-                    descriptor.estimated_height = measured_height
+            # Test harnesses that construct controllers without full runtime worker state
+            # still use synchronous rendering behavior.
+            if not hasattr(owner, "render_worker"):
+                images_by_index: dict[int, ImageTk.PhotoImage] = {}
+                for idx in range(start_idx, end_idx + 1):
+                    descriptor = owner._final_preview_pages[idx]
+                    rendered = owner.render_preview_image(descriptor.source_path, descriptor.page_index, descriptor.rotation_degrees)
+                    if rendered is None:
+                        return
+                    images_by_index[idx] = rendered
+                self._apply_rendered_images(
+                    start_idx=start_idx,
+                    end_idx=end_idx,
+                    images_by_index=images_by_index,
+                    preserve_anchor=preserve_anchor,
+                    logical_anchor=logical_anchor,
+                    _allow_reconciliation=_allow_reconciliation,
+                )
+                return
 
-            self.recompute_final_preview_offsets()
-            top, bottom = self.visible_virtual_window()
-            reconciled_start, reconciled_end = self.visible_page_range(top, bottom)
-            reconciled_start, reconciled_end = self._trim_range_to_canvas_budget(
-                reconciled_start,
-                reconciled_end,
-                logical_anchor=(top + bottom) // 2,
+            requests = {
+                idx: (
+                    owner._final_preview_pages[idx].source_path,
+                    owner._final_preview_pages[idx].page_index,
+                    owner._final_preview_pages[idx].rotation_degrees,
+                )
+                for idx in range(start_idx, end_idx + 1)
+            }
+            owner.queue_final_preview_render(
+                requests=requests,
+                meta={
+                    "start_idx": start_idx,
+                    "end_idx": end_idx,
+                    "preserve_anchor": preserve_anchor,
+                    "logical_anchor": logical_anchor,
+                    "allow_reconciliation": _allow_reconciliation,
+                },
             )
-            if _allow_reconciliation and (reconciled_start, reconciled_end) != (start_idx, end_idx):
-                owner._log_preview_debug(
-                    f"_render_virtual_final_preview schedule_reconciliation "
-                    f"rendered_start={start_idx} rendered_end={end_idx} "
-                    f"reconciled_start={reconciled_start} reconciled_end={reconciled_end}"
-                )
-                self._schedule_single_reconciliation_render()
+        finally:
+            owner._final_preview_rendering = False
 
-            safe_canvas_budget = owner._final_preview_safe_canvas_budget()
-            while start_idx <= end_idx:
-                rendered_block_height = (
-                    sum(max(images_by_index[idx].height(), 1) for idx in range(start_idx, end_idx + 1))
-                    + owner._grid_inter_widget_padding(end_idx - start_idx + 1)
-                )
-                if rendered_block_height <= safe_canvas_budget:
-                    break
-                if end_idx - start_idx <= 0:
-                    break
-                dist_start = abs(owner._final_preview_offsets[start_idx] - ((top + bottom) // 2))
-                dist_end = abs(owner._final_preview_offsets[end_idx] - ((top + bottom) // 2))
-                if dist_end >= dist_start:
-                    end_idx -= 1
-                else:
-                    start_idx += 1
+    def apply_completed_final_render_generation(self, generation_id: int) -> None:
+        owner = self.owner
+        if owner.view.preview_mode.get() != owner.view.PREVIEW_FINAL:
+            return
+        meta = owner.get_final_render_meta(generation_id)
+        if not meta:
+            return
+        images_by_index = owner.get_completed_final_render_images(generation_id)
+        start_idx = int(meta["start_idx"])
+        end_idx = int(meta["end_idx"])
+        preserve_anchor = bool(meta.get("preserve_anchor", True))
+        logical_anchor = int(meta.get("logical_anchor", 0))
+        allow_reconciliation = bool(meta.get("allow_reconciliation", True))
+        self._apply_rendered_images(
+            start_idx=start_idx,
+            end_idx=end_idx,
+            images_by_index=images_by_index,
+            preserve_anchor=preserve_anchor,
+            logical_anchor=logical_anchor,
+            _allow_reconciliation=allow_reconciliation,
+        )
 
-            owner._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
-            owner._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
-            owner._last_final_render_signature = self._build_final_render_signature(start_idx, end_idx)
+    def _apply_rendered_images(
+        self,
+        *,
+        start_idx: int,
+        end_idx: int,
+        images_by_index: dict[int, ImageTk.PhotoImage],
+        preserve_anchor: bool,
+        logical_anchor: int,
+        _allow_reconciliation: bool,
+    ) -> None:
+        owner = self.owner
+        for idx in range(start_idx, end_idx + 1):
+            descriptor = owner._final_preview_pages[idx]
+            rendered = images_by_index.get(idx)
+            if rendered is None:
+                return
+            measured_height = max(rendered.height(), 1)
+            if measured_height != descriptor.estimated_height:
+                descriptor.estimated_height = measured_height
 
+        self.recompute_final_preview_offsets()
+        top, bottom = self.visible_virtual_window()
+        reconciled_start, reconciled_end = self.visible_page_range(top, bottom)
+        reconciled_start, reconciled_end = self._trim_range_to_canvas_budget(
+            reconciled_start,
+            reconciled_end,
+            logical_anchor=(top + bottom) // 2,
+        )
+        if _allow_reconciliation and (reconciled_start, reconciled_end) != (start_idx, end_idx):
+            owner._log_preview_debug(
+                f"_render_virtual_final_preview schedule_reconciliation "
+                f"rendered_start={start_idx} rendered_end={end_idx} "
+                f"reconciled_start={reconciled_start} reconciled_end={reconciled_end}"
+            )
+            self._schedule_single_reconciliation_render()
+
+        safe_canvas_budget = owner._final_preview_safe_canvas_budget()
+        while start_idx <= end_idx:
             rendered_block_height = (
                 sum(max(images_by_index[idx].height(), 1) for idx in range(start_idx, end_idx + 1))
                 + owner._grid_inter_widget_padding(end_idx - start_idx + 1)
             )
-            top_spacer = owner._final_preview_offsets[start_idx]
-            bottom_spacer = max(owner._final_preview_offsets[-1] - owner._final_preview_offsets[end_idx + 1], 0)
+            if rendered_block_height <= safe_canvas_budget:
+                break
+            if end_idx - start_idx <= 0:
+                break
+            dist_start = abs(owner._final_preview_offsets[start_idx] - ((top + bottom) // 2))
+            dist_end = abs(owner._final_preview_offsets[end_idx] - ((top + bottom) // 2))
+            if dist_end >= dist_start:
+                end_idx -= 1
+            else:
+                start_idx += 1
 
-            spacer_budget = max(safe_canvas_budget - rendered_block_height, 0)
-            clamped = False
-            if top_spacer + bottom_spacer > spacer_budget:
-                clamped = True
-                if top_spacer + bottom_spacer <= 0:
-                    top_spacer = 0
-                    bottom_spacer = 0
-                else:
-                    top_ratio = top_spacer / (top_spacer + bottom_spacer)
-                    top_spacer = int(spacer_budget * top_ratio)
-                    bottom_spacer = spacer_budget - top_spacer
+        owner._preview_image_refs = [images_by_index[idx] for idx in range(start_idx, end_idx + 1) if idx in images_by_index]
+        owner._final_preview_visible_indices = set(range(start_idx, end_idx + 1))
+        owner._last_final_render_signature = self._build_final_render_signature(start_idx, end_idx)
 
-            content_height = top_spacer + rendered_block_height + bottom_spacer
-            logical_start_offset = owner._final_preview_offsets[start_idx]
-            if clamped:
-                owner._log_preview_debug(
-                    f"_render_virtual_final_preview clamped start_idx={start_idx} end_idx={end_idx} "
-                    f"rendered_block_height={rendered_block_height} top_spacer={top_spacer} "
-                    f"bottom_spacer={bottom_spacer} content_height={content_height}"
-                )
+        rendered_block_height = (
+            sum(max(images_by_index[idx].height(), 1) for idx in range(start_idx, end_idx + 1))
+            + owner._grid_inter_widget_padding(end_idx - start_idx + 1)
+        )
+        top_spacer = owner._final_preview_offsets[start_idx]
+        bottom_spacer = max(owner._final_preview_offsets[-1] - owner._final_preview_offsets[end_idx + 1], 0)
 
-            owner._final_preview_render_window = FinalPreviewRenderWindow(
-                render_start_idx=start_idx,
-                render_end_idx=end_idx,
-                logical_start_offset=logical_start_offset,
-                top_spacer=top_spacer,
-                bottom_spacer=bottom_spacer,
-                rendered_block_height=rendered_block_height,
-                content_height=content_height,
-            )
+        spacer_budget = max(safe_canvas_budget - rendered_block_height, 0)
+        clamped = False
+        if top_spacer + bottom_spacer > spacer_budget:
+            clamped = True
+            if top_spacer + bottom_spacer <= 0:
+                top_spacer = 0
+                bottom_spacer = 0
+            else:
+                top_ratio = top_spacer / (top_spacer + bottom_spacer)
+                top_spacer = int(spacer_budget * top_ratio)
+                bottom_spacer = spacer_budget - top_spacer
 
-            top_chunks = len(owner._build_spacer_widgets(top_spacer))
-            bottom_chunks = len(owner._build_spacer_widgets(bottom_spacer))
+        content_height = top_spacer + rendered_block_height + bottom_spacer
+        logical_start_offset = owner._final_preview_offsets[start_idx]
+        if clamped:
             owner._log_preview_debug(
-                f"_render_virtual_final_preview spacer_stats top={top_spacer} bottom={bottom_spacer} "
-                f"top_chunks={top_chunks} bottom_chunks={bottom_chunks} rendered_block_height={rendered_block_height} "
-                f"safe_canvas_budget={safe_canvas_budget} content_height={content_height}"
+                f"_render_virtual_final_preview clamped start_idx={start_idx} end_idx={end_idx} "
+                f"rendered_block_height={rendered_block_height} top_spacer={top_spacer} "
+                f"bottom_spacer={bottom_spacer} content_height={content_height}"
             )
 
-            def build() -> list[tk.Widget]:
-                widgets: list[tk.Widget] = []
-                widgets.extend(owner._build_spacer_widgets(top_spacer))
-                for idx in range(start_idx, end_idx + 1):
-                    image = images_by_index.get(idx)
-                    if image is None:
-                        continue
-                    preview = tk.Label(owner.view.preview_content, image=image, bd=0, highlightthickness=0)
-                    preview.image = image
-                    widgets.append(preview)
-                widgets.extend(owner._build_spacer_widgets(bottom_spacer))
-                return widgets
+        owner._final_preview_render_window = FinalPreviewRenderWindow(
+            render_start_idx=start_idx,
+            render_end_idx=end_idx,
+            logical_start_offset=logical_start_offset,
+            top_spacer=top_spacer,
+            bottom_spacer=bottom_spacer,
+            rendered_block_height=rendered_block_height,
+            content_height=content_height,
+        )
 
-            owner._show_preview_widgets(build, reset_scroll=not preserve_anchor)
-            rendered_fraction = self._rendered_scroll_fraction_for_anchor()
-            self.sync_canvas_scroll_to_fraction(rendered_fraction)
-            virtual_top, virtual_bottom = self.visible_virtual_window()
-            self._sync_final_preview_list_selection(
-                logical_top=virtual_top,
-                viewport_height=max(virtual_bottom - virtual_top, 1),
-            )
-        finally:
-            owner._final_preview_rendering = False
+        top_chunks = len(owner._build_spacer_widgets(top_spacer))
+        bottom_chunks = len(owner._build_spacer_widgets(bottom_spacer))
+        owner._log_preview_debug(
+            f"_render_virtual_final_preview spacer_stats top={top_spacer} bottom={bottom_spacer} "
+            f"top_chunks={top_chunks} bottom_chunks={bottom_chunks} rendered_block_height={rendered_block_height} "
+            f"safe_canvas_budget={safe_canvas_budget} content_height={content_height}"
+        )
+
+        def build() -> list[tk.Widget]:
+            widgets: list[tk.Widget] = []
+            widgets.extend(owner._build_spacer_widgets(top_spacer))
+            for idx in range(start_idx, end_idx + 1):
+                image = images_by_index.get(idx)
+                if image is None:
+                    continue
+                preview = tk.Label(owner.view.preview_content, image=image, bd=0, highlightthickness=0)
+                preview.image = image
+                widgets.append(preview)
+            widgets.extend(owner._build_spacer_widgets(bottom_spacer))
+            return widgets
+
+        owner._show_preview_widgets(build, reset_scroll=not preserve_anchor)
+        rendered_fraction = self._rendered_scroll_fraction_for_anchor()
+        self.sync_canvas_scroll_to_fraction(rendered_fraction)
+        virtual_top, virtual_bottom = self.visible_virtual_window()
+        self._sync_final_preview_list_selection(
+            logical_top=virtual_top,
+            viewport_height=max(virtual_bottom - virtual_top, 1),
+        )
 
     def _build_final_render_signature(self, start_idx: int, end_idx: int) -> tuple[object, ...]:
         owner = self.owner

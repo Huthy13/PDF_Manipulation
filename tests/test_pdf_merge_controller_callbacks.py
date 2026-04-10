@@ -133,9 +133,104 @@ def _build_controller(
     controller._rotate_anchor_expires_at = 0.0
     controller._final_preview_selection_lock = False
     controller._last_preview_mode = controller.view.preview_mode.get()
+    controller._fit_zoom_page_dimensions_pt_cache = {}
+    controller._fit_zoom_measured_pixel_cache = {}
     controller.model = SimpleNamespace(sequence=[])
     controller.final_preview_controller = final_preview_module.FinalPreviewController(controller)
     return controller
+
+
+def test_resolve_zoom_fit_mode_uses_page_dimensions_single_render(monkeypatch) -> None:
+    controller = _build_controller(mode="single", width=1000, height=760)
+    controller.preview_zoom = 1.5
+    controller.view.fit_preview.set(True)
+
+    class FakeImage:
+        def __init__(self, w: int, h: int) -> None:
+            self._w = w
+            self._h = h
+
+        def width(self) -> int:
+            return self._w
+
+        def height(self) -> int:
+            return self._h
+
+    render_calls: list[float] = []
+
+    def fake_render(_source_path: str, _page_index: int, zoom: float, rotation_degrees: int = 0):
+        del rotation_degrees
+        render_calls.append(zoom)
+        return FakeImage(900, 700)
+
+    class FakeTelemetry:
+        def __init__(self) -> None:
+            self.counts: dict[str, int] = {}
+
+        def increment(self, name: str, tags=None) -> None:
+            del tags
+            self.counts[name] = self.counts.get(name, 0) + 1
+
+    telemetry = FakeTelemetry()
+    controller.preview_service = SimpleNamespace(render=fake_render)
+    controller._get_cached_page_dimensions_points = lambda *_args: (500.0, 700.0)
+    monkeypatch.setattr(controller_module, "get_telemetry", lambda: telemetry)
+
+    zoom, image = controller._resolve_zoom("doc.pdf", 0)
+
+    assert zoom == 1.07
+    assert image.width() == 900
+    assert len(render_calls) == 1
+    assert render_calls[0] == 1.07
+    assert telemetry.counts.get("fit_mode_single_render") == 1
+    assert telemetry.counts.get("fit_mode_double_render_attempts", 0) == 0
+
+
+def test_resolve_zoom_fit_mode_reuses_measured_cache_when_exact_dimensions_unavailable(monkeypatch) -> None:
+    controller = _build_controller(mode="single", width=1000, height=760)
+    controller.preview_zoom = 1.5
+    controller.view.fit_preview.set(True)
+
+    class FakeImage:
+        def __init__(self, w: int, h: int) -> None:
+            self._w = w
+            self._h = h
+
+        def width(self) -> int:
+            return self._w
+
+        def height(self) -> int:
+            return self._h
+
+    render_calls: list[float] = []
+
+    def fake_render(_source_path: str, _page_index: int, zoom: float, rotation_degrees: int = 0):
+        del rotation_degrees
+        render_calls.append(zoom)
+        return FakeImage(int(zoom * 500), int(zoom * 700))
+
+    class FakeTelemetry:
+        def __init__(self) -> None:
+            self.counts: dict[str, int] = {}
+
+        def increment(self, name: str, tags=None) -> None:
+            del tags
+            self.counts[name] = self.counts.get(name, 0) + 1
+
+    telemetry = FakeTelemetry()
+    controller.preview_service = SimpleNamespace(render=fake_render)
+    controller._get_cached_page_dimensions_points = lambda *_args: None
+    monkeypatch.setattr(controller_module, "get_telemetry", lambda: telemetry)
+
+    first_zoom, _ = controller._resolve_zoom("doc.pdf", 0)
+    second_zoom, _ = controller._resolve_zoom("doc.pdf", 0)
+
+    assert first_zoom == 1.07
+    assert second_zoom == 1.07
+    assert len(render_calls) == 3
+    assert render_calls == [1.5, 1.07, 1.07]
+    assert telemetry.counts.get("fit_mode_double_render_attempts") == 1
+    assert telemetry.counts.get("fit_mode_single_render") == 1
 
 
 def test_regression_final_preview_scroll_loop_does_not_reenter_render() -> None:
